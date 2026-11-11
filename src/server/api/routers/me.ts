@@ -4,7 +4,7 @@ export const meRouter = createTRPCRouter({
   /** The signed-in user with the classes they belong to / teach. */
   get: protectedProcedure.query(async ({ ctx }) => {
     return ctx.db.user.findUniqueOrThrow({
-      where: { id: ctx.session.user.id },
+      where: { id: ctx.user.id },
       select: {
         id: true,
         name: true,

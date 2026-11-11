@@ -11,13 +11,25 @@ import {
 } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { env } from "~/env";
 import { auth, signIn } from "~/server/auth";
 import { devLoginEnabled, entraEnabled } from "~/server/auth/config";
 
-/** Only allow same-site relative redirects. */
+/**
+ * Only allow redirects to our own origin. Uses the URL parser (not prefix
+ * checks), so `//evil.com`, `/\evil.com` and absolute URLs are rejected.
+ */
 function safeCallback(raw: string | string[] | undefined) {
   const v = Array.isArray(raw) ? raw[0] : raw;
-  return v?.startsWith("/") && !v.startsWith("//") ? v : "/";
+  if (!v) return "/";
+  try {
+    const own = new URL(env.APP_URL);
+    const u = new URL(v, own);
+    if (u.origin !== own.origin) return "/";
+    return u.pathname + u.search + u.hash;
+  } catch {
+    return "/";
+  }
 }
 
 export default async function SignInPage({

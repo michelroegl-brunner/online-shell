@@ -3,13 +3,16 @@ import superjson from "superjson";
 import { ZodError } from "zod";
 
 import { isStaff } from "~/lib/roles";
-import { auth } from "~/server/auth";
+import { getCurrentUser } from "~/server/auth/current-user";
 import { db } from "~/server/db";
 
-/** Context available in every procedure: DB + session. */
+/**
+ * Context available in every procedure: DB + the signed-in user, loaded from
+ * the DB (live role — the JWT is only trusted for identity).
+ */
 export const createTRPCContext = async (opts: { headers: Headers }) => {
-  const session = await auth();
-  return { db, session, ...opts };
+  const user = await getCurrentUser();
+  return { db, user, ...opts };
 };
 
 const t = initTRPC.context<typeof createTRPCContext>().create({
@@ -42,17 +45,15 @@ export const publicProcedure = t.procedure.use(timingMiddleware);
 
 /** Any signed-in user. */
 export const protectedProcedure = publicProcedure.use(({ ctx, next }) => {
-  if (!ctx.session?.user) {
+  if (!ctx.user) {
     throw new TRPCError({ code: "UNAUTHORIZED" });
   }
-  return next({
-    ctx: { session: { ...ctx.session, user: ctx.session.user } },
-  });
+  return next({ ctx: { user: ctx.user } });
 });
 
 /** TEACHER or ADMIN. */
 export const teacherProcedure = protectedProcedure.use(({ ctx, next }) => {
-  if (!isStaff(ctx.session.user.role)) {
+  if (!isStaff(ctx.user.role)) {
     throw new TRPCError({ code: "FORBIDDEN" });
   }
   return next();
@@ -60,7 +61,7 @@ export const teacherProcedure = protectedProcedure.use(({ ctx, next }) => {
 
 /** ADMIN only. */
 export const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
-  if (ctx.session.user.role !== "ADMIN") {
+  if (ctx.user.role !== "ADMIN") {
     throw new TRPCError({ code: "FORBIDDEN" });
   }
   return next();
