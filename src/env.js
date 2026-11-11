@@ -19,6 +19,11 @@ export const env = createEnv({
       .enum(["true", "false"])
       .default("false")
       .transform((v) => v === "true"),
+    // Runner service (runner/). RUNNER_URL: internal HTTP API (server only).
+    // RUNNER_PUBLIC_URL: what the BROWSER uses for the terminal WebSocket.
+    RUNNER_URL: z.string().url().default("http://localhost:4100"),
+    RUNNER_PUBLIC_URL: z.string().url().default("ws://localhost:4100"),
+    RUNNER_SECRET: z.string().min(16),
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
@@ -33,6 +38,9 @@ export const env = createEnv({
     AUTH_MICROSOFT_ENTRA_ID_TENANT_ID:
       process.env.AUTH_MICROSOFT_ENTRA_ID_TENANT_ID,
     AUTH_DEV_LOGIN: process.env.AUTH_DEV_LOGIN,
+    RUNNER_URL: process.env.RUNNER_URL,
+    RUNNER_PUBLIC_URL: process.env.RUNNER_PUBLIC_URL,
+    RUNNER_SECRET: process.env.RUNNER_SECRET,
     NODE_ENV: process.env.NODE_ENV,
   },
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,

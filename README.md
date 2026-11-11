@@ -31,12 +31,48 @@ With `AUTH_DEV_LOGIN="true"` (ignored in production) the sign-in page has a
 **Dev login**: enter any email and choose Student / Teacher / Admin. Entra
 isn't needed for that.
 
+## Runner (student shells)
+
+`runner/` is a separate Node service that starts one Docker container ("box")
+per student and streams a shell to the browser (xterm.js ⇄ WebSocket ⇄
+`docker exec` PTY). The web app never touches the Docker socket.
+
+```bash
+pnpm --filter @online-shell/runner image:bash   # build oshell-bash:latest
+cp runner/.env.example runner/.env               # RUNNER_SECRET = same as in .env
+pnpm runner:dev                                  # :4100
+```
+
+- **Box**: `oshell-box-<userId>`, one per student, reused across exercises.
+  No network, read-only rootfs, 256 MB RAM, 0.5 CPU, 128 PIDs, all caps
+  dropped (root exec for setup/check keeps CHOWN/DAC_OVERRIDE/FOWNER),
+  `no-new-privileges`, non-root `student` user.
+- **Home**: volume `oshell-home-<userId>` at `/home/student`, kept when the box
+  is removed. New volumes are seeded from the image's `/home/student`.
+- **Cleanup**: boxes with no terminal attached for `IDLE_MINUTES` (15) are
+  removed, and every box is removed after `MAX_LIFETIME_MINUTES` (120). A box is
+  also recreated when its image was rebuilt.
+- **Command log**: bash appends `epoch⇥exit⇥cwd⇥command` to `/run/oshell/cmd.log`
+  (hooks in `runner/images/bash/oshell-hooks.sh`). It isn't ingested into the DB yet.
+- **Auth**: web → runner REST uses `Bearer RUNNER_SECRET`; browser → runner
+  WebSocket uses a 60 s HS256 JWT minted by `box.attach` (subject = session user),
+  plus an `ALLOWED_ORIGINS` check.
+
+| Runner API | |
+|---|---|
+| `GET /health` | Docker reachable? |
+| `POST /boxes` `{userId, shell}` | ensure the box is running |
+| `POST /boxes/:userId/exec` `{script, interpreter, user, timeoutMs}` | run setup/check scripts |
+| `DELETE /boxes/:userId` | remove the box (volume stays) |
+| `WS /attach?token=…&cols=…&rows=…` | interactive shell |
+
 ## Routes
 
 | Path | Who | |
 |---|---|---|
 | `/auth/signin` | everyone | Microsoft sign-in (+ dev login) |
 | `/learn` | students | my classes / assignments |
+| `/learn/playground` | everyone | free Bash shell in your own box |
 | `/admin` | TEACHER, ADMIN | exercises, classes, assignments, reports |
 
 `src/proxy.ts` guards `/learn` and `/admin`; the admin layout checks the role again

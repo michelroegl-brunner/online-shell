@@ -15,7 +15,11 @@ export default async function LearnPage() {
 
   return (
     <>
-      <AppHeader user={me} home="/learn" />
+      <AppHeader
+        user={me}
+        home="/learn"
+        nav={[{ href: "/learn/playground", label: "Playground" }]}
+      />
       <main className="mx-auto max-w-6xl p-4 sm:p-6">
         <h1 className="mb-1 text-2xl font-semibold">
           Hi {me.name.split(" ")[0]}

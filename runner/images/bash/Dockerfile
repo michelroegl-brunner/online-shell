@@ -1,0 +1,27 @@
+# Student box for Bash exercises.
+# The runner starts it with: no network, read-only rootfs, tmpfs /tmp + /run,
+# a per-student volume at /home/student, dropped caps, no-new-privileges.
+FROM debian:bookworm-slim
+
+ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 TERM=xterm-256color
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      bash bash-completion coreutils findutils grep sed gawk diffutils \
+      less nano vim-tiny tree jq file procps psmisc bc zip unzip tar gzip \
+      man-db manpages ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+# Non-root student user (uid 1000). Home is replaced by the per-student
+# volume; Docker copies this image's /home/student into a NEW empty volume,
+# so these dotfiles are the defaults on first start.
+RUN useradd --create-home --uid 1000 --shell /bin/bash student \
+ && mkdir -p /home/student/exercises \
+ && chown -R student:student /home/student
+
+COPY oshell-hooks.sh /etc/oshell/hooks.sh
+COPY rc.sh /etc/oshell/rc.sh
+
+WORKDIR /home/student
+USER student
+CMD ["sleep", "infinity"]

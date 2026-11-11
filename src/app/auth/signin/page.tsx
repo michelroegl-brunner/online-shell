@@ -17,18 +17,20 @@ import { devLoginEnabled, entraEnabled } from "~/server/auth/config";
 
 /**
  * Only allow redirects to our own origin. Uses the URL parser (not prefix
- * checks), so `//evil.com`, `/\evil.com` and absolute URLs are rejected.
+ * checks), so `//evil.com`, `/\evil.com` and foreign absolute URLs are
+ * rejected. Returns the ABSOLUTE URL: a relative path could normalize to
+ * `//evil.com` (e.g. from `/.//evil.com`), which browsers treat as
+ * protocol-relative.
  */
 function safeCallback(raw: string | string[] | undefined) {
+  const own = new URL(env.APP_URL);
   const v = Array.isArray(raw) ? raw[0] : raw;
-  if (!v) return "/";
+  if (!v) return own.href;
   try {
-    const own = new URL(env.APP_URL);
     const u = new URL(v, own);
-    if (u.origin !== own.origin) return "/";
-    return u.pathname + u.search + u.hash;
+    return u.origin === own.origin ? u.href : own.href;
   } catch {
-    return "/";
+    return own.href;
   }
 }
 
