@@ -1,0 +1,16 @@
+# Local dev database only. Run: pnpm db:up
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: oshell
+      POSTGRES_PASSWORD: oshell
+      POSTGRES_DB: oshell
+    ports:
+      - "5434:5432"
+    volumes:
+      - oshell_pg:/var/lib/postgresql/data
+
+volumes:
+  oshell_pg:

@@ -1,0 +1,238 @@
+// Online-Shell — see docs/SKETCH.md for the design.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ────────────────────────────────────────────────────────────
+// Enums
+// ────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+enum ShellKind {
+  BASH
+  PWSH
+}
+
+enum Visibility {
+  PRIVATE
+  SHARED
+}
+
+enum AssignmentMode {
+  PRACTICE
+  EXAM
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  PASSED
+  FAILED
+  ABANDONED
+}
+
+// ────────────────────────────────────────────────────────────
+// Users & classes (Entra = source of truth)
+// ────────────────────────────────────────────────────────────
+
+model User {
+  id          String    @id @default(cuid())
+  /// Entra object id (`oid` claim). Dev-login users get "dev:<email>".
+  entraOid    String    @unique
+  email       String    @unique
+  name        String
+  /// Recomputed from Entra App Roles on every sign-in.
+  role        Role      @default(STUDENT)
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  memberships          ClassMembership[]
+  teachingClasses      ClassTeacher[]
+  authoredExercises    Exercise[]
+  attempts             Attempt[]
+  assignmentExtensions AssignmentExtension[]
+}
+
+model Class {
+  id           String   @id @default(cuid())
+  /// M365 group id
+  entraGroupId String   @unique
+  name         String
+  schoolYear   String?
+  archived     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  memberships ClassMembership[]
+  teachers    ClassTeacher[]
+  assignments Assignment[]
+}
+
+model ClassMembership {
+  userId   String
+  classId  String
+  syncedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@id([userId, classId])
+  @@index([classId])
+}
+
+model ClassTeacher {
+  classId String
+  userId  String
+
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([classId, userId])
+  @@index([userId])
+}
+
+// ────────────────────────────────────────────────────────────
+// Exercises
+// ────────────────────────────────────────────────────────────
+
+model Exercise {
+  id          String     @id @default(cuid())
+  /// Folder name inside the student's home: ~/exercises/<slug>
+  slug        String     @unique
+  title       String
+  /// Markdown
+  description String
+  shell       ShellKind
+  difficulty  Int        @default(1)
+  points      Int        @default(10)
+  setupScript String     @default("")
+  checkScript String     @default("")
+  hints       String[]
+  tags        String[]
+  visibility  Visibility @default(PRIVATE)
+  archived    Boolean    @default(false)
+  authorId    String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  author          User             @relation(fields: [authorId], references: [id])
+  assignmentItems AssignmentItem[]
+
+  @@index([authorId])
+}
+
+// ────────────────────────────────────────────────────────────
+// Assignments (practice sets and exams given to a class)
+// ────────────────────────────────────────────────────────────
+
+model Assignment {
+  id         String         @id @default(cuid())
+  title      String
+  classId    String
+  mode       AssignmentMode @default(PRACTICE)
+  opensAt    DateTime?
+  dueAt      DateTime?
+  /// null = unlimited (practice)
+  maxChecks  Int?
+  allowHints Boolean        @default(true)
+  allowPaste Boolean        @default(true)
+  published  Boolean        @default(false)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  class      Class                 @relation(fields: [classId], references: [id], onDelete: Cascade)
+  items      AssignmentItem[]
+  extensions AssignmentExtension[]
+
+  @@index([classId])
+}
+
+model AssignmentItem {
+  id           String @id @default(cuid())
+  assignmentId String
+  exerciseId   String
+  order        Int
+  /// Overrides Exercise.points when set
+  points       Int?
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  exercise   Exercise   @relation(fields: [exerciseId], references: [id])
+  attempts   Attempt[]
+
+  @@unique([assignmentId, exerciseId])
+  @@index([exerciseId])
+}
+
+model AssignmentExtension {
+  assignmentId String
+  userId       String
+  extraMinutes Int
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([assignmentId, userId])
+}
+
+// ────────────────────────────────────────────────────────────
+// Attempts, command log, exam events
+// ────────────────────────────────────────────────────────────
+
+model Attempt {
+  id               String        @id @default(cuid())
+  userId           String
+  assignmentItemId String
+  status           AttemptStatus @default(IN_PROGRESS)
+  /// Runner box the attempt ran in (box = container)
+  boxId            String?
+  score            Int?
+  checks           Int           @default(0)
+  hintsUsed        Int           @default(0)
+  checkOutput      String?
+  startedAt        DateTime      @default(now())
+  finishedAt       DateTime?
+
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignmentItem AssignmentItem @relation(fields: [assignmentItemId], references: [id], onDelete: Cascade)
+  commands       CommandLog[]
+  events         ExamEvent[]
+
+  @@index([userId])
+  @@index([assignmentItemId])
+}
+
+model CommandLog {
+  id        BigInt   @id @default(autoincrement())
+  attemptId String
+  at        DateTime @default(now())
+  command   String
+  exitCode  Int?
+  cwd       String?
+
+  attempt Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId, at])
+}
+
+model ExamEvent {
+  id        BigInt   @id @default(autoincrement())
+  attemptId String
+  at        DateTime @default(now())
+  /// BLUR | HIDDEN | FULLSCREEN_EXIT | PASTE
+  type      String
+  detail    String?
+
+  attempt Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId, at])
+}
