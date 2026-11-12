@@ -6,6 +6,7 @@ import {
   Copy,
   Eye,
   EyeOff,
+  FlaskConical,
   Loader2,
   Plus,
   Save,
@@ -256,6 +257,14 @@ export function AssignmentEditor({
         </div>
         {id && (
           <>
+            <Button variant="ghost" asChild>
+              <Link
+                href={`/learn/a/${id}`}
+                title="Go through this assignment like a student (not counted)"
+              >
+                <FlaskConical /> Test run
+              </Link>
+            </Button>
             <Button variant="ghost" onClick={() => void copy()}>
               <Copy /> Duplicate
             </Button>

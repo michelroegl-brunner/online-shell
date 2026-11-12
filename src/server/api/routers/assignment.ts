@@ -154,7 +154,14 @@ export const assignmentRouter = createTRPCRouter({
           },
           items: {
             select: {
-              _count: { select: { attempts: { where: { status: "PASSED" } } } },
+              // Students only: teachers' test runs don't count.
+              _count: {
+                select: {
+                  attempts: {
+                    where: { status: "PASSED", user: { role: "STUDENT" } },
+                  },
+                },
+              },
             },
           },
         },
@@ -239,7 +246,10 @@ export const assignmentRouter = createTRPCRouter({
                   difficulty: true,
                 },
               },
-              _count: { select: { attempts: true } },
+              // Student attempts only (teacher test runs don't lock anything).
+              _count: {
+                select: { attempts: { where: { user: { role: "STUDENT" } } } },
+              },
             },
           },
         },

@@ -8,6 +8,7 @@ import {
   itemScore,
   stepUnlocked,
 } from "~/server/assignments/scoring";
+import { assignmentWhere } from "~/server/access";
 import { assignmentWhereVisibleTo } from "~/server/assignments/visibility";
 import {
   effectiveDueAt,
@@ -16,6 +17,7 @@ import {
 } from "~/server/assignments/window";
 import { type db as dbType } from "~/server/db";
 import { runCheck, runSetup } from "~/server/exercises/run";
+import type { Prisma } from "../../../../generated/prisma";
 
 /**
  * Student side of assignments. Everything is scoped to assignments visible
@@ -34,10 +36,29 @@ const itemPoints = (item: {
   exercise: { points: number };
 }) => itemMaxPoints(item.points, item.exercise.points);
 
+type Viewer = { id: string; role: string };
+
+/**
+ * Assignments the caller may open: students see what's visible to them;
+ * teachers additionally see every assignment of the classes they teach
+ * (admins: all) for a **test run**.
+ */
+function learnWhere(user: Viewer): Prisma.AssignmentWhereInput {
+  if (user.role === "STUDENT") return assignmentWhereVisibleTo(user.id);
+  return { OR: [assignmentWhereVisibleTo(user.id), assignmentWhere(user)] };
+}
+
+/**
+ * Teachers always work in test-run mode: no time window, drafts allowed,
+ * and their attempts are left out of reports.
+ */
+const isPreview = (user: Viewer) => user.role !== "STUDENT";
+
 /** Load an assignment item the caller may work on, or throw NOT_FOUND. */
-async function loadItem(db: Db, userId: string, itemId: string) {
+async function loadItem(db: Db, user: Viewer, itemId: string) {
+  const userId = user.id;
   const item = await db.assignmentItem.findFirst({
-    where: { id: itemId, assignment: assignmentWhereVisibleTo(userId) },
+    where: { id: itemId, assignment: learnWhere(user) },
     select: {
       id: true,
       order: true,
@@ -84,7 +105,10 @@ async function loadItem(db: Db, userId: string, itemId: string) {
   });
   if (!item) throw new TRPCError({ code: "NOT_FOUND" });
   const extra = item.assignment.extensions[0]?.extraMinutes;
-  const state = windowState(item.assignment, extra);
+  const preview = isPreview(user);
+  const state: WindowState = preview
+    ? "open"
+    : windowState(item.assignment, extra);
   const attempt = item.attempts[0] ?? null;
 
   // Step states (unlock depends on the previous step's progress).
@@ -103,7 +127,7 @@ async function loadItem(db: Db, userId: string, itemId: string) {
       ),
     };
   });
-  return { item, attempt, state, extra, steps };
+  return { item, attempt, state, extra, steps, preview };
 }
 
 type Loaded = Awaited<ReturnType<typeof loadItem>>;
@@ -185,6 +209,25 @@ async function recomputeAttempt(
 }
 
 export const learnRouter = createTRPCRouter({
+  /**
+   * Teacher test run: delete my attempts for this assignment so it starts
+   * fresh (the next open runs the setups again).
+   */
+  resetPreview: protectedProcedure
+    .input(z.object({ assignmentId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      if (!isPreview(ctx.user)) throw new TRPCError({ code: "FORBIDDEN" });
+      const a = await ctx.db.assignment.findFirst({
+        where: { AND: [{ id: input.assignmentId }, assignmentWhere(ctx.user)] },
+        select: { id: true },
+      });
+      if (!a) throw new TRPCError({ code: "NOT_FOUND" });
+      const { count } = await ctx.db.attempt.deleteMany({
+        where: { userId: ctx.user.id, assignmentItem: { assignmentId: a.id } },
+      });
+      return { deleted: count };
+    }),
+
   /** My classes with their visible assignments and my progress. */
   overview: protectedProcedure.query(async ({ ctx }) => {
     const userId = ctx.user.id;
@@ -248,8 +291,9 @@ export const learnRouter = createTRPCRouter({
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const userId = ctx.user.id;
+      const preview = isPreview(ctx.user);
       const a = await ctx.db.assignment.findFirst({
-        where: { id: input.id, ...assignmentWhereVisibleTo(userId) },
+        where: { AND: [{ id: input.id }, learnWhere(ctx.user)] },
         select: {
           id: true,
           title: true,
@@ -257,6 +301,7 @@ export const learnRouter = createTRPCRouter({
           dueAt: true,
           maxChecks: true,
           allowHints: true,
+          published: true,
           class: { select: { name: true } },
           extensions: { where: { userId }, select: { extraMinutes: true } },
           items: {
@@ -292,7 +337,8 @@ export const learnRouter = createTRPCRouter({
       });
       if (!a) throw new TRPCError({ code: "NOT_FOUND" });
       const extra = a.extensions[0]?.extraMinutes;
-      if (windowState(a, extra) === "upcoming") {
+      const state: WindowState = preview ? "open" : windowState(a, extra);
+      if (state === "upcoming") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "This assignment hasn't started yet.",
@@ -304,7 +350,10 @@ export const learnRouter = createTRPCRouter({
         className: a.class.name,
         opensAt: a.opensAt,
         dueAt: effectiveDueAt(a.dueAt, extra),
-        state: windowState(a, extra),
+        state,
+        /** Teacher test run: not counted, no time window. */
+        preview,
+        published: a.published,
         maxChecks: a.maxChecks,
         allowHints: a.allowHints,
         items: a.items.map((i) => ({
@@ -327,9 +376,9 @@ export const learnRouter = createTRPCRouter({
   item: protectedProcedure
     .input(z.object({ itemId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const { item, attempt, state, extra, steps } = await loadItem(
+      const { item, attempt, state, extra, steps, preview } = await loadItem(
         ctx.db,
-        ctx.user.id,
+        ctx.user,
         input.itemId,
       );
       // Task text stays hidden until the assignment opens (enforced here,
@@ -346,6 +395,7 @@ export const learnRouter = createTRPCRouter({
       const scale = (p: number) => itemScore(p, total, item.points);
       return {
         itemId: item.id,
+        preview,
         assignment: {
           id: item.assignment.id,
           title: item.assignment.title,
@@ -408,7 +458,7 @@ export const learnRouter = createTRPCRouter({
       const userId = ctx.user.id;
       const { item, attempt, state } = await loadItem(
         ctx.db,
-        userId,
+        ctx.user,
         input.itemId,
       );
       if (attempt?.setupAt) {
@@ -453,7 +503,7 @@ export const learnRouter = createTRPCRouter({
     .input(z.object({ itemId: z.string(), stepId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
-      const loaded = await loadItem(ctx.db, userId, input.itemId);
+      const loaded = await loadItem(ctx.db, ctx.user, input.itemId);
       const { item, attempt, state } = loaded;
       assertOpen(state);
       if (!attempt?.setupAt) {
@@ -548,8 +598,7 @@ export const learnRouter = createTRPCRouter({
   hint: protectedProcedure
     .input(z.object({ itemId: z.string(), stepId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.id;
-      const loaded = await loadItem(ctx.db, userId, input.itemId);
+      const loaded = await loadItem(ctx.db, ctx.user, input.itemId);
       const { item, attempt, state } = loaded;
       assertOpen(state);
       if (!item.assignment.allowHints) {
@@ -599,7 +648,7 @@ export const learnRouter = createTRPCRouter({
       const userId = ctx.user.id;
       const { item, attempt, state } = await loadItem(
         ctx.db,
-        userId,
+        ctx.user,
         input.itemId,
       );
       assertOpen(state);

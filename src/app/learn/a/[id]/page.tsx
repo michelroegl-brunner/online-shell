@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { AppHeader } from "~/components/app-header";
 import { AttemptIcon, WindowBadge } from "~/components/learn/badges";
+import { TestRunBanner } from "~/components/learn/test-run-banner";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent } from "~/components/ui/card";
 import { formatDateTime } from "~/lib/format";
@@ -34,12 +35,19 @@ export default async function AssignmentPage({
     <>
       <AppHeader
         user={user}
-        home="/learn"
+        home={a.preview ? "/admin" : "/learn"}
         nav={[{ href: "/learn/playground", label: "Playground" }]}
       />
       <main className="mx-auto max-w-4xl p-4 sm:p-6">
+        {a.preview && (
+          <TestRunBanner
+            assignmentId={a.id}
+            published={a.published}
+            className="mb-4"
+          />
+        )}
         <Link
-          href="/learn"
+          href={a.preview ? "/admin/assignments" : "/learn"}
           className="text-muted-foreground hover:text-foreground mb-3 inline-flex items-center gap-1 text-sm"
         >
           <ChevronLeft className="size-4" /> {a.className}

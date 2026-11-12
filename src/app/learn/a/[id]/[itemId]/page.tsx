@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { notFound, redirect } from "next/navigation";
 
 import { AppHeader } from "~/components/app-header";
+import { TestRunBanner } from "~/components/learn/test-run-banner";
 import { getCurrentUser } from "~/server/auth/current-user";
 import { api } from "~/trpc/server";
 import { Workspace } from "./workspace";
@@ -26,9 +27,15 @@ export default async function ExercisePage({
     <div className="flex h-dvh flex-col">
       <AppHeader
         user={user}
-        home="/learn"
+        home={data.preview ? "/admin" : "/learn"}
         nav={[{ href: "/learn/playground", label: "Playground" }]}
       />
+      {data.preview && (
+        <TestRunBanner
+          assignmentId={data.assignment.id}
+          className="mx-4 mt-3 sm:mx-6"
+        />
+      )}
       {/* Remount per exercise so state (terminal, results) starts fresh. */}
       <Workspace key={itemId} initial={data} />
     </div>

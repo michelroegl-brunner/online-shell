@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, Plus } from "lucide-react";
+import { Copy, FlaskConical, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -157,7 +157,19 @@ export function AssignmentList() {
                     {a.students} student{a.students === 1 ? "" : "s"}
                   </div>
                 </TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Test run"
+                    title="Test run (like a student, not counted)"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/learn/a/${a.id}`);
+                    }}
+                  >
+                    <FlaskConical />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"

@@ -93,7 +93,9 @@ export const reportRouter = createTRPCRouter({
                   _count: { select: { steps: true } },
                 },
               },
+              // Students only: teachers' test runs are not results.
               attempts: {
+                where: { user: { role: "STUDENT" } },
                 select: {
                   id: true,
                   userId: true,
@@ -207,7 +209,10 @@ export const reportRouter = createTRPCRouter({
         where: {
           exitCode: { not: 0 },
           NOT: { exitCode: null },
-          attempt: { assignmentItem: { assignmentId: a.id } },
+          attempt: {
+            assignmentItem: { assignmentId: a.id },
+            user: { role: "STUDENT" },
+          },
         },
         select: {
           command: true,
