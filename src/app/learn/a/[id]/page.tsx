@@ -21,9 +21,10 @@ export default async function AssignmentPage({
   if (!user) redirect("/auth/signin");
   const a = await api.learn.assignment({ id }).catch((e: unknown) => {
     if (e instanceof TRPCError && e.code === "NOT_FOUND") notFound();
+    // Not open yet: the API refuses to return the exercises.
+    if (e instanceof TRPCError && e.code === "FORBIDDEN") redirect("/learn");
     throw e;
   });
-  if (a.state === "upcoming") redirect("/learn");
 
   const solved = a.items.filter((i) => i.status === "PASSED").length;
   const points = a.items.reduce((s, i) => s + (i.score ?? 0), 0);

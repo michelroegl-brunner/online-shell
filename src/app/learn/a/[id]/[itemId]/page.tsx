@@ -16,10 +16,11 @@ export default async function ExercisePage({
   if (!user) redirect("/auth/signin");
   const data = await api.learn.item({ itemId }).catch((e: unknown) => {
     if (e instanceof TRPCError && e.code === "NOT_FOUND") notFound();
+    // Not open yet: the API refuses to return the task.
+    if (e instanceof TRPCError && e.code === "FORBIDDEN") redirect("/learn");
     throw e;
   });
   if (data.assignment.id !== id) notFound();
-  if (data.assignment.state === "upcoming") redirect("/learn");
 
   return (
     <div className="flex h-dvh flex-col">

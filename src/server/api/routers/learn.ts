@@ -197,6 +197,12 @@ export const learnRouter = createTRPCRouter({
       });
       if (!a) throw new TRPCError({ code: "NOT_FOUND" });
       const extra = a.extensions[0]?.extraMinutes;
+      if (windowState(a, extra) === "upcoming") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "This assignment hasn't started yet.",
+        });
+      }
       return {
         id: a.id,
         title: a.title,
@@ -229,6 +235,14 @@ export const learnRouter = createTRPCRouter({
         ctx.user.id,
         input.itemId,
       );
+      // Task text stays hidden until the assignment opens (enforced here,
+      // not only by the page).
+      if (state === "upcoming") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "This assignment hasn't started yet.",
+        });
+      }
       const ids = item.assignment.items.map((i) => i.id);
       const idx = ids.indexOf(item.id);
       const hintsUsed = attempt?.hintsUsed ?? 0;
@@ -339,12 +353,19 @@ export const learnRouter = createTRPCRouter({
           message: "Open the exercise first.",
         });
       }
+      // Claim a check atomically BEFORE running it, so parallel requests
+      // can't get past maxChecks (the limit doesn't apply once solved).
       const max = item.assignment.maxChecks;
-      if (
-        max !== null &&
-        attempt.status !== "PASSED" &&
-        attempt.checks >= max
-      ) {
+      const claim = await ctx.db.attempt.updateMany({
+        where: {
+          id: attempt.id,
+          ...(max !== null
+            ? { OR: [{ status: "PASSED" }, { checks: { lt: max } }] }
+            : {}),
+        },
+        data: { checks: { increment: 1 } },
+      });
+      if (claim.count === 0) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: `No checks left (${max} allowed).`,
@@ -352,21 +373,31 @@ export const learnRouter = createTRPCRouter({
       }
       // Store commands up to now before checking (keeps the log in order).
       await ingestCommandLog(userId);
-      const res = await guardRunner(() => runCheck(userId, item.exercise));
-      const passedNow = res.ok && attempt.status !== "PASSED";
+      let res;
+      try {
+        res = await guardRunner(() => runCheck(userId, item.exercise));
+      } catch (e) {
+        // The check never ran: give the claimed check back.
+        await ctx.db.attempt.update({
+          where: { id: attempt.id },
+          data: { checks: { decrement: 1 } },
+        });
+        throw e;
+      }
+      if (res.ok) {
+        // Only the first passing check awards points (conditional update).
+        await ctx.db.attempt.updateMany({
+          where: { id: attempt.id, status: { not: "PASSED" } },
+          data: {
+            status: "PASSED",
+            score: itemPoints(item),
+            finishedAt: new Date(),
+          },
+        });
+      }
       const updated = await ctx.db.attempt.update({
         where: { id: attempt.id },
-        data: {
-          checks: { increment: 1 },
-          checkOutput: res.output.slice(0, 8000),
-          ...(passedNow
-            ? {
-                status: "PASSED",
-                score: itemPoints(item),
-                finishedAt: new Date(),
-              }
-            : {}),
-        },
+        data: { checkOutput: res.output.slice(0, 8000) },
       });
       return {
         ok: res.ok,

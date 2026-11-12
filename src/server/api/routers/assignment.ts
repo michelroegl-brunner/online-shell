@@ -395,6 +395,24 @@ export const assignmentRouter = createTRPCRouter({
       await assertClass(ctx, classId);
       const sameClass = classId === src.classId;
 
+      // The source may contain exercises the caller can't use (e.g. a
+      // co-teacher's private ones): same readability rule as create/update.
+      const exerciseIds = [...new Set(src.items.map((i) => i.exerciseId))];
+      if (exerciseIds.length) {
+        const readable = await ctx.db.exercise.count({
+          where: {
+            AND: [{ id: { in: exerciseIds } }, exerciseReadableWhere(ctx.user)],
+          },
+        });
+        if (readable !== exerciseIds.length) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "This assignment uses exercises that aren't available to you, so it can't be duplicated.",
+          });
+        }
+      }
+
       return ctx.db.assignment.create({
         data: {
           title: `${src.title} (copy)`,
