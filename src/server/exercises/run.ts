@@ -52,8 +52,12 @@ export function wrap(opts: {
   return [
     "umask 077",
     // Root's home (/root) is on the read-only rootfs; pwsh needs a writable
-    // home for its cache, so give root a throwaway one.
-    'export HOME=/tmp/oshell-root && mkdir -p "$HOME"',
+    // home for its cache. Use a FRESH private dir per run (mktemp, 0700):
+    // a fixed path in world-writable /tmp could be pre-created by the
+    // student with their own modules/config for the root check to load.
+    'export HOME="$(mktemp -d /tmp/oshell-root-XXXXXXXXXX)" || exit 98',
+    // Only system modules (incl. OShellWindows) for root-run pwsh scripts.
+    "export PSModulePath=/opt/microsoft/powershell/7/Modules",
     // Plain text output (pwsh error colors would show up as escape codes).
     "export NO_COLOR=1 TERM=dumb",
     `D='${opts.dir}'`,
@@ -68,6 +72,7 @@ export function wrap(opts: {
     `${run} </dev/null 2>&1`,
     "rc=$?",
     `rm -f -- '${file}'`,
+    'rm -rf -- "$HOME"',
     // Everything in the folder belongs to the student afterwards.
     'chown -R student:student -- "$D"',
     "exit $rc",
