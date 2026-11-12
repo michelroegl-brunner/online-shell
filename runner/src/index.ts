@@ -7,7 +7,11 @@ import {
 import { WebSocketServer, type RawData, type WebSocket } from "ws";
 import { z } from "zod";
 
-import { isAuthorizedApiCall, verifyAttachToken } from "./auth.js";
+import {
+  type AttachClaims,
+  isAuthorizedApiCall,
+  verifyAttachToken,
+} from "./auth.js";
 import {
   docker,
   ensureBox,
@@ -141,7 +145,7 @@ server.on("upgrade", (req, socket, head) => {
   verifyAttachToken(url.searchParams.get("token") ?? "").then(
     (claims) =>
       wss.handleUpgrade(req, socket, head, (ws) => {
-        void attach(ws, claims.userId, claims.shell, url.searchParams);
+        void attach(ws, claims, url.searchParams);
       }),
     () => {
       socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
@@ -158,8 +162,7 @@ const resizeMsg = z.object({
 
 async function attach(
   ws: WebSocket,
-  userId: string,
-  shell: "BASH" | "PWSH",
+  { userId, shell, cwd }: AttachClaims,
   params: URLSearchParams,
 ) {
   const cols = Number(params.get("cols") ?? 80);
@@ -167,7 +170,7 @@ async function attach(
 
   let pty;
   try {
-    pty = await openPty(userId, shell, cols, rows);
+    pty = await openPty(userId, shell, cols, rows, cwd);
   } catch (err) {
     console.error("[attach] failed", err);
     ws.close(1011, "could not start box");

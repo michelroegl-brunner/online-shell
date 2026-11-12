@@ -19,9 +19,12 @@ type Status = "connecting" | "ready" | "closed" | "error";
  */
 export function ShellTerminal({
   shell = "BASH",
+  exercise,
   className,
 }: {
   shell?: "BASH" | "PWSH";
+  /** Exercise slug: start the shell in ~/exercises/<slug>. */
+  exercise?: string;
   className?: string;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -86,7 +89,10 @@ export function ShellTerminal({
 
     void (async () => {
       try {
-        const { url, token } = await trpc.box.attach.mutate({ shell });
+        const { url, token } = await trpc.box.attach.mutate({
+          shell,
+          exercise,
+        });
         if (closedByUs) return;
         const qs = new URLSearchParams({
           token,
@@ -134,7 +140,7 @@ export function ShellTerminal({
       disposables.forEach((d) => d.dispose());
       ws?.close();
     };
-  }, [session, shell, trpc]);
+  }, [session, shell, exercise, trpc]);
 
   const reconnect = useCallback(() => {
     termRef.current?.reset();

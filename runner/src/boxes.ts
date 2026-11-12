@@ -37,10 +37,18 @@ const imageFor = (shell: ShellKind) =>
   shell === "PWSH" ? config.PWSH_IMAGE : config.BASH_IMAGE;
 
 // bash: our rcfile sources ~/.bashrc first and the Online Shell hooks last.
-const shellCmd = (shell: ShellKind) =>
+// The start dir may not exist yet (no setup run) → fall back to ~ quietly.
+// `cwd` is validated in auth.ts and passed as an argument, never interpolated.
+const shellCmd = (shell: ShellKind, cwd: string) =>
   shell === "PWSH"
-    ? ["pwsh", "-NoLogo"]
-    : ["bash", "--rcfile", "/etc/oshell/rc.sh", "-i"];
+    ? ["pwsh", "-NoLogo", "-WorkingDirectory", cwd]
+    : [
+        "bash",
+        "-c",
+        'cd -- "$1" 2>/dev/null; exec bash --rcfile /etc/oshell/rc.sh -i',
+        "oshell",
+        cwd,
+      ];
 
 // ── activity tracking (in memory; rebuilt with a grace period on restart) ──
 
@@ -271,10 +279,11 @@ export async function openPty(
   shell: ShellKind,
   cols: number,
   rows: number,
+  cwd = "/home/student",
 ): Promise<Pty> {
   await ensureBox(userId, shell);
   const exec = await docker.getContainer(boxName(userId)).exec({
-    Cmd: shellCmd(shell),
+    Cmd: shellCmd(shell, cwd),
     User: "student",
     WorkingDir: "/home/student",
     Env: ["TERM=xterm-256color", "LANG=C.UTF-8"],

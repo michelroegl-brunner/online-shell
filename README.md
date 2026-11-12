@@ -66,6 +66,24 @@ pnpm runner:dev                                  # :4100
 | `DELETE /boxes/:userId` | remove the box (volume stays) |
 | `WS /attach?token=…&cols=…&rows=…` | interactive shell |
 
+## Exercises
+
+Teachers manage exercises under `/admin/exercises` (list, filter, duplicate,
+archive). Each exercise has a Markdown description, hints, points, difficulty,
+tags, visibility (private / shared with all teachers) and two Bash scripts:
+
+| Script | Runs | Meaning |
+|---|---|---|
+| **Setup** | as root, `set -e`, in `$OSHELL_DIR` = `~/exercises/<slug>` | The folder is wiped first and chowned to the student afterwards. Use `$RANDOM` to give every student different data. |
+| **Check** | as root in `$OSHELL_DIR`, 30 s timeout | **Exit 0 = passed.** Its output is shown to the student. |
+
+Scripts are copied into a root-only temp file in the box, run with stdin from
+`/dev/null`, and deleted afterwards, so students can't read the check logic.
+Logic: `src/server/exercises/run.ts`.
+
+**Test run** (exercise page): runs setup in the teacher's *own* box, opens a
+terminal in the exercise folder, then runs the check.
+
 ## Routes
 
 | Path | Who | |
@@ -74,6 +92,7 @@ pnpm runner:dev                                  # :4100
 | `/learn` | students | my classes / assignments |
 | `/learn/playground` | everyone | free Bash shell in your own box |
 | `/admin` | TEACHER, ADMIN | exercises, classes, assignments, reports |
+| `/admin/exercises` | TEACHER, ADMIN | exercise library, editor, test run |
 
 `src/proxy.ts` guards `/learn` and `/admin`; the admin layout checks the role again
 on the server. tRPC has `protectedProcedure`, `teacherProcedure`, `adminProcedure`.

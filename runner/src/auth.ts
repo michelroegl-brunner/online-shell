@@ -15,7 +15,14 @@ export function isAuthorizedApiCall(req: IncomingMessage): boolean {
   return given.length === expected.length && timingSafeEqual(given, expected);
 }
 
-export type AttachClaims = { userId: string; shell: "BASH" | "PWSH" };
+export type AttachClaims = {
+  userId: string;
+  shell: "BASH" | "PWSH";
+  /** Optional start directory; must be inside /home/student. */
+  cwd?: string;
+};
+
+const CWD_RE = /^\/home\/student(\/[A-Za-z0-9._-]+)*$/;
 
 /**
  * Browser → runner WebSocket: short-lived HS256 JWT minted by the web app
@@ -34,5 +41,12 @@ export async function verifyAttachToken(token: string): Promise<AttachClaims> {
   ) {
     throw new Error("bad claims");
   }
-  return { userId: payload.sub, shell };
+  const cwd = payload.cwd;
+  if (
+    cwd !== undefined &&
+    (typeof cwd !== "string" || !CWD_RE.test(cwd) || cwd.includes(".."))
+  ) {
+    throw new Error("bad cwd");
+  }
+  return { userId: payload.sub, shell, cwd };
 }
