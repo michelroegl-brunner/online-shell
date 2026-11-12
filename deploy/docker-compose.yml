@@ -59,6 +59,7 @@ services:
       PORT: "4100"
       ALLOWED_ORIGINS: https://${DOMAIN}
       BASH_IMAGE: oshell-bash:latest
+      PWSH_IMAGE: oshell-pwsh:latest
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 

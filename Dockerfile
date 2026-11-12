@@ -54,6 +54,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 # CLI for `migrate deploy`.
 COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 
+# Exercise content + importer (docker compose exec web node deploy/import-exercises.mjs …)
+COPY --chown=nextjs:nodejs deploy/import-exercises.mjs ./deploy/import-exercises.mjs
+COPY --chown=nextjs:nodejs content ./content
+
 COPY --chown=nextjs:nodejs deploy/web-entrypoint.sh ./entrypoint.sh
 RUN chmod +x entrypoint.sh
 

@@ -209,9 +209,7 @@ export function ExerciseEditor({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="BASH">Bash</SelectItem>
-              <SelectItem value="PWSH">
-                PowerShell (image not built yet)
-              </SelectItem>
+              <SelectItem value="PWSH">PowerShell 7</SelectItem>
             </SelectContent>
           </Select>
         </Field>

@@ -203,20 +203,14 @@ export function TestRunPanel({
           </div>
         )}
 
-        {showTerminal &&
-          (shell === "PWSH" ? (
-            <p className="text-muted-foreground text-sm">
-              The PowerShell image isn’t built yet, so there’s no terminal for
-              PowerShell exercises.
-            </p>
-          ) : (
-            <ShellTerminal
-              key={termKey}
-              shell={shell}
-              exercise={slug}
-              className="h-96"
-            />
-          ))}
+        {showTerminal && (
+          <ShellTerminal
+            key={termKey}
+            shell={shell}
+            exercise={slug}
+            className="h-96"
+          />
+        )}
       </CardContent>
     </Card>
   );

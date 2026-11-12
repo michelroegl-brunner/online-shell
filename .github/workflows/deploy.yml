@@ -21,8 +21,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build student box image
-        run: docker build -t oshell-bash:latest runner/images/bash
+      - name: Build student box images
+        run: |
+          docker build -t oshell-bash:latest runner/images/bash
+          # PowerShell box = bash box + pwsh (FROM oshell-bash:latest)
+          docker build -t oshell-pwsh:latest runner/images/pwsh
 
       - name: Build and start the stack
         run: |

@@ -280,10 +280,6 @@ export function Workspace({ initial }: { initial: Item }) {
           <div className="text-muted-foreground flex flex-1 items-center justify-center gap-2 rounded-lg border text-sm">
             <Loader2 className="size-4 animate-spin" /> Preparing your exercise…
           </div>
-        ) : exercise.shell === "PWSH" ? (
-          <div className="text-muted-foreground flex flex-1 items-center justify-center rounded-lg border p-6 text-center text-sm">
-            PowerShell exercises aren’t available yet.
-          </div>
         ) : (
           <ShellTerminal
             key={termKey}

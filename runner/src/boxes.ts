@@ -39,16 +39,16 @@ const imageFor = (shell: ShellKind) =>
 // bash: our rcfile sources ~/.bashrc first and the Online Shell hooks last.
 // The start dir may not exist yet (no setup run) → fall back to ~ quietly.
 // `cwd` is validated in auth.ts and passed as an argument, never interpolated.
-const shellCmd = (shell: ShellKind, cwd: string) =>
+const shellCmd = (shell: ShellKind, cwd: string) => [
+  "bash",
+  "-c",
   shell === "PWSH"
-    ? ["pwsh", "-NoLogo", "-WorkingDirectory", cwd]
-    : [
-        "bash",
-        "-c",
-        'cd -- "$1" 2>/dev/null; exec bash --rcfile /etc/oshell/rc.sh -i',
-        "oshell",
-        cwd,
-      ];
+    ? // Profile ($PSHOME/profile.ps1) sets the prompt + command log.
+      'cd -- "$1" 2>/dev/null; exec pwsh -NoLogo'
+    : 'cd -- "$1" 2>/dev/null; exec bash --rcfile /etc/oshell/rc.sh -i',
+  "oshell",
+  cwd,
+];
 
 // ── activity tracking (in memory; rebuilt with a grace period on restart) ──
 

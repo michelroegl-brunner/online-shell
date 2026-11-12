@@ -19,6 +19,7 @@ import {
 } from "~/components/ui/table";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { ImportExport } from "./import-export";
 
 type ShellFilter = "ALL" | "BASH" | "PWSH";
 
@@ -47,6 +48,7 @@ export function ExerciseList() {
     <>
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <h1 className="mr-auto text-2xl font-semibold">Exercises</h1>
+        <ImportExport />
         <Button asChild>
           <Link href="/admin/exercises/new">
             <Plus /> New exercise

@@ -4,6 +4,11 @@ import { z } from "zod";
 import { exerciseInput, totalPoints, type StepInput } from "~/lib/exercise";
 import { createTRPCRouter, teacherProcedure } from "~/server/api/trpc";
 import { type db } from "~/server/db";
+import {
+  bundleSchema,
+  importExercises,
+  toBundle,
+} from "~/server/exercises/bundle";
 import { exerciseDir, runCheck, runSetup } from "~/server/exercises/run";
 import type { Prisma } from "../../../../generated/prisma";
 
@@ -39,6 +44,53 @@ const stepData = (s: StepInput, order: number) => ({
 });
 
 export const exerciseRouter = createTRPCRouter({
+  /**
+   * Import a JSON bundle (see src/server/exercises/bundle.ts). New slugs are
+   * created for the caller; existing ones only with `overwrite` and only if
+   * the caller wrote them (admins: any).
+   */
+  importBundle: teacherProcedure
+    .input(
+      z.object({ bundle: z.unknown(), overwrite: z.boolean().default(false) }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const parsed = bundleSchema.safeParse(input.bundle);
+      if (!parsed.success) {
+        const issue = parsed.error.issues[0];
+        const where = issue?.path.length ? issue.path.join(".") : "file";
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Not a valid exercise file: ${where}: ${issue?.message}`,
+        });
+      }
+      return importExercises(ctx.db, {
+        authorId: ctx.user.id,
+        isAdmin: ctx.user.role === "ADMIN",
+        exercises: parsed.data.exercises,
+        overwrite: input.overwrite,
+      });
+    }),
+
+  /** Export readable exercises (default: all of mine) as a JSON bundle. */
+  exportBundle: teacherProcedure
+    .input(
+      z.object({ ids: z.array(z.string()).max(200).optional() }).default({}),
+    )
+    .query(async ({ ctx, input }) => {
+      const exercises = await ctx.db.exercise.findMany({
+        where: {
+          AND: [
+            readableWhere(ctx.user),
+            input.ids ? { id: { in: input.ids } } : { authorId: ctx.user.id },
+            { archived: false },
+          ],
+        },
+        orderBy: { title: "asc" },
+        include: { steps: { orderBy: { order: "asc" } } },
+      });
+      return toBundle(exercises);
+    }),
+
   list: teacherProcedure
     .input(
       z

@@ -26,6 +26,10 @@ export type RunResult = {
 
 type Ex = { slug: string; shell: ShellKind };
 
+/** A script whose first line is a pwsh shebang runs in PowerShell. */
+export const isPwshScript = (body: string) =>
+  /^#!.*\bpwsh\b/.test(body.trimStart().split("\n", 1)[0] ?? "");
+
 /** Exported for tests only. */
 export function wrap(opts: {
   dir: string;
@@ -35,10 +39,23 @@ export function wrap(opts: {
 }) {
   const nonce = randomBytes(8).toString("hex");
   const eof = `OSHELL_EOF_${nonce}`;
-  const file = `/tmp/oshell-${nonce}.sh`;
+  const pwsh = isPwshScript(opts.body);
+  // pwsh only runs files with a .ps1 extension.
+  const file = `/tmp/oshell-${nonce}.${pwsh ? "ps1" : "sh"}`;
+  const run = pwsh
+    ? opts.strict
+      ? // like `set -e`: any error stops the script with a non-zero exit
+        `pwsh -NoProfile -NonInteractive -Command "\\$ErrorActionPreference = 'Stop'; . '${file}'"`
+      : `pwsh -NoProfile -NonInteractive -File '${file}'`
+    : `bash ${opts.strict ? "-e " : ""}'${file}'`;
   // `dir` comes from a validated slug, so single-quoting is safe.
   return [
     "umask 077",
+    // Root's home (/root) is on the read-only rootfs; pwsh needs a writable
+    // home for its cache, so give root a throwaway one.
+    'export HOME=/tmp/oshell-root && mkdir -p "$HOME"',
+    // Plain text output (pwsh error colors would show up as escape codes).
+    "export NO_COLOR=1 TERM=dumb",
     `D='${opts.dir}'`,
     opts.reset
       ? 'rm -rf -- "$D" && mkdir -p -- "$D" || exit 98'
@@ -48,7 +65,7 @@ export function wrap(opts: {
     `cat > '${file}' <<'${eof}'`,
     opts.body,
     eof,
-    `bash ${opts.strict ? "-e " : ""}'${file}' </dev/null 2>&1`,
+    `${run} </dev/null 2>&1`,
     "rc=$?",
     `rm -f -- '${file}'`,
     // Everything in the folder belongs to the student afterwards.

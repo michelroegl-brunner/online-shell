@@ -52,8 +52,16 @@ pnpm runner:dev                                  # :4100
 - **Cleanup**: boxes with no terminal attached for `IDLE_MINUTES` (15) are
   removed, and every box is removed after `MAX_LIFETIME_MINUTES` (120). A box is
   also recreated when its image was rebuilt.
-- **Command log**: bash appends `epoch⇥exit⇥cwd⇥command` to `/run/oshell/cmd.log`
-  (hooks in `runner/images/bash/oshell-hooks.sh`). It isn't ingested into the DB yet.
+- **Images**: `oshell-bash` (Debian + common CLI tools) and `oshell-pwsh`
+  (= bash image + PowerShell 7). The pwsh image ships the module
+  `OShellWindows` with stand-ins for Windows-only cmdlets (`Get-Service`,
+  `Start-/Stop-/Restart-Service` with state in `/run/oshell`, `Get-CimInstance`
+  for Win32_OperatingSystem/ComputerSystem/Processor/LogicalDisk/BIOS incl.
+  `-ComputerName`, `Get-ComputerInfo`). A student's box switches image when
+  they switch between Bash and PowerShell exercises (same home volume).
+- **Command log**: bash (`runner/images/bash/oshell-hooks.sh`) and pwsh
+  (`runner/images/pwsh/profile.ps1`) append `epoch⇥exit⇥cwd⇥command` to
+  `/run/oshell/cmd.log`; the web app ingests it per attempt.
 - **Auth**: web → runner REST uses `Bearer RUNNER_SECRET`; browser → runner
   WebSocket uses a 60 s HS256 JWT minted by `box.attach` (subject = session user),
   plus an `ALLOWED_ORIGINS` check.
@@ -87,9 +95,15 @@ for an exercise scales the step points proportionally
 | **Setup** | as root, `set -e`, in `$OSHELL_DIR` = `~/exercises/<slug>` | The folder is wiped first and chowned to the student afterwards. Use `$RANDOM` to give every student different data. |
 | **Check** | as root in `$OSHELL_DIR`, 30 s timeout | **Exit 0 = passed.** Its output is shown to the student. |
 
-Scripts are copied into a root-only temp file in the box, run with stdin from
-`/dev/null`, and deleted afterwards, so students can't read the check logic.
-Logic: `src/server/exercises/run.ts`.
+Scripts run with **bash** unless their first line is a pwsh shebang
+(`#!/usr/bin/env pwsh`); then they run in PowerShell (setup with
+`$ErrorActionPreference = 'Stop'`). They are copied into a root-only temp
+file in the box, run with stdin from `/dev/null`, and deleted afterwards, so
+students can't read the check logic. Logic: `src/server/exercises/run.ts`.
+
+**Import / export**: exercises can be exchanged as JSON bundles
+(Exercises → Import / Export, or `deploy/import-exercises.mjs` on the
+server). Bundles live in `content/exercises/`; see `content/README.md`.
 
 **Test run** (exercise page): runs setup in the teacher's *own* box, opens a
 terminal in the exercise folder, then runs a chosen step's check.
