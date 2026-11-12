@@ -363,8 +363,12 @@ export const classRouter = createTRPCRouter({
     }),
 
   /**
-   * Import a group as a class (caller becomes a teacher of it). If the group
-   * was already imported by someone else, the caller is added as co-teacher.
+   * Import a group as a class (caller becomes a teacher of it).
+   *
+   * If the group is already a class, the caller is NOT added: that would let
+   * any teacher join any class (and see its students/results) just by
+   * importing its group. Existing teachers (and admins) are simply sent to
+   * the class; everyone else must be added by a teacher via `addTeacher`.
    */
   import: teacherProcedure
     .input(
@@ -376,16 +380,25 @@ export const classRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const existing = await ctx.db.class.findUnique({
         where: { entraGroupId: input.groupId },
+        select: {
+          id: true,
+          teachers: {
+            select: { userId: true, user: { select: { name: true } } },
+          },
+        },
       });
       if (existing) {
-        await ctx.db.classTeacher.upsert({
-          where: {
-            classId_userId: { classId: existing.id, userId: ctx.user.id },
-          },
-          create: { classId: existing.id, userId: ctx.user.id },
-          update: {},
+        const isTeacher = existing.teachers.some(
+          (t) => t.userId === ctx.user.id,
+        );
+        if (isTeacher || ctx.user.role === "ADMIN") {
+          return { id: existing.id, alreadyImported: true, sync: null };
+        }
+        const owners = existing.teachers.map((t) => t.user.name).join(", ");
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `This group is already a class${owners ? ` (teachers: ${owners})` : ""}. Ask one of its teachers to add you.`,
         });
-        return { id: existing.id, alreadyImported: true, sync: null };
       }
 
       const group = await guardGraph(() => getGroup(input.groupId));

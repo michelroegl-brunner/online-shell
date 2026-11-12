@@ -153,7 +153,7 @@ function ImportDialog() {
       await utils.class.invalidate();
       toast.success(
         res.alreadyImported
-          ? "Class already existed, you were added as a teacher"
+          ? "This class was already imported"
           : `Class imported (${res.sync?.students ?? 0} students)`,
       );
       setOpen(false);
