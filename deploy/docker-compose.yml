@@ -67,9 +67,8 @@ services:
     restart: unless-stopped
     depends_on: [web, runner]
     # The edge proxy terminates the public TLS and forwards to :443 here
-    # (internal self-signed cert); :80 is plain HTTP.
+    # (internal self-signed cert). No plain-HTTP port.
     ports:
-      - "80:80"
       - "443:443"
     environment:
       DOMAIN: ${DOMAIN}

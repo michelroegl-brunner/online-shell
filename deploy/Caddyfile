@@ -5,13 +5,16 @@
 	# so this Caddy only needs a self-signed internal certificate. The edge
 	# connects by IP (no SNI), hence default_sni.
 	default_sni {$DOMAIN}
+	# HTTPS only; no plain-HTTP listener.
+	auto_https disable_redirects
 	servers {
-		# Trust X-Forwarded-* (proto=https, client IP) from the edge proxy.
-		trusted_proxies static private_ranges
+		# Trust X-Forwarded-* (proto, client IP) ONLY from the edge proxy.
+		trusted_proxies static 10.10.10.250/32
 	}
 }
 
-(app) {
+https://{$DOMAIN}, https://10.10.10.230 {
+	tls internal
 	encode zstd gzip
 
 	# Terminal WebSockets go straight to the runner; everything else to Next.
@@ -19,14 +22,4 @@
 	reverse_proxy @attach runner:4100
 
 	reverse_proxy web:3000
-}
-
-https://{$DOMAIN}, https://10.10.10.230 {
-	tls internal
-	import app
-}
-
-# Plain HTTP as well (e.g. if the edge proxy is switched to http://…:80).
-http://:80 {
-	import app
 }

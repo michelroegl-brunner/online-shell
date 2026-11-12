@@ -4,7 +4,7 @@
 |---|---|
 | Server | LXC **147 `online-shell`** on Proxmox **prox5** (10.10.10.224), IP **10.10.10.230**, Debian 12, unprivileged + `nesting,keyctl`, Docker CE |
 | Public TLS | Edge proxy **CT 145 `htlsrv-proxy-caddy`** (prox4, 10.10.10.250) → `https://10.10.10.230:443` |
-| App stack | `deploy/docker-compose.yml`: `db` (Postgres 17), `web` (Next.js), `runner`, `caddy` (internal TLS on :443, HTTP on :80) |
+| App stack | `deploy/docker-compose.yml`: `db` (Postgres 17), `web` (Next.js), `runner`, `caddy` (internal TLS on :443 only; trusts `X-Forwarded-*` only from 10.10.10.250) |
 | Student boxes | sibling containers on the same Docker daemon (`oshell-box-*`, volumes `oshell-home-*`) |
 | Secrets | `/opt/online-shell/.env` on the server (mode 600, template: `deploy/env.example`) |
 | Deploy | push to `main` → GitHub Actions job on the **self-hosted runner inside the LXC** (label `online-shell`) → `.github/workflows/deploy.yml` |
