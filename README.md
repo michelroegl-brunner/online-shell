@@ -84,6 +84,29 @@ Logic: `src/server/exercises/run.ts`.
 **Test run** (exercise page): runs setup in the teacher's *own* box, opens a
 terminal in the exercise folder, then runs the check.
 
+## Classes
+
+A class is an M365 group. Teachers import groups under `/admin/classes`
+(search → Import) and become the class's teacher; more teachers can be added
+by email (they must have signed in once as Teacher/Admin). Teachers see only
+their own classes; admins see all.
+
+Members come from Microsoft Graph with **app-only** permissions
+(`src/server/graph.ts`, client credentials with the same app registration):
+
+- **Application** `Group.Read.All` (search and read groups)
+- **Application** `GroupMember.Read.All` (read members)
+- admin consent for both
+
+"Sync members" (and the first import) creates missing users as students and
+makes the class membership match the group exactly. Teachers/admins in the
+group are never counted as students. Students' memberships are also refreshed
+whenever they sign in (delegated `/me/transitiveMemberOf`).
+
+**Dev mode:** without the `AUTH_MICROSOFT_ENTRA_ID_*` variables and with
+`AUTH_DEV_LOGIN="true"`, the page offers "New dev class" and lets you add
+dev-login students by email, so you can test without Microsoft 365.
+
 ## Routes
 
 | Path | Who | |
@@ -93,6 +116,7 @@ terminal in the exercise folder, then runs the check.
 | `/learn/playground` | everyone | free Bash shell in your own box |
 | `/admin` | TEACHER, ADMIN | exercises, classes, assignments, reports |
 | `/admin/exercises` | TEACHER, ADMIN | exercise library, editor, test run |
+| `/admin/classes` | TEACHER, ADMIN | import M365 groups, members, teachers |
 
 `src/proxy.ts` guards `/learn` and `/admin`; the admin layout checks the role again
 on the server. tRPC has `protectedProcedure`, `teacherProcedure`, `adminProcedure`.

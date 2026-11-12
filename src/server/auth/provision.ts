@@ -27,12 +27,20 @@ export async function upsertUser(input: {
 /**
  * Sync class memberships from the user's M365 groups. Only groups that a
  * teacher already imported as a Class count; everything else is ignored.
+ * Teachers/admins are never class members (same rule as class.syncMembers).
  */
 export async function syncClassMemberships(userId: string, groupIds: string[]) {
-  const classes = await db.class.findMany({
-    where: { entraGroupId: { in: groupIds } },
-    select: { id: true },
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
   });
+  const isStudent = user?.role === "STUDENT";
+  const classes = isStudent
+    ? await db.class.findMany({
+        where: { entraGroupId: { in: groupIds } },
+        select: { id: true },
+      })
+    : [];
   const classIds = classes.map((c) => c.id);
   await db.$transaction([
     db.classMembership.deleteMany({

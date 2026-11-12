@@ -20,6 +20,7 @@ const SECTIONS = [
     title: "Classes",
     text: "Import M365 groups as classes.",
     icon: Users,
+    href: "/admin/classes",
   },
   {
     title: "Assignments",
