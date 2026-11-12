@@ -181,10 +181,14 @@ check prints.
 **Pasting** (`Assignment.allowPaste`, off by default for new assignments):
 while any *open* assignment of a student forbids pasting, all their
 terminals block it (also the playground, since it's the same box). The
-browser blocks paste/drop/Ctrl+V, and the runner drops paste-sized input
-(> 24 bytes or bracketed-paste markers) from the attach token's `paste:
-false` claim (`src/server/assignments/paste.ts`). A deterrent, not a
-guarantee: keystroke-injecting tools can't be detected.
+browser blocks paste/drop/Ctrl+V, and the runner (attach-token claim
+`paste: false`) drops paste-like input: chunks > 24 bytes, bracketed-paste
+markers, and anything above typing speed (token bucket, burst 64 B,
+40 B/s). If a no-paste assignment opens while a terminal is connected,
+the token's `pasteBlockFrom` makes the runner switch at that time
+(`src/server/assignments/paste.ts`). An assignment that is *published*
+while a terminal is open applies from the next connect. A deterrent, not a
+guarantee: keystroke injectors at human speed can't be detected.
 
 ## Routes
 
