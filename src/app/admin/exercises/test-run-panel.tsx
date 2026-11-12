@@ -12,10 +12,18 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 type Result = {
+  label: string;
   kind: "setup" | "check";
   ok: boolean;
   exitCode: number;
@@ -23,47 +31,81 @@ type Result = {
 };
 
 /**
- * Teacher test run in the teacher's own box: run setup, solve it in the
- * terminal like a student, then run the check.
+ * Teacher test run in the teacher's own box: run setup (once for all
+ * steps), solve the steps in the terminal like a student, and run each
+ * step's check.
  */
 export function TestRunPanel({
   exerciseId,
   slug,
   shell,
+  steps,
   dirty,
   onSaveFirst,
 }: {
   exerciseId: string;
   slug: string;
   shell: "BASH" | "PWSH";
+  /** Saved steps, in order. */
+  steps: { id: string; title: string }[];
   dirty: boolean;
-  /** Present when the teacher may save; used to save before running. */
-  onSaveFirst?: () => Promise<boolean>;
+  /**
+   * Present when the teacher may save; saves before running and returns
+   * the saved step ids in order (false = not saved).
+   */
+  onSaveFirst?: () => Promise<string[] | false>;
 }) {
   const [result, setResult] = useState<Result | null>(null);
   const [termKey, setTermKey] = useState(0);
   const [showTerminal, setShowTerminal] = useState(false);
+  const [stepIndex, setStepIndex] = useState(0);
 
   const setup = api.exercise.testSetup.useMutation();
   const check = api.exercise.testCheck.useMutation();
   const busy = setup.isPending || check.isPending;
 
-  async function run(kind: "setup" | "check") {
-    if (dirty && onSaveFirst && !(await onSaveFirst())) return;
+  const index = Math.min(stepIndex, Math.max(0, steps.length - 1));
+  const stepLabel = (i: number) => `Step ${i + 1}: ${steps[i]?.title ?? ""}`;
+
+  /** Saves if needed; returns the current step ids or null if aborted. */
+  async function ensureSaved(): Promise<string[] | null> {
+    if (!(dirty && onSaveFirst)) return steps.map((s) => s.id);
+    const ids = await onSaveFirst();
+    return ids === false ? null : ids;
+  }
+
+  async function runSetup() {
+    if ((await ensureSaved()) === null) return;
     try {
-      const r =
-        kind === "setup"
-          ? await setup.mutateAsync({ id: exerciseId })
-          : await check.mutateAsync({ id: exerciseId });
-      setResult({ kind, ok: r.ok, exitCode: r.exitCode, output: r.output });
-      if (kind === "setup") {
-        // The folder was recreated: reconnect so the shell starts inside it.
-        setShowTerminal(true);
-        setTermKey((k) => k + 1);
-      }
+      const r = await setup.mutateAsync({ id: exerciseId });
+      setResult({ label: "Setup", kind: "setup", ...r });
+      // The folder was recreated: reconnect so the shell starts inside it.
+      setShowTerminal(true);
+      setTermKey((k) => k + 1);
     } catch (e) {
       setResult({
-        kind,
+        label: "Setup",
+        kind: "setup",
+        ok: false,
+        exitCode: -1,
+        output: (e as Error).message,
+      });
+    }
+  }
+
+  async function runCheck() {
+    const ids = await ensureSaved();
+    if (ids === null) return;
+    const stepId = ids[index];
+    const label = stepLabel(index);
+    if (!stepId) return;
+    try {
+      const r = await check.mutateAsync({ id: exerciseId, stepId });
+      setResult({ label, kind: "check", ...r });
+    } catch (e) {
+      setResult({
+        label,
+        kind: "check",
         ok: false,
         exitCode: -1,
         output: (e as Error).message,
@@ -79,14 +121,14 @@ export function TestRunPanel({
         <CardTitle>Test run</CardTitle>
         <CardDescription>
           Runs in <b>your own</b> shell box, in{" "}
-          <code className="font-mono">~/exercises/{slug}</code>. Run the setup,
-          solve the task in the terminal, then run the check.
+          <code className="font-mono">~/exercises/{slug}</code>. Run the setup
+          once, solve the steps in the terminal, and check each step.
           {dirty && !onSaveFirst && " (Uses the saved version.)"}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => void run("setup")} disabled={busy}>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={() => void runSetup()} disabled={busy}>
             {setup.isPending ? (
               <Loader2 className="animate-spin" />
             ) : (
@@ -94,13 +136,32 @@ export function TestRunPanel({
             )}
             {saveLabel}Reset &amp; run setup
           </Button>
+
+          {steps.length > 1 && (
+            <Select
+              value={String(index)}
+              onValueChange={(v) => setStepIndex(Number(v))}
+            >
+              <SelectTrigger className="w-64" aria-label="Step to check">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {steps.map((s, i) => (
+                  <SelectItem key={s.id} value={String(i)}>
+                    {stepLabel(i)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Button
             variant="secondary"
-            onClick={() => void run("check")}
-            disabled={busy}
+            onClick={() => void runCheck()}
+            disabled={busy || steps.length === 0}
           >
             {check.isPending ? <Loader2 className="animate-spin" /> : <Play />}
-            {saveLabel}Run check
+            {saveLabel}
+            {steps.length > 1 ? `Check step ${index + 1}` : "Run check"}
           </Button>
           {!showTerminal && (
             <Button variant="ghost" onClick={() => setShowTerminal(true)}>
@@ -124,13 +185,14 @@ export function TestRunPanel({
               ) : (
                 <XCircle className="text-destructive size-4" />
               )}
+              {result.label}:{" "}
               {result.kind === "setup"
                 ? result.ok
-                  ? "Setup finished"
-                  : "Setup failed"
+                  ? "finished"
+                  : "failed"
                 : result.ok
-                  ? "Check passed"
-                  : "Check failed"}
+                  ? "check passed"
+                  : "check failed"}
               <span className="text-muted-foreground font-normal">
                 exit {result.exitCode}
               </span>

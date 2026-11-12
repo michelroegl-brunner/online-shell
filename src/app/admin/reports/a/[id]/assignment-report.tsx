@@ -163,6 +163,7 @@ export function AssignmentReport({ data }: { data: Data }) {
                         cell={c}
                         mode={mode}
                         points={items[i]!.points}
+                        stepCount={items[i]!.stepCount}
                       />
                     </td>
                   ))}
@@ -282,16 +283,20 @@ function CellView({
   cell,
   mode,
   points,
+  stepCount,
 }: {
   cell: Cell;
   mode: Mode;
   points: number;
+  stepCount: number;
 }) {
   if (!cell) return <span className="text-muted-foreground/40">·</span>;
   const passed = cell.status === "PASSED";
+  const steps =
+    stepCount > 1 ? ` · ${cell.stepsPassed}/${stepCount} steps` : "";
   const text =
     mode === "points"
-      ? `${cell.score ?? 0}`
+      ? `${cell.score ?? 0}${stepCount > 1 && !passed ? ` (${cell.stepsPassed}/${stepCount})` : ""}`
       : mode === "checks"
         ? `${cell.checks}✓${cell.hintsUsed ? ` ${cell.hintsUsed}💡` : ""}`
         : cell.minutes === null
@@ -300,7 +305,7 @@ function CellView({
   return (
     <Link
       href={`/admin/reports/attempt/${cell.attemptId}`}
-      title={`${passed ? "Solved" : "Started"} · ${cell.score ?? 0}/${points} pts · ${cell.checks} checks · ${cell.hintsUsed} hints · ${cell.resets} resets · ${cell.commands} commands`}
+      title={`${passed ? "Solved" : "Started"}${steps} · ${cell.score ?? 0}/${points} pts · ${cell.checks} checks · ${cell.hintsUsed} hints · ${cell.resets} resets · ${cell.commands} commands`}
       className={cn(
         "inline-flex min-w-14 items-center justify-center gap-1 rounded-md px-2 py-1 text-xs tabular-nums",
         passed

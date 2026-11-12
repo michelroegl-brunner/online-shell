@@ -69,8 +69,18 @@ pnpm runner:dev                                  # :4100
 ## Exercises
 
 Teachers manage exercises under `/admin/exercises` (list, filter, duplicate,
-archive). Each exercise has a Markdown description, hints, points, difficulty,
-tags, visibility (private / shared with all teachers) and two Bash scripts:
+archive). Each exercise has a Markdown intro, difficulty, tags, visibility
+(private / shared with all teachers), one **setup** script and **1..n
+steps** ("chained" exercises). Each step has its own task text, **check**
+script, hints and points; the exercise is worth the sum. All steps work in
+the same folder, so later steps can build on earlier results. Per step the
+author decides whether it **unlocks only after the previous step** is
+solved (default) or is open right away.
+
+Scoring: a solved step earns its points; an assignment's points override
+for an exercise scales the step points proportionally
+(`src/server/assignments/scoring.ts`). Progress is stored per step
+(`AttemptStep`); `Attempt` keeps the totals.
 
 | Script | Runs | Meaning |
 |---|---|---|
@@ -82,7 +92,7 @@ Scripts are copied into a root-only temp file in the box, run with stdin from
 Logic: `src/server/exercises/run.ts`.
 
 **Test run** (exercise page): runs setup in the teacher's *own* box, opens a
-terminal in the exercise folder, then runs the check.
+terminal in the exercise folder, then runs a chosen step's check.
 
 ## Classes
 

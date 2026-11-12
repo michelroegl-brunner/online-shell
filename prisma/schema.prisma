@@ -138,14 +138,14 @@ model Exercise {
   /// Folder name inside the student's home: ~/exercises/<slug>
   slug        String     @unique
   title       String
-  /// Markdown
+  /// Markdown intro shown above the steps
   description String
   shell       ShellKind
   difficulty  Int        @default(1)
+  /// Total of all step points (kept in sync when the steps are saved)
   points      Int        @default(10)
+  /// Runs once for the whole exercise; all steps share the folder
   setupScript String     @default("")
-  checkScript String     @default("")
-  hints       String[]
   tags        String[]
   visibility  Visibility @default(PRIVATE)
   archived    Boolean    @default(false)
@@ -154,9 +154,30 @@ model Exercise {
   updatedAt   DateTime   @updatedAt
 
   author          User             @relation(fields: [authorId], references: [id])
+  steps           ExerciseStep[]
   assignmentItems AssignmentItem[]
 
   @@index([authorId])
+}
+
+/// One task inside an exercise ("chained" exercises have several).
+model ExerciseStep {
+  id               String   @id @default(cuid())
+  exerciseId       String
+  order            Int
+  title            String
+  /// Markdown
+  description      String   @default("")
+  checkScript      String   @default("")
+  hints            String[]
+  points           Int      @default(10)
+  /// Locked until the previous step is solved (set by the author per step)
+  requiresPrevious Boolean  @default(true)
+
+  exercise     Exercise      @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  attemptSteps AttemptStep[]
+
+  @@index([exerciseId, order])
 }
 
 // ────────────────────────────────────────────────────────────
@@ -252,10 +273,31 @@ model Attempt {
   assignmentItem AssignmentItem @relation(fields: [assignmentItemId], references: [id], onDelete: Cascade)
   commands       CommandLog[]
   events         ExamEvent[]
+  /// Per-step progress; status/score/checks/hintsUsed above are the totals.
+  steps          AttemptStep[]
 
   /// One attempt per student and assignment exercise; retries update it.
   @@unique([userId, assignmentItemId])
   @@index([assignmentItemId])
+}
+
+/// Progress of one attempt on one step.
+model AttemptStep {
+  attemptId   String
+  stepId      String
+  status      AttemptStatus @default(IN_PROGRESS)
+  score       Int?
+  checks      Int           @default(0)
+  hintsUsed   Int           @default(0)
+  checkOutput String?
+  passedAt    DateTime?
+  updatedAt   DateTime      @default(now()) @updatedAt
+
+  attempt Attempt      @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  step    ExerciseStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  @@id([attemptId, stepId])
+  @@index([stepId])
 }
 
 model CommandLog {

@@ -97,7 +97,49 @@ export default async function AttemptPage({
         {a.assignment.dueAt && <> · due {formatDateTime(a.assignment.dueAt)}</>}
       </p>
 
-      {a.checkOutput !== null && (
+      {a.steps.length > 1 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              Steps ({a.steps.filter((s) => s.status === "PASSED").length}/
+              {a.steps.length} solved)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col divide-y p-0">
+            {a.steps.map((s) => (
+              <details key={s.id} className="group px-6 py-2.5">
+                <summary className="flex cursor-pointer list-none items-center gap-3 text-sm">
+                  {s.status === "PASSED" ? (
+                    <CheckCircle2 className="text-primary size-4 shrink-0" />
+                  ) : s.status ? (
+                    <CircleDot className="size-4 shrink-0 text-amber-400" />
+                  ) : (
+                    <span className="text-muted-foreground/40 w-4 text-center">
+                      ·
+                    </span>
+                  )}
+                  <span className="flex-1">
+                    {s.index + 1}. {s.title}
+                  </span>
+                  <span className="text-muted-foreground hidden text-xs sm:inline">
+                    {s.status
+                      ? `${s.checks} checks · ${s.hintsUsed}/${s.hintCount} hints${s.passedAt ? ` · solved ${formatDateTime(s.passedAt)}` : ""}`
+                      : "not started"}
+                  </span>
+                  <span className="w-14 text-right tabular-nums">
+                    {s.status === "PASSED" ? s.points : 0}/{s.points}
+                  </span>
+                </summary>
+                <pre className="bg-muted/40 mt-2 rounded-md p-3 font-mono text-xs whitespace-pre-wrap">
+                  {s.checkOutput ?? "(not checked yet)"}
+                </pre>
+              </details>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {a.steps.length <= 1 && a.checkOutput !== null && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Last check output</CardTitle>

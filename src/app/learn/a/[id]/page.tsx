@@ -86,6 +86,11 @@ export default async function AssignmentPage({
                   <div>
                     {item.score ?? 0}/{item.points} pts
                   </div>
+                  {item.stepCount > 1 && (
+                    <div className="text-muted-foreground text-xs">
+                      {item.stepsPassed}/{item.stepCount} steps
+                    </div>
+                  )}
                   <div className="text-muted-foreground text-xs">
                     {"●".repeat(item.difficulty)}
                     <span className="opacity-30">

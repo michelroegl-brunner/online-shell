@@ -3,6 +3,11 @@ import { z } from "zod";
 
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { ingestCommandLog } from "~/server/assignments/command-log";
+import {
+  itemMaxPoints,
+  itemScore,
+  stepUnlocked,
+} from "~/server/assignments/scoring";
 import { assignmentWhereVisibleTo } from "~/server/assignments/visibility";
 import {
   effectiveDueAt,
@@ -16,6 +21,10 @@ import { runCheck, runSetup } from "~/server/exercises/run";
  * Student side of assignments. Everything is scoped to assignments visible
  * to the caller (published, their class, their groups). Setup/check scripts
  * never leave the server.
+ *
+ * Exercises have 1..n steps sharing one folder. Progress is stored per step
+ * (AttemptStep); the Attempt row holds the totals (status, score, checks,
+ * hintsUsed) so lists and reports stay simple.
  */
 
 type Db = typeof dbType;
@@ -23,7 +32,7 @@ type Db = typeof dbType;
 const itemPoints = (item: {
   points: number | null;
   exercise: { points: number };
-}) => item.points ?? item.exercise.points;
+}) => itemMaxPoints(item.points, item.exercise.points);
 
 /** Load an assignment item the caller may work on, or throw NOT_FOUND. */
 async function loadItem(db: Db, userId: string, itemId: string) {
@@ -42,9 +51,19 @@ async function loadItem(db: Db, userId: string, itemId: string) {
           shell: true,
           difficulty: true,
           points: true,
-          hints: true,
           setupScript: true,
-          checkScript: true,
+          steps: {
+            orderBy: { order: "asc" },
+            select: {
+              id: true,
+              title: true,
+              description: true,
+              checkScript: true,
+              hints: true,
+              points: true,
+              requiresPrevious: true,
+            },
+          },
         },
       },
       assignment: {
@@ -60,13 +79,46 @@ async function loadItem(db: Db, userId: string, itemId: string) {
           items: { orderBy: { order: "asc" }, select: { id: true } },
         },
       },
-      attempts: { where: { userId } },
+      attempts: { where: { userId }, include: { steps: true } },
     },
   });
   if (!item) throw new TRPCError({ code: "NOT_FOUND" });
   const extra = item.assignment.extensions[0]?.extraMinutes;
   const state = windowState(item.assignment, extra);
-  return { item, attempt: item.attempts[0] ?? null, state, extra };
+  const attempt = item.attempts[0] ?? null;
+
+  // Step states (unlock depends on the previous step's progress).
+  const progress = new Map((attempt?.steps ?? []).map((s) => [s.stepId, s]));
+  const steps = item.exercise.steps.map((s, index, all) => {
+    const prev = index > 0 ? progress.get(all[index - 1]!.id) : undefined;
+    const p = progress.get(s.id) ?? null;
+    return {
+      ...s,
+      index,
+      progress: p,
+      unlocked: stepUnlocked(
+        index,
+        s.requiresPrevious,
+        prev?.status === "PASSED",
+      ),
+    };
+  });
+  return { item, attempt, state, extra, steps };
+}
+
+type Loaded = Awaited<ReturnType<typeof loadItem>>;
+
+function findStep(loaded: Loaded, stepId: string) {
+  const step = loaded.steps.find((s) => s.id === stepId);
+  if (!step)
+    throw new TRPCError({ code: "NOT_FOUND", message: "Step not found." });
+  if (!step.unlocked) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Solve the previous step first.",
+    });
+  }
+  return step;
 }
 
 function assertOpen(state: WindowState) {
@@ -96,6 +148,40 @@ async function guardRunner<T>(fn: () => Promise<T>): Promise<T> {
         "Your shell could not be started right now. Please try again in a moment or tell your teacher.",
     });
   }
+}
+
+/** Recompute the attempt totals from its step rows. */
+async function recomputeAttempt(
+  db: Db,
+  attemptId: string,
+  steps: { id: string; points: number }[],
+  override: number | null,
+) {
+  const rows = await db.attemptStep.findMany({ where: { attemptId } });
+  const byId = new Map(rows.map((r) => [r.stepId, r]));
+  const earned = steps.reduce(
+    (s, st) => s + (byId.get(st.id)?.status === "PASSED" ? st.points : 0),
+    0,
+  );
+  const total = steps.reduce((s, st) => s + st.points, 0);
+  const allPassed =
+    steps.length > 0 &&
+    steps.every((st) => byId.get(st.id)?.status === "PASSED");
+  const anyPassed = earned > 0 || rows.some((r) => r.status === "PASSED");
+  const current = await db.attempt.findUniqueOrThrow({
+    where: { id: attemptId },
+    select: { finishedAt: true },
+  });
+  return db.attempt.update({
+    where: { id: attemptId },
+    data: {
+      status: allPassed ? "PASSED" : "IN_PROGRESS",
+      score: anyPassed ? itemScore(earned, total, override) : null,
+      checks: rows.reduce((s, r) => s + r.checks, 0),
+      hintsUsed: rows.reduce((s, r) => s + r.hintsUsed, 0),
+      finishedAt: allPassed ? (current.finishedAt ?? new Date()) : null,
+    },
+  });
 }
 
 export const learnRouter = createTRPCRouter({
@@ -185,11 +271,20 @@ export const learnRouter = createTRPCRouter({
                   difficulty: true,
                   points: true,
                   tags: true,
+                  _count: { select: { steps: true } },
                 },
               },
               attempts: {
                 where: { userId },
-                select: { status: true, score: true, checks: true },
+                select: {
+                  status: true,
+                  score: true,
+                  checks: true,
+                  steps: {
+                    where: { status: "PASSED" },
+                    select: { stepId: true },
+                  },
+                },
               },
             },
           },
@@ -219,6 +314,8 @@ export const learnRouter = createTRPCRouter({
           difficulty: i.exercise.difficulty,
           tags: i.exercise.tags,
           points: itemPoints(i),
+          stepCount: i.exercise._count.steps,
+          stepsPassed: i.attempts[0]?.steps.length ?? 0,
           status: i.attempts[0]?.status ?? null,
           score: i.attempts[0]?.score ?? null,
           checks: i.attempts[0]?.checks ?? 0,
@@ -230,7 +327,7 @@ export const learnRouter = createTRPCRouter({
   item: protectedProcedure
     .input(z.object({ itemId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const { item, attempt, state, extra } = await loadItem(
+      const { item, attempt, state, extra, steps } = await loadItem(
         ctx.db,
         ctx.user.id,
         input.itemId,
@@ -245,7 +342,8 @@ export const learnRouter = createTRPCRouter({
       }
       const ids = item.assignment.items.map((i) => i.id);
       const idx = ids.indexOf(item.id);
-      const hintsUsed = attempt?.hintsUsed ?? 0;
+      const total = steps.reduce((s, st) => s + st.points, 0);
+      const scale = (p: number) => itemScore(p, total, item.points);
       return {
         itemId: item.id,
         assignment: {
@@ -270,18 +368,32 @@ export const learnRouter = createTRPCRouter({
           shell: item.exercise.shell,
           difficulty: item.exercise.difficulty,
           points: itemPoints(item),
-          hintCount: item.exercise.hints.length,
         },
+        // Locked steps only reveal their title.
+        steps: steps.map((s) => ({
+          id: s.id,
+          index: s.index,
+          title: s.title,
+          unlocked: s.unlocked,
+          requiresPrevious: s.requiresPrevious,
+          description: s.unlocked ? s.description : null,
+          points: scale(s.points),
+          hintCount: s.unlocked ? s.hints.length : 0,
+          status: s.progress?.status ?? null,
+          score: s.progress?.status === "PASSED" ? scale(s.points) : null,
+          checks: s.progress?.checks ?? 0,
+          lastCheckOutput: s.progress?.checkOutput ?? null,
+          revealedHints:
+            s.unlocked && item.assignment.allowHints
+              ? s.hints.slice(0, s.progress?.hintsUsed ?? 0)
+              : [],
+        })),
         attempt: attempt && {
           status: attempt.status,
           score: attempt.score,
           checks: attempt.checks,
           resets: attempt.resets,
           prepared: attempt.setupAt !== null,
-          lastCheckOutput: attempt.checkOutput,
-          revealedHints: item.assignment.allowHints
-            ? item.exercise.hints.slice(0, hintsUsed)
-            : [],
         },
       };
     }),
@@ -336,16 +448,13 @@ export const learnRouter = createTRPCRouter({
       };
     }),
 
-  /** Run the check script against my folder. */
+  /** Run one step's check script against my folder. */
   check: protectedProcedure
-    .input(z.object({ itemId: z.string() }))
+    .input(z.object({ itemId: z.string(), stepId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
-      const { item, attempt, state } = await loadItem(
-        ctx.db,
-        userId,
-        input.itemId,
-      );
+      const loaded = await loadItem(ctx.db, userId, input.itemId);
+      const { item, attempt, state } = loaded;
       assertOpen(state);
       if (!attempt?.setupAt) {
         throw new TRPCError({
@@ -353,12 +462,23 @@ export const learnRouter = createTRPCRouter({
           message: "Open the exercise first.",
         });
       }
+      const step = findStep(loaded, input.stepId);
+      const key = {
+        attemptId_stepId: { attemptId: attempt.id, stepId: step.id },
+      };
+      await ctx.db.attemptStep.upsert({
+        where: key,
+        create: { attemptId: attempt.id, stepId: step.id },
+        update: {},
+      });
+
       // Claim a check atomically BEFORE running it, so parallel requests
-      // can't get past maxChecks (the limit doesn't apply once solved).
+      // can't get past maxChecks (per step; no limit once the step passed).
       const max = item.assignment.maxChecks;
-      const claim = await ctx.db.attempt.updateMany({
+      const claim = await ctx.db.attemptStep.updateMany({
         where: {
-          id: attempt.id,
+          attemptId: attempt.id,
+          stepId: step.id,
           ...(max !== null
             ? { OR: [{ status: "PASSED" }, { checks: { lt: max } }] }
             : {}),
@@ -368,57 +488,69 @@ export const learnRouter = createTRPCRouter({
       if (claim.count === 0) {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: `No checks left (${max} allowed).`,
+          message: `No checks left for this step (${max} allowed).`,
         });
       }
       // Store commands up to now before checking (keeps the log in order).
       await ingestCommandLog(userId);
       let res;
       try {
-        res = await guardRunner(() => runCheck(userId, item.exercise));
+        res = await guardRunner(() =>
+          runCheck(userId, {
+            slug: item.exercise.slug,
+            shell: item.exercise.shell,
+            checkScript: step.checkScript,
+          }),
+        );
       } catch (e) {
         // The check never ran: give the claimed check back.
-        await ctx.db.attempt.update({
-          where: { id: attempt.id },
+        await ctx.db.attemptStep.update({
+          where: key,
           data: { checks: { decrement: 1 } },
         });
         throw e;
       }
       if (res.ok) {
-        // Only the first passing check awards points (conditional update).
-        await ctx.db.attempt.updateMany({
-          where: { id: attempt.id, status: { not: "PASSED" } },
-          data: {
-            status: "PASSED",
-            score: itemPoints(item),
-            finishedAt: new Date(),
+        // Only the first passing check awards the step (conditional update).
+        await ctx.db.attemptStep.updateMany({
+          where: {
+            attemptId: attempt.id,
+            stepId: step.id,
+            status: { not: "PASSED" },
           },
+          data: { status: "PASSED", score: step.points, passedAt: new Date() },
         });
       }
-      const updated = await ctx.db.attempt.update({
+      await ctx.db.attemptStep.update({
+        where: key,
+        data: { checkOutput: res.output.slice(0, 8000) },
+      });
+      await ctx.db.attempt.update({
         where: { id: attempt.id },
         data: { checkOutput: res.output.slice(0, 8000) },
       });
+      const updated = await recomputeAttempt(
+        ctx.db,
+        attempt.id,
+        item.exercise.steps,
+        item.points,
+      );
       return {
         ok: res.ok,
         output: res.output,
         timedOut: res.timedOut,
-        status: updated.status,
+        exerciseSolved: updated.status === "PASSED",
         score: updated.score,
-        checks: updated.checks,
       };
     }),
 
-  /** Reveal the next hint. */
+  /** Reveal the next hint of a step. */
   hint: protectedProcedure
-    .input(z.object({ itemId: z.string() }))
+    .input(z.object({ itemId: z.string(), stepId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
-      const { item, attempt, state } = await loadItem(
-        ctx.db,
-        userId,
-        input.itemId,
-      );
+      const loaded = await loadItem(ctx.db, userId, input.itemId);
+      const { item, attempt, state } = loaded;
       assertOpen(state);
       if (!item.assignment.allowHints) {
         throw new TRPCError({
@@ -426,22 +558,41 @@ export const learnRouter = createTRPCRouter({
           message: "Hints are turned off for this assignment.",
         });
       }
-      if (!attempt)
+      if (!attempt) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
           message: "Open the exercise first.",
         });
-      if (attempt.hintsUsed >= item.exercise.hints.length) {
-        return { revealedHints: item.exercise.hints };
       }
-      const updated = await ctx.db.attempt.update({
-        where: { id: attempt.id },
+      const step = findStep(loaded, input.stepId);
+      const key = {
+        attemptId_stepId: { attemptId: attempt.id, stepId: step.id },
+      };
+      const row = await ctx.db.attemptStep.upsert({
+        where: key,
+        create: { attemptId: attempt.id, stepId: step.id },
+        update: {},
+      });
+      if (row.hintsUsed >= step.hints.length) {
+        return { revealedHints: step.hints };
+      }
+      const updated = await ctx.db.attemptStep.update({
+        where: key,
         data: { hintsUsed: { increment: 1 } },
       });
-      return { revealedHints: item.exercise.hints.slice(0, updated.hintsUsed) };
+      await recomputeAttempt(
+        ctx.db,
+        attempt.id,
+        item.exercise.steps,
+        item.points,
+      );
+      return { revealedHints: step.hints.slice(0, updated.hintsUsed) };
     }),
 
-  /** Wipe my exercise folder and run the setup again. Points already earned stay. */
+  /**
+   * Wipe my exercise folder and run the setup again (all steps share it).
+   * Points of solved steps stay.
+   */
   reset: protectedProcedure
     .input(z.object({ itemId: z.string() }))
     .mutation(async ({ ctx, input }) => {
@@ -452,11 +603,12 @@ export const learnRouter = createTRPCRouter({
         input.itemId,
       );
       assertOpen(state);
-      if (!attempt)
+      if (!attempt) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
           message: "Open the exercise first.",
         });
+      }
       await ingestCommandLog(userId);
       const res = await guardRunner(() => runSetup(userId, item.exercise));
       await ctx.db.attempt.update({

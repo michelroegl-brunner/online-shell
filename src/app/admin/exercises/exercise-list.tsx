@@ -138,6 +138,9 @@ export function ExerciseList() {
                       />
                     )}
                     {ex.title}
+                    <span className="text-muted-foreground text-xs font-normal">
+                      {ex.stepCount === 1 ? "1 step" : `${ex.stepCount} steps`}
+                    </span>
                   </div>
                   <div className="mt-1 flex flex-wrap gap-1">
                     <span className="text-muted-foreground font-mono text-xs">

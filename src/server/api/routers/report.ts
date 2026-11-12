@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { assignmentWhere, classWhere } from "~/server/access";
 import { createTRPCRouter, teacherProcedure } from "~/server/api/trpc";
+import { itemScore } from "~/server/assignments/scoring";
 import { effectiveDueAt } from "~/server/assignments/window";
 import { HOME } from "~/server/exercises/run";
 
@@ -84,13 +85,23 @@ export const reportRouter = createTRPCRouter({
               id: true,
               points: true,
               exercise: {
-                select: { id: true, title: true, slug: true, points: true },
+                select: {
+                  id: true,
+                  title: true,
+                  slug: true,
+                  points: true,
+                  _count: { select: { steps: true } },
+                },
               },
               attempts: {
                 select: {
                   id: true,
                   userId: true,
                   status: true,
+                  steps: {
+                    where: { status: "PASSED" },
+                    select: { stepId: true },
+                  },
                   score: true,
                   checks: true,
                   hintsUsed: true,
@@ -149,6 +160,7 @@ export const reportRouter = createTRPCRouter({
         slug: i.exercise.slug,
         exerciseId: i.exercise.id,
         points: itemPoints(i),
+        stepCount: i.exercise._count.steps,
       }));
       const maxPoints = items.reduce((s, i) => s + i.points, 0);
 
@@ -162,6 +174,7 @@ export const reportRouter = createTRPCRouter({
               attemptId: att.id,
               status: att.status,
               score: att.score,
+              stepsPassed: att.steps.length,
               checks: att.checks,
               hintsUsed: att.hintsUsed,
               resets: att.resets,
@@ -309,7 +322,15 @@ export const reportRouter = createTRPCRouter({
                   title: true,
                   slug: true,
                   points: true,
-                  hints: true,
+                  steps: {
+                    orderBy: { order: "asc" },
+                    select: {
+                      id: true,
+                      title: true,
+                      points: true,
+                      hints: true,
+                    },
+                  },
                 },
               },
               assignment: {
@@ -323,6 +344,7 @@ export const reportRouter = createTRPCRouter({
               },
             },
           },
+          steps: true,
           commands: {
             orderBy: [{ at: "asc" }, { id: "asc" }],
             select: {
@@ -356,8 +378,27 @@ export const reportRouter = createTRPCRouter({
           title: item.exercise.title,
           slug: item.exercise.slug,
           points: itemPoints(item),
-          hintCount: item.exercise.hints.length,
+          hintCount: item.exercise.steps.reduce(
+            (s, st) => s + st.hints.length,
+            0,
+          ),
         },
+        steps: item.exercise.steps.map((st, index) => {
+          const p = att.steps.find((x) => x.stepId === st.id);
+          const total = item.exercise.steps.reduce((s, x) => s + x.points, 0);
+          return {
+            id: st.id,
+            index,
+            title: st.title,
+            points: itemScore(st.points, total, item.points),
+            status: p?.status ?? null,
+            checks: p?.checks ?? 0,
+            hintsUsed: p?.hintsUsed ?? 0,
+            hintCount: st.hints.length,
+            passedAt: p?.passedAt ?? null,
+            checkOutput: p?.checkOutput ?? null,
+          };
+        }),
         status: att.status,
         score: att.score,
         checks: att.checks,

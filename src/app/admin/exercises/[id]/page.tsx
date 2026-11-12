@@ -22,18 +22,27 @@ export default async function EditExercisePage({
       id={ex.id}
       canEdit={ex.canEdit}
       archived={ex.archived}
+      stepAttempts={Object.fromEntries(
+        ex.steps.map((s) => [s.id, s.attemptCount]),
+      )}
       initial={{
         title: ex.title,
         slug: ex.slug,
         description: ex.description,
         shell: ex.shell,
         difficulty: ex.difficulty,
-        points: ex.points,
         setupScript: ex.setupScript,
-        checkScript: ex.checkScript,
-        hints: ex.hints,
         tags: ex.tags,
         visibility: ex.visibility,
+        steps: ex.steps.map((s) => ({
+          id: s.id,
+          title: s.title,
+          description: s.description,
+          checkScript: s.checkScript,
+          hints: s.hints,
+          points: s.points,
+          requiresPrevious: s.requiresPrevious,
+        })),
       }}
     />
   );
