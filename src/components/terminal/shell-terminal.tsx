@@ -156,12 +156,19 @@ export function ShellTerminal({
             term.write(new Uint8Array(ev.data));
             return;
           }
-          const msg = JSON.parse(String(ev.data)) as { type: string };
+          const msg = JSON.parse(String(ev.data)) as {
+            type: string;
+            allowed?: boolean;
+          };
           if (msg.type === "ready") {
             setStatus("ready");
             term.focus();
           } else if (msg.type === "paste-blocked") {
             notifyPasteBlocked();
+          } else if (msg.type === "paste-policy" && msg.allowed === false) {
+            // A no-paste assignment just opened.
+            pasteBlockedRef.current = true;
+            setPasteBlocked(true);
           }
         };
         ws.onclose = () => {

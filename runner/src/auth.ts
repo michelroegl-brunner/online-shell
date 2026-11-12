@@ -20,8 +20,10 @@ export type AttachClaims = {
   shell: "BASH" | "PWSH";
   /** Optional start directory; must be inside /home/student. */
   cwd?: string;
-  /** false = drop paste-sized input (assignment forbids pasting). */
+  /** false = drop paste-like input (assignment forbids pasting). */
   allowPaste: boolean;
+  /** epoch ms: from then on behave as if allowPaste were false. */
+  pasteBlockFrom?: number;
 };
 
 const CWD_RE = /^\/home\/student(\/[A-Za-z0-9._-]+)*$/;
@@ -55,5 +57,9 @@ export async function verifyAttachToken(token: string): Promise<AttachClaims> {
     shell,
     cwd,
     allowPaste: payload.paste !== false,
+    pasteBlockFrom:
+      typeof payload.pasteBlockFrom === "number"
+        ? payload.pasteBlockFrom
+        : undefined,
   };
 }

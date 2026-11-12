@@ -60,13 +60,20 @@ export const runner = {
     userId: string,
     shell: ShellKind,
     cwd?: string,
-    allowPaste = true,
+    paste: { allowed: boolean; blockFrom: Date | null } = {
+      allowed: true,
+      blockFrom: null,
+    },
   ) {
     const token = await new SignJWT({
       shell,
       ...(cwd ? { cwd } : {}),
-      // Only sent when false; the runner then drops paste-sized input.
-      ...(allowPaste ? {} : { paste: false }),
+      // paste:false → the runner rate-limits / drops paste-like input.
+      ...(paste.allowed ? {} : { paste: false }),
+      // epoch ms: switch to "no paste" at this time (assignment opens).
+      ...(paste.allowed && paste.blockFrom
+        ? { pasteBlockFrom: paste.blockFrom.getTime() }
+        : {}),
     })
       .setProtectedHeader({ alg: "HS256" })
       .setSubject(userId)

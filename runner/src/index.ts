@@ -167,6 +167,31 @@ function looksPasted(buf: Buffer) {
   return buf.length > MAX_TYPED_BYTES && buf[0] !== 0x1b;
 }
 
+/**
+ * Typing-speed limit while pasting is forbidden, so a modified client
+ * can't just split a paste into small frames. Token bucket per
+ * connection: a short burst, then ~40 bytes/s sustained — above fast human
+ * typing (incl. held arrow keys), far below a paste. Excess is dropped.
+ * Keystroke injectors at "human" speed can't be told apart (documented).
+ */
+const TYPING_BURST_BYTES = 64;
+const TYPING_BYTES_PER_SEC = 40;
+function typingLimiter() {
+  let tokens = TYPING_BURST_BYTES;
+  let last = Date.now();
+  return (bytes: number) => {
+    const now = Date.now();
+    tokens = Math.min(
+      TYPING_BURST_BYTES,
+      tokens + ((now - last) / 1000) * TYPING_BYTES_PER_SEC,
+    );
+    last = now;
+    if (bytes > tokens) return false;
+    tokens -= bytes;
+    return true;
+  };
+}
+
 const resizeMsg = z.object({
   type: z.literal("resize"),
   cols: z.number(),
@@ -175,9 +200,16 @@ const resizeMsg = z.object({
 
 async function attach(
   ws: WebSocket,
-  { userId, shell, cwd, allowPaste }: AttachClaims,
+  { userId, shell, cwd, allowPaste, pasteBlockFrom }: AttachClaims,
   params: URLSearchParams,
 ) {
+  // Paste policy can tighten during the session: a no-paste assignment
+  // that opens later (pasteBlockFrom) switches this terminal to "blocked".
+  const pasteBlocked = () =>
+    !allowPaste ||
+    (pasteBlockFrom !== undefined && Date.now() >= pasteBlockFrom);
+  const withinTypingSpeed = typingLimiter();
+  let blockTimer: NodeJS.Timeout | undefined;
   const cols = Number(params.get("cols") ?? 80);
   const rows = Number(params.get("rows") ?? 24);
 
@@ -191,6 +223,20 @@ async function attach(
   }
   const { stream, resize, release } = pty;
   ws.send(JSON.stringify({ type: "ready" }));
+
+  // Tell the browser when the policy flips, so it blocks paste and shows
+  // the badge too (setTimeout max ≈ 24.8 days; later ones apply on the
+  // next connect anyway).
+  if (allowPaste && pasteBlockFrom !== undefined) {
+    const delay = pasteBlockFrom - Date.now();
+    if (delay > 0 && delay < 2 ** 31 - 1) {
+      blockTimer = setTimeout(() => {
+        if (ws.readyState === ws.OPEN) {
+          ws.send(JSON.stringify({ type: "paste-policy", allowed: false }));
+        }
+      }, delay);
+    }
+  }
 
   stream.on("data", (chunk: Buffer) => {
     if (ws.readyState === ws.OPEN) ws.send(chunk, { binary: true });
@@ -206,8 +252,11 @@ async function attach(
   ws.on("message", (data: RawData, isBinary: boolean) => {
     const buf = Array.isArray(data) ? Buffer.concat(data) : Buffer.from(data);
     if (isBinary) {
-      if (!allowPaste && looksPasted(buf)) {
-        // The browser already blocks paste; this catches clients that don't.
+      // The browser already blocks paste; this catches clients that don't.
+      if (
+        pasteBlocked() &&
+        (looksPasted(buf) || !withinTypingSpeed(buf.length))
+      ) {
         if (ws.readyState === ws.OPEN) {
           ws.send(JSON.stringify({ type: "paste-blocked" }));
         }
@@ -236,6 +285,7 @@ async function attach(
 
   ws.on("close", () => {
     clearInterval(ping);
+    if (blockTimer) clearTimeout(blockTimer);
     stream.end();
     release();
   });

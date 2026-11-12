@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { SLUG_RE } from "~/lib/exercise";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { pasteAllowedFor } from "~/server/assignments/paste";
+import { pastePolicyFor } from "~/server/assignments/paste";
 import { exerciseDir } from "~/server/exercises/run";
 import { runner } from "~/server/runner";
 
@@ -22,13 +22,17 @@ export const boxRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const allowPaste = await pasteAllowedFor(ctx.db, ctx.user);
+      const paste = await pastePolicyFor(ctx.db, ctx.user);
       const info = await runner.attachInfo(
         ctx.user.id,
         input.shell,
         input.exercise ? exerciseDir(input.exercise) : undefined,
-        allowPaste,
+        paste,
       );
-      return { ...info, allowPaste };
+      return {
+        ...info,
+        allowPaste: paste.allowed,
+        pasteBlockFrom: paste.blockFrom,
+      };
     }),
 });
