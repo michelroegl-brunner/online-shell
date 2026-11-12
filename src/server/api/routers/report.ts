@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { assignmentWhere, classWhere } from "~/server/access";
 import { createTRPCRouter, teacherProcedure } from "~/server/api/trpc";
+import { parsePasteDetail } from "~/server/assignments/paste-events";
 import { itemScore } from "~/server/assignments/scoring";
 import { effectiveDueAt } from "~/server/assignments/window";
 import { HOME } from "~/server/exercises/run";
@@ -16,6 +17,14 @@ const itemPoints = (i: {
   points: number | null;
   exercise: { points: number };
 }) => i.points ?? i.exercise.points;
+
+/** Blocked paste attempts of an attempt (ExamEvent rows of type PASTE). */
+const pasteEventsSelect = {
+  where: { type: "PASTE" },
+  select: { detail: true },
+} as const;
+const pasteCount = (events: { detail: string | null }[]) =>
+  events.reduce((n, e) => n + (parsePasteDetail(e.detail)?.count ?? 1), 0);
 
 const minutesBetween = (a: Date, b: Date) =>
   (b.getTime() - a.getTime()) / 60_000;
@@ -120,6 +129,7 @@ export const reportRouter = createTRPCRouter({
                     },
                   },
                   _count: { select: { commands: true } },
+                  events: pasteEventsSelect,
                 },
               },
             },
@@ -181,6 +191,7 @@ export const reportRouter = createTRPCRouter({
               hintsUsed: att.hintsUsed,
               resets: att.resets,
               commands: att._count.commands,
+              pasteAttempts: pasteCount(att.events),
               minutes: att.finishedAt
                 ? Math.round(minutesBetween(att.startedAt, att.finishedAt))
                 : null,
@@ -361,6 +372,12 @@ export const reportRouter = createTRPCRouter({
             },
             take: 5000,
           },
+          events: {
+            where: { type: "PASTE" },
+            orderBy: [{ at: "asc" }, { id: "asc" }],
+            select: { id: true, at: true, detail: true },
+            take: 1000,
+          },
         },
       });
       if (!att) throw new TRPCError({ code: "NOT_FOUND" });
@@ -429,6 +446,17 @@ export const reportRouter = createTRPCRouter({
           cwd: shortCwd(c.cwd),
           command: c.command,
         })),
+        pasteEvents: att.events.map((e) => {
+          const d = parsePasteDetail(e.detail);
+          return {
+            id: e.id.toString(),
+            at: e.at,
+            count: d?.count ?? 1,
+            bytes: d?.bytes ?? 0,
+            reasons: d?.reasons ?? {},
+            terminal: d?.terminal ?? "",
+          };
+        }),
       };
     }),
 
@@ -501,6 +529,7 @@ export const reportRouter = createTRPCRouter({
                   startedAt: true,
                   finishedAt: true,
                   _count: { select: { commands: true } },
+                  events: pasteEventsSelect,
                 },
               },
             },
@@ -528,6 +557,7 @@ export const reportRouter = createTRPCRouter({
                     hintsUsed: t.hintsUsed,
                     resets: t.resets,
                     commands: t._count.commands,
+                    pasteAttempts: pasteCount(t.events),
                     minutes: t.finishedAt
                       ? Math.round(minutesBetween(t.startedAt, t.finishedAt))
                       : null,

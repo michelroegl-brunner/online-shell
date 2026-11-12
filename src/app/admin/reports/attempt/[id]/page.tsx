@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { CheckCircle2, ChevronLeft, CircleDot } from "lucide-react";
+import { CheckCircle2, ChevronLeft, CircleDot, ClipboardX } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -36,6 +36,7 @@ export default async function AttemptPage({
   const failedCount = a.commands.filter(
     (c) => c.exitCode !== null && c.exitCode !== 0,
   ).length;
+  const pasteAttempts = a.pasteEvents.reduce((n, e) => n + e.count, 0);
 
   return (
     <div className="flex flex-col gap-6">
@@ -96,6 +97,52 @@ export default async function AttemptPage({
         {a.finishedAt && <> · solved {formatDateTime(a.finishedAt)}</>}
         {a.assignment.dueAt && <> · due {formatDateTime(a.assignment.dueAt)}</>}
       </p>
+
+      {a.pasteEvents.length > 0 && (
+        <Card className="border-red-500/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ClipboardX className="size-4 text-red-400" />
+              Blocked paste attempts ({pasteAttempts})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <p className="text-muted-foreground text-xs">
+              Pasting was turned off for this assignment, so nothing was pasted.
+              Attempts within 10 s are grouped into one line. &ldquo;Typed too
+              fast&rdquo; can also come from very fast typing or a held key.
+            </p>
+            <ul className="divide-y rounded-md border text-sm">
+              {a.pasteEvents.map((e) => (
+                <li
+                  key={e.id}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2"
+                >
+                  <span className="text-muted-foreground w-36 shrink-0 tabular-nums">
+                    {dayFmt.format(new Date(e.at))}{" "}
+                    {timeFmt.format(new Date(e.at))}
+                  </span>
+                  <span className="flex-1">
+                    {Object.entries(e.reasons)
+                      .filter(([, n]) => n)
+                      .map(
+                        ([r, n]) =>
+                          `${pasteReasonLabel(r)}${n && n > 1 ? ` ×${n}` : ""}`,
+                      )
+                      .join(", ")}
+                  </span>
+                  <span className="text-muted-foreground text-xs">
+                    {e.bytes > 0 && <>{e.bytes} chars · </>}
+                    {e.terminal === "playground"
+                      ? "playground"
+                      : `~/exercises/${e.terminal}`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       {a.steps.length > 1 && (
         <Card>
@@ -215,6 +262,25 @@ export default async function AttemptPage({
       </Card>
     </div>
   );
+}
+
+function pasteReasonLabel(reason: string) {
+  switch (reason) {
+    case "paste":
+      return "Paste";
+    case "drop":
+      return "Drag & drop";
+    case "shortcut":
+      return "Paste shortcut";
+    case "bracketed":
+      return "Paste (bypassed browser)";
+    case "chunk":
+      return "Large input (bypassed browser)";
+    case "speed":
+      return "Typed too fast";
+    default:
+      return reason;
+  }
 }
 
 function Fact({ label, value }: { label: string; value: string | number }) {

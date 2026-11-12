@@ -23,6 +23,7 @@ import {
   touch,
 } from "./boxes.js";
 import { config } from "./config.js";
+import { type PasteReason, pasteReporter } from "./paste-report.js";
 
 // ── small HTTP helpers ──
 
@@ -129,7 +130,8 @@ const server = createServer((req, res) => {
 
 // ── terminal WebSocket: /attach?token=…&cols=…&rows=… ──
 // Protocol: binary frames = terminal bytes (both directions);
-// text frames client→server = JSON control ({type:"resize",cols,rows});
+// text frames client→server = JSON control ({type:"resize",cols,rows} /
+//   {type:"paste-attempt",reason,bytes} when the browser blocked a paste);
 // text frames server→client = JSON status ({type:"ready"} / {type:"exit"}).
 
 const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
@@ -162,9 +164,9 @@ server.on("upgrade", (req, socket, head) => {
  */
 const PASTE_START = Buffer.from("\x1b[200~");
 const MAX_TYPED_BYTES = 24;
-function looksPasted(buf: Buffer) {
-  if (buf.includes(PASTE_START)) return true;
-  return buf.length > MAX_TYPED_BYTES && buf[0] !== 0x1b;
+function pastedReason(buf: Buffer): PasteReason | null {
+  if (buf.includes(PASTE_START)) return "bracketed";
+  return buf.length > MAX_TYPED_BYTES && buf[0] !== 0x1b ? "chunk" : null;
 }
 
 /**
@@ -192,11 +194,15 @@ function typingLimiter() {
   };
 }
 
-const resizeMsg = z.object({
-  type: z.literal("resize"),
-  cols: z.number(),
-  rows: z.number(),
-});
+const controlMsg = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("resize"), cols: z.number(), rows: z.number() }),
+  // The browser blocked a paste/drop/shortcut itself (nothing was sent).
+  z.object({
+    type: z.literal("paste-attempt"),
+    reason: z.enum(["paste", "drop", "shortcut"]),
+    bytes: z.number().int().nonnegative().max(10_000_000).default(0),
+  }),
+]);
 
 async function attach(
   ws: WebSocket,
@@ -209,6 +215,7 @@ async function attach(
     !allowPaste ||
     (pasteBlockFrom !== undefined && Date.now() >= pasteBlockFrom);
   const withinTypingSpeed = typingLimiter();
+  const report = pasteReporter(userId, cwd);
   let blockTimer: NodeJS.Timeout | undefined;
   const cols = Number(params.get("cols") ?? 80);
   const rows = Number(params.get("rows") ?? 24);
@@ -253,10 +260,12 @@ async function attach(
     const buf = Array.isArray(data) ? Buffer.concat(data) : Buffer.from(data);
     if (isBinary) {
       // The browser already blocks paste; this catches clients that don't.
-      if (
+      const blocked =
         pasteBlocked() &&
-        (looksPasted(buf) || !withinTypingSpeed(buf.length))
-      ) {
+        (pastedReason(buf) ??
+          (withinTypingSpeed(buf.length) ? null : ("speed" as const)));
+      if (blocked) {
+        report.add(blocked, buf.length);
         if (ws.readyState === ws.OPEN) {
           ws.send(JSON.stringify({ type: "paste-blocked" }));
         }
@@ -267,8 +276,9 @@ async function attach(
       return;
     }
     try {
-      const msg = resizeMsg.parse(JSON.parse(buf.toString("utf8")));
-      void resize(msg.cols, msg.rows);
+      const msg = controlMsg.parse(JSON.parse(buf.toString("utf8")));
+      if (msg.type === "resize") void resize(msg.cols, msg.rows);
+      else if (pasteBlocked()) report.add(msg.reason, msg.bytes);
     } catch {
       /* ignore unknown control messages */
     }
@@ -286,6 +296,7 @@ async function attach(
   ws.on("close", () => {
     clearInterval(ping);
     if (blockTimer) clearTimeout(blockTimer);
+    report.flush();
     stream.end();
     release();
   });

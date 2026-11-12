@@ -17,6 +17,9 @@ https://{$DOMAIN}, https://10.10.10.230 {
 	tls internal
 	encode zstd gzip
 
+	# Runner -> web callbacks are internal (docker network only).
+	respond /api/runner/* 404
+
 	# Terminal WebSockets go straight to the runner; everything else to Next.
 	@attach path /attach /attach/*
 	reverse_proxy @attach runner:4100

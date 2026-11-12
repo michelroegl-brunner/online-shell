@@ -190,6 +190,17 @@ the token's `pasteBlockFrom` makes the runner switch at that time
 while a terminal is open applies from the next connect. A deterrent, not a
 guarantee: keystroke injectors at human speed can't be detected.
 
+**Paste attempts** are logged for the teacher. The terminal tells the
+runner when the browser blocked a paste, drop or paste shortcut; the runner
+adds its own drops (bracketed paste, large chunk, faster than typing),
+batches them per terminal (10 s window) and posts them to
+`/api/runner/paste-events` (bearer `RUNNER_SECRET`, runner env `WEB_URL`;
+Caddy doesn't forward `/api/runner/*`). They become `ExamEvent`s of type
+`PASTE` on the attempt of the exercise the terminal was opened in, or else
+the student's most recently active attempt in an open no-paste assignment
+(`src/server/assignments/paste-events.ts`); with no attempt yet they are
+dropped. Reports show a count per cell and a list on the attempt page.
+
 ## Routes
 
 | Path | Who | |

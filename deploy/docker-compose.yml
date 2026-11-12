@@ -58,6 +58,8 @@ services:
       RUNNER_SECRET: ${RUNNER_SECRET}
       PORT: "4100"
       ALLOWED_ORIGINS: https://${DOMAIN}
+      # Internal: blocked paste attempts are reported to the web app.
+      WEB_URL: http://web:3000
       BASH_IMAGE: oshell-bash:latest
       PWSH_IMAGE: oshell-pwsh:latest
     volumes:

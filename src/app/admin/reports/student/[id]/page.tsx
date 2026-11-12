@@ -105,7 +105,7 @@ export default async function StudentReportPage({
                   </span>
                   <span className="text-muted-foreground hidden text-xs sm:inline">
                     {t
-                      ? `${t.checks} checks · ${t.hintsUsed} hints · ${t.resets} resets · ${t.commands} commands${t.minutes !== null ? ` · ${t.minutes} min` : ""}`
+                      ? `${t.checks} checks · ${t.hintsUsed} hints · ${t.resets} resets · ${t.commands} commands${t.pasteAttempts ? ` · ${t.pasteAttempts} blocked pastes` : ""}${t.minutes !== null ? ` · ${t.minutes} min` : ""}`
                       : "not started"}
                   </span>
                   <span className="w-16 text-right tabular-nums">

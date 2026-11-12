@@ -12,6 +12,12 @@ const schema = z.object({
         .map((o) => o.trim())
         .filter(Boolean),
     ),
+  /** Web app, internal URL: blocked paste attempts are reported there. */
+  WEB_URL: z
+    .string()
+    .url()
+    .default("http://localhost:3000")
+    .transform((u) => u.replace(/\/+$/, "")),
   BASH_IMAGE: z.string().default("oshell-bash:latest"),
   PWSH_IMAGE: z.string().default("oshell-pwsh:latest"),
   IDLE_MINUTES: z.coerce.number().positive().default(15),

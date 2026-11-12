@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   CircleDot,
+  ClipboardX,
   Download,
   Pencil,
   RefreshCw,
@@ -305,7 +306,7 @@ function CellView({
   return (
     <Link
       href={`/admin/reports/attempt/${cell.attemptId}`}
-      title={`${passed ? "Solved" : "Started"}${steps} · ${cell.score ?? 0}/${points} pts · ${cell.checks} checks · ${cell.hintsUsed} hints · ${cell.resets} resets · ${cell.commands} commands`}
+      title={`${passed ? "Solved" : "Started"}${steps} · ${cell.score ?? 0}/${points} pts · ${cell.checks} checks · ${cell.hintsUsed} hints · ${cell.resets} resets · ${cell.commands} commands${cell.pasteAttempts ? ` · ${cell.pasteAttempts} blocked paste attempts` : ""}`}
       className={cn(
         "inline-flex min-w-14 items-center justify-center gap-1 rounded-md px-2 py-1 text-xs tabular-nums",
         passed
@@ -319,6 +320,12 @@ function CellView({
         <CircleDot className="size-3.5" />
       )}
       {text}
+      {cell.pasteAttempts > 0 && (
+        <span className="ml-0.5 inline-flex items-center gap-0.5 text-red-400">
+          <ClipboardX className="size-3.5" />
+          {cell.pasteAttempts}
+        </span>
+      )}
     </Link>
   );
 }

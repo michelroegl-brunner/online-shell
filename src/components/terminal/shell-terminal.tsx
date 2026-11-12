@@ -49,6 +49,18 @@ export function ShellTerminal({
     );
   }, []);
 
+  // Tell the runner about a paste the browser blocked, so the teacher sees
+  // it (the runner batches and stores these; nothing is sent to the shell).
+  const reportPasteAttempt = useCallback(
+    (reason: "paste" | "drop" | "shortcut", bytes = 0) => {
+      const ws = wsRef.current;
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "paste-attempt", reason, bytes }));
+      }
+    },
+    [],
+  );
+
   // Plain client call (stable reference) instead of useMutation state.
   const trpc = api.useUtils().client;
 
@@ -87,7 +99,21 @@ export function ShellTerminal({
         if (!pasteBlockedRef.current) return;
         e.preventDefault();
         e.stopImmediatePropagation();
-        if (e.type !== "dragover") notifyPasteBlocked();
+        if (e.type === "dragover") return;
+        notifyPasteBlocked();
+        if (e instanceof ClipboardEvent) {
+          reportPasteAttempt(
+            "paste",
+            e.clipboardData?.getData("text/plain").length ?? 0,
+          );
+        } else if (e instanceof DragEvent) {
+          const dt = e.dataTransfer;
+          const files = [...(dt?.files ?? [])].reduce((n, f) => n + f.size, 0);
+          reportPasteAttempt(
+            "drop",
+            (dt?.getData("text/plain").length ?? 0) + files,
+          );
+        }
       };
       for (const t of ["paste", "drop", "dragover"]) {
         host.addEventListener(t, block, true);
@@ -100,6 +126,7 @@ export function ShellTerminal({
         if (isPasteKey) {
           e.preventDefault();
           notifyPasteBlocked();
+          reportPasteAttempt("shortcut");
           return false;
         }
         return true;
@@ -118,8 +145,8 @@ export function ShellTerminal({
       disposed = true;
       cleanup();
     };
-    // notifyPasteBlocked is stable (useCallback with no deps).
-  }, [notifyPasteBlocked]);
+    // Both callbacks are stable (useCallback with no deps).
+  }, [notifyPasteBlocked, reportPasteAttempt]);
 
   // (Re)connect whenever `session` changes.
   useEffect(() => {
