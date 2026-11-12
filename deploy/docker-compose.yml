@@ -1,0 +1,84 @@
+# Production stack. Run from the repo root:
+#   docker compose -p online-shell -f deploy/docker-compose.yml \
+#     --env-file /opt/online-shell/.env up -d --build
+# The env file holds secrets and is NOT in git (see deploy/env.example).
+#
+# The runner talks to the HOST Docker daemon: student boxes are sibling
+# containers (no network), not children of this stack.
+#
+# TLS: the school's edge proxy (htlsrv-proxy-caddy, 10.10.10.250) holds the
+# public certificate and forwards to https://10.10.10.230:443 (see Caddyfile).
+
+name: online-shell
+
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: oshell
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: oshell
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oshell -d oshell"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  web:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://oshell:${POSTGRES_PASSWORD}@db:5432/oshell
+      APP_URL: https://${DOMAIN:?set DOMAIN}
+      AUTH_URL: https://${DOMAIN}
+      AUTH_TRUST_HOST: "true"
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET}
+      AUTH_MICROSOFT_ENTRA_ID_ID: ${AUTH_MICROSOFT_ENTRA_ID_ID:?set Entra client id}
+      AUTH_MICROSOFT_ENTRA_ID_SECRET: ${AUTH_MICROSOFT_ENTRA_ID_SECRET:?set Entra secret}
+      AUTH_MICROSOFT_ENTRA_ID_TENANT_ID: ${AUTH_MICROSOFT_ENTRA_ID_TENANT_ID:?set Entra tenant}
+      AUTH_DEV_LOGIN: "false"
+      RUNNER_URL: http://runner:4100
+      RUNNER_PUBLIC_URL: wss://${DOMAIN}
+      RUNNER_SECRET: ${RUNNER_SECRET:?set RUNNER_SECRET}
+
+  runner:
+    build:
+      context: ..
+      dockerfile: runner/Dockerfile
+    restart: unless-stopped
+    environment:
+      RUNNER_SECRET: ${RUNNER_SECRET}
+      PORT: "4100"
+      ALLOWED_ORIGINS: https://${DOMAIN}
+      BASH_IMAGE: oshell-bash:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [web, runner]
+    # The edge proxy terminates the public TLS and forwards to :443 here
+    # (internal self-signed cert); :80 is plain HTTP.
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,48 @@
+name: Deploy
+
+# Every push to main redeploys on the server. The job runs on a self-hosted
+# runner INSIDE the server container (label `online-shell`), so no inbound
+# access and no deploy keys are needed. Secrets live in /opt/online-shell/.env
+# on the server, not in GitHub.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, online-shell]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build student box image
+        run: docker build -t oshell-bash:latest runner/images/bash
+
+      - name: Build and start the stack
+        run: |
+          docker compose -p online-shell -f deploy/docker-compose.yml \
+            --env-file /opt/online-shell/.env up -d --build --remove-orphans
+
+      - name: Wait for the web app
+        run: |
+          for i in $(seq 1 60); do
+            if docker compose -p online-shell -f deploy/docker-compose.yml \
+                 --env-file /opt/online-shell/.env exec -T web \
+                 node -e "fetch('http://localhost:3000/auth/signin').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then
+              echo "web is up"; exit 0
+            fi
+            sleep 3
+          done
+          docker compose -p online-shell -f deploy/docker-compose.yml \
+            --env-file /opt/online-shell/.env logs --tail 80 web
+          exit 1
+
+      - name: Clean up old images
+        if: always()
+        run: docker image prune -f
