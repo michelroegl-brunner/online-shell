@@ -178,6 +178,14 @@ Commands outside exercise folders are dropped.
 Setup/check scripts never reach the browser; students only see what the
 check prints.
 
+**Pasting** (`Assignment.allowPaste`, off by default for new assignments):
+while any *open* assignment of a student forbids pasting, all their
+terminals block it (also the playground, since it's the same box). The
+browser blocks paste/drop/Ctrl+V, and the runner drops paste-sized input
+(> 24 bytes or bracketed-paste markers) from the attach token's `paste:
+false` claim (`src/server/assignments/paste.ts`). A deterrent, not a
+guarantee: keystroke-injecting tools can't be detected.
+
 ## Routes
 
 | Path | Who | |

@@ -56,6 +56,7 @@ const assignmentInput = z
     dueAt: z.date().nullable().optional(),
     maxChecks: z.number().int().min(1).max(1000).nullable().optional(),
     allowHints: z.boolean().default(true),
+    allowPaste: z.boolean().default(false),
     published: z.boolean().default(false),
     mode: z.literal("PRACTICE").default("PRACTICE"),
   })
@@ -107,6 +108,7 @@ const baseData = (input: AssignmentInput) => ({
   dueAt: input.dueAt ?? null,
   maxChecks: input.maxChecks ?? null,
   allowHints: input.allowHints,
+  allowPaste: input.allowPaste,
   published: input.published,
 });
 

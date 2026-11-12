@@ -63,6 +63,7 @@ export type EditorInitial = {
   dueAt: Date | null;
   maxChecks: number | null;
   allowHints: boolean;
+  allowPaste: boolean;
   published: boolean;
 };
 
@@ -131,6 +132,7 @@ export function AssignmentEditor({
       dueAt: fromLocalInput(form.dueAt),
       maxChecks: maxChecks === "" ? null : Number(maxChecks),
       allowHints: form.allowHints,
+      allowPaste: form.allowPaste,
       published: form.published,
       mode: "PRACTICE" as const,
     };
@@ -406,6 +408,20 @@ export function AssignmentEditor({
                 onChange={(e) => set("allowHints", e.target.checked)}
               />
               Allow hints
+            </label>
+          </Field>
+          <Field label="Terminal" className="md:col-span-1">
+            <label
+              className="flex h-9 items-center gap-2 text-sm"
+              title="Off: students can't paste into their terminals while this assignment is open (also blocked on the server)."
+            >
+              <input
+                type="checkbox"
+                className="accent-primary size-4"
+                checked={form.allowPaste}
+                onChange={(e) => set("allowPaste", e.target.checked)}
+              />
+              Allow pasting
             </label>
           </Field>
         </CardContent>

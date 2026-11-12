@@ -28,6 +28,7 @@ export default async function EditAssignmentPage({
         dueAt: a.dueAt,
         maxChecks: a.maxChecks,
         allowHints: a.allowHints,
+        allowPaste: a.allowPaste,
         published: a.published,
         items: a.items.map((i) => ({
           exerciseId: i.exercise.id,

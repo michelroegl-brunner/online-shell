@@ -20,6 +20,8 @@ export type AttachClaims = {
   shell: "BASH" | "PWSH";
   /** Optional start directory; must be inside /home/student. */
   cwd?: string;
+  /** false = drop paste-sized input (assignment forbids pasting). */
+  allowPaste: boolean;
 };
 
 const CWD_RE = /^\/home\/student(\/[A-Za-z0-9._-]+)*$/;
@@ -48,5 +50,10 @@ export async function verifyAttachToken(token: string): Promise<AttachClaims> {
   ) {
     throw new Error("bad cwd");
   }
-  return { userId: payload.sub, shell, cwd };
+  return {
+    userId: payload.sub,
+    shell,
+    cwd,
+    allowPaste: payload.paste !== false,
+  };
 }

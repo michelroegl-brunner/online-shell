@@ -56,8 +56,18 @@ export const runner = {
    * Short-lived token the browser presents when opening the terminal
    * WebSocket. Valid for 60 s; only used for the upgrade handshake.
    */
-  async attachInfo(userId: string, shell: ShellKind, cwd?: string) {
-    const token = await new SignJWT(cwd ? { shell, cwd } : { shell })
+  async attachInfo(
+    userId: string,
+    shell: ShellKind,
+    cwd?: string,
+    allowPaste = true,
+  ) {
+    const token = await new SignJWT({
+      shell,
+      ...(cwd ? { cwd } : {}),
+      // Only sent when false; the runner then drops paste-sized input.
+      ...(allowPaste ? {} : { paste: false }),
+    })
       .setProtectedHeader({ alg: "HS256" })
       .setSubject(userId)
       .setIssuer("oshell-web")

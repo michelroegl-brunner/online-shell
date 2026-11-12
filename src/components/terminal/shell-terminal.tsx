@@ -6,6 +6,7 @@ import type { FitAddon } from "@xterm/addon-fit";
 import type { Terminal } from "@xterm/xterm";
 import { Loader2, RotateCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
@@ -33,6 +34,20 @@ export function ShellTerminal({
   const wsRef = useRef<WebSocket | null>(null);
   const [status, setStatus] = useState<Status>("connecting");
   const [session, setSession] = useState(0); // bump to reconnect
+  // Set from the attach call (decided by the server, also enforced by the
+  // runner); read by the paste/drop handlers registered once below.
+  const pasteBlockedRef = useRef(false);
+  const lastNoticeRef = useRef(0);
+  const [pasteBlocked, setPasteBlocked] = useState(false);
+
+  const notifyPasteBlocked = useCallback(() => {
+    const now = Date.now();
+    if (now - lastNoticeRef.current < 3000) return;
+    lastNoticeRef.current = now;
+    toast.info(
+      "Pasting is turned off for your current assignment — please type it.",
+    );
+  }, []);
 
   // Plain client call (stable reference) instead of useMutation state.
   const trpc = api.useUtils().client;
@@ -63,9 +78,38 @@ export function ShellTerminal({
 
       const onResize = () => fit.fit();
       const ro = new ResizeObserver(onResize);
-      ro.observe(hostRef.current);
+      const host = hostRef.current;
+      ro.observe(host);
+
+      // Paste blocking: capture-phase listeners on the host run before
+      // xterm's own handlers on its hidden textarea.
+      const block = (e: Event) => {
+        if (!pasteBlockedRef.current) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (e.type !== "dragover") notifyPasteBlocked();
+      };
+      for (const t of ["paste", "drop", "dragover"]) {
+        host.addEventListener(t, block, true);
+      }
+      term.attachCustomKeyEventHandler((e) => {
+        if (!pasteBlockedRef.current || e.type !== "keydown") return true;
+        const isPasteKey =
+          ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v") ||
+          (e.shiftKey && e.key === "Insert");
+        if (isPasteKey) {
+          e.preventDefault();
+          notifyPasteBlocked();
+          return false;
+        }
+        return true;
+      });
+
       cleanup = () => {
         ro.disconnect();
+        for (const t of ["paste", "drop", "dragover"]) {
+          host.removeEventListener(t, block, true);
+        }
         term.dispose();
       };
       setSession((s) => s + 1); // first connect once the terminal exists
@@ -74,7 +118,8 @@ export function ShellTerminal({
       disposed = true;
       cleanup();
     };
-  }, []);
+    // notifyPasteBlocked is stable (useCallback with no deps).
+  }, [notifyPasteBlocked]);
 
   // (Re)connect whenever `session` changes.
   useEffect(() => {
@@ -89,11 +134,13 @@ export function ShellTerminal({
 
     void (async () => {
       try {
-        const { url, token } = await trpc.box.attach.mutate({
+        const { url, token, allowPaste } = await trpc.box.attach.mutate({
           shell,
           exercise,
         });
         if (closedByUs) return;
+        pasteBlockedRef.current = !allowPaste;
+        setPasteBlocked(!allowPaste);
         const qs = new URLSearchParams({
           token,
           cols: String(term.cols),
@@ -113,6 +160,8 @@ export function ShellTerminal({
           if (msg.type === "ready") {
             setStatus("ready");
             term.focus();
+          } else if (msg.type === "paste-blocked") {
+            notifyPasteBlocked();
           }
         };
         ws.onclose = () => {
@@ -140,7 +189,7 @@ export function ShellTerminal({
       disposables.forEach((d) => d.dispose());
       ws?.close();
     };
-  }, [session, shell, exercise, trpc]);
+  }, [session, shell, exercise, trpc, notifyPasteBlocked]);
 
   const reconnect = useCallback(() => {
     termRef.current?.reset();
@@ -155,6 +204,14 @@ export function ShellTerminal({
       )}
     >
       <div ref={hostRef} className="h-full w-full" />
+      {pasteBlocked && status === "ready" && (
+        <span
+          className="text-muted-foreground pointer-events-none absolute top-2 right-3 rounded border border-white/10 bg-black/70 px-1.5 py-0.5 text-[11px]"
+          title="Your teacher turned off pasting for the current assignment."
+        >
+          Pasting disabled
+        </span>
+      )}
       {status !== "ready" && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/60">
           {status === "connecting" ? (

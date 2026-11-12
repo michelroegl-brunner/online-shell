@@ -154,6 +154,19 @@ server.on("upgrade", (req, socket, head) => {
   );
 });
 
+/**
+ * Typing sends one key (or one escape sequence) per message; a paste
+ * arrives as one big chunk, often wrapped in bracketed-paste markers.
+ * Terminal replies (device attributes, OSC colour answers) start with ESC
+ * and may be longer, so those are let through.
+ */
+const PASTE_START = Buffer.from("\x1b[200~");
+const MAX_TYPED_BYTES = 24;
+function looksPasted(buf: Buffer) {
+  if (buf.includes(PASTE_START)) return true;
+  return buf.length > MAX_TYPED_BYTES && buf[0] !== 0x1b;
+}
+
 const resizeMsg = z.object({
   type: z.literal("resize"),
   cols: z.number(),
@@ -162,7 +175,7 @@ const resizeMsg = z.object({
 
 async function attach(
   ws: WebSocket,
-  { userId, shell, cwd }: AttachClaims,
+  { userId, shell, cwd, allowPaste }: AttachClaims,
   params: URLSearchParams,
 ) {
   const cols = Number(params.get("cols") ?? 80);
@@ -193,6 +206,13 @@ async function attach(
   ws.on("message", (data: RawData, isBinary: boolean) => {
     const buf = Array.isArray(data) ? Buffer.concat(data) : Buffer.from(data);
     if (isBinary) {
+      if (!allowPaste && looksPasted(buf)) {
+        // The browser already blocks paste; this catches clients that don't.
+        if (ws.readyState === ws.OPEN) {
+          ws.send(JSON.stringify({ type: "paste-blocked" }));
+        }
+        return;
+      }
       touch(userId);
       stream.write(buf);
       return;
