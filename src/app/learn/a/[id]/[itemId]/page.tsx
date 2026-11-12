@@ -1,0 +1,35 @@
+import { TRPCError } from "@trpc/server";
+import { notFound, redirect } from "next/navigation";
+
+import { AppHeader } from "~/components/app-header";
+import { getCurrentUser } from "~/server/auth/current-user";
+import { api } from "~/trpc/server";
+import { Workspace } from "./workspace";
+
+export default async function ExercisePage({
+  params,
+}: {
+  params: Promise<{ id: string; itemId: string }>;
+}) {
+  const { id, itemId } = await params;
+  const user = await getCurrentUser();
+  if (!user) redirect("/auth/signin");
+  const data = await api.learn.item({ itemId }).catch((e: unknown) => {
+    if (e instanceof TRPCError && e.code === "NOT_FOUND") notFound();
+    throw e;
+  });
+  if (data.assignment.id !== id) notFound();
+  if (data.assignment.state === "upcoming") redirect("/learn");
+
+  return (
+    <div className="flex h-dvh flex-col">
+      <AppHeader
+        user={user}
+        home="/learn"
+        nav={[{ href: "/learn/playground", label: "Playground" }]}
+      />
+      {/* Remount per exercise so state (terminal, results) starts fresh. */}
+      <Workspace key={itemId} initial={data} />
+    </div>
+  );
+}

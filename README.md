@@ -119,21 +119,54 @@ several groups; only students of the class can be added. When a student
 leaves the class (M365 sync, sign-in sync or dev removal), their group
 memberships in that class are removed too.
 
-**Assignment targeting** (used by the upcoming assignments feature): an
-assignment with **no groups** goes to the whole class; with groups, only to
-students in **at least one** of them. The rule lives in
-`assignmentWhereVisibleTo(userId)` (`src/server/assignments/visibility.ts`).
+**Assignment targeting**: an assignment with **no groups** goes to the
+whole class; with groups, only to students in **at least one** of them. The
+rule lives in `assignmentWhereVisibleTo(userId)`
+(`src/server/assignments/visibility.ts`).
+
+## Assignments
+
+A teacher puts exercises from the library into an **assignment** for one
+class (optionally only some of its groups), with an optional opening/due
+time (a per-student extension moves the due time), a check limit and
+hints on/off. Students only see **published** assignments; before
+`opensAt` they're listed but locked, after `dueAt` read-only.
+
+Student flow (`/learn/a/<assignment>/<item>`, router `learn`):
+
+1. **Open** → `learn.start`: creates the student's attempt (one per student
+   and exercise) and runs the exercise **setup** once in their box
+   (`~/exercises/<slug>`). Re-opening doesn't wipe their work.
+2. Work in the terminal (it starts in the exercise folder).
+3. **Check** → `learn.check`: runs the **check** script; exit 0 = solved
+   and the item's points are awarded (assignment override or exercise
+   default). Later failed checks never take points away. `maxChecks`
+   limits checks until solved.
+4. **Hints** are revealed one at a time (`hintsUsed` is recorded).
+5. **Reset** wipes the folder and re-runs setup (counted in `resets`).
+
+**Command log**: before start/check/reset, the server rotates
+`/run/oshell/cmd.log` out of the student's box and stores each line as a
+`CommandLog` row on the attempt whose folder (`cwd` under
+`~/exercises/<slug>`) it ran in (`src/server/assignments/command-log.ts`).
+Commands outside exercise folders are dropped.
+
+Setup/check scripts never reach the browser; students only see what the
+check prints.
 
 ## Routes
 
 | Path | Who | |
 |---|---|---|
 | `/auth/signin` | everyone | Microsoft sign-in (+ dev login) |
-| `/learn` | students | my classes / assignments |
+| `/learn` | students | my classes / assignments with progress |
+| `/learn/a/[id]` | students | one assignment: exercises + my status |
+| `/learn/a/[id]/[itemId]` | students | task, hints, terminal, check, reset |
 | `/learn/playground` | everyone | free Bash shell in your own box |
 | `/admin` | TEACHER, ADMIN | exercises, classes, assignments, reports |
 | `/admin/exercises` | TEACHER, ADMIN | exercise library, editor, test run |
 | `/admin/classes` | TEACHER, ADMIN | import M365 groups, members, teachers, groups |
+| `/admin/assignments` | TEACHER, ADMIN | create / edit / publish assignments |
 
 `src/proxy.ts` guards `/learn` and `/admin`; the admin layout checks the role again
 on the server. tRPC has `protectedProcedure`, `teacherProcedure`, `adminProcedure`.

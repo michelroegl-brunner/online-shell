@@ -1,8 +1,11 @@
-import { Users } from "lucide-react";
+import { ChevronRight, Users } from "lucide-react";
+import Link from "next/link";
 
 import { AppHeader } from "~/components/app-header";
+import { WindowBadge } from "~/components/learn/badges";
 import {
   Card,
+  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -10,8 +13,7 @@ import {
 import { api } from "~/trpc/server";
 
 export default async function LearnPage() {
-  const me = await api.me.get();
-  const classes = me.memberships.map((m) => m.class);
+  const [me, classes] = await Promise.all([api.me.get(), api.learn.overview()]);
 
   return (
     <>
@@ -24,7 +26,7 @@ export default async function LearnPage() {
         <h1 className="mb-1 text-2xl font-semibold">
           Hi {me.name.split(" ")[0]}
         </h1>
-        <p className="text-muted-foreground mb-6">Your classes</p>
+        <p className="text-muted-foreground mb-6">Your assignments</p>
 
         {classes.length === 0 ? (
           <Card>
@@ -37,7 +39,7 @@ export default async function LearnPage() {
             </CardHeader>
           </Card>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="flex flex-col gap-6">
             {classes.map((c) => (
               <Card key={c.id}>
                 <CardHeader>
@@ -45,8 +47,62 @@ export default async function LearnPage() {
                     <Users className="text-muted-foreground size-4" />
                     {c.name}
                   </CardTitle>
-                  <CardDescription>No open assignments</CardDescription>
+                  {c.assignments.length === 0 && (
+                    <CardDescription>No assignments yet.</CardDescription>
+                  )}
                 </CardHeader>
+                {c.assignments.length > 0 && (
+                  <CardContent className="flex flex-col divide-y">
+                    {c.assignments.map((a) => {
+                      const pct = a.total ? (a.solved / a.total) * 100 : 0;
+                      const inner = (
+                        <>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-medium">{a.title}</span>
+                              <WindowBadge
+                                state={a.state}
+                                opensAt={a.opensAt}
+                                dueAt={a.dueAt}
+                              />
+                            </div>
+                            <div className="mt-2 flex items-center gap-3">
+                              <div className="bg-muted h-1.5 w-40 overflow-hidden rounded-full">
+                                <div
+                                  className="bg-primary h-full"
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                              <span className="text-muted-foreground text-xs">
+                                {a.solved}/{a.total} solved · {a.points}/
+                                {a.maxPoints} points
+                              </span>
+                            </div>
+                          </div>
+                          {a.state !== "upcoming" && (
+                            <ChevronRight className="text-muted-foreground size-4" />
+                          )}
+                        </>
+                      );
+                      return a.state === "upcoming" ? (
+                        <div
+                          key={a.id}
+                          className="flex items-center gap-3 py-3 opacity-60"
+                        >
+                          {inner}
+                        </div>
+                      ) : (
+                        <Link
+                          key={a.id}
+                          href={`/learn/a/${a.id}`}
+                          className="hover:bg-accent/40 -mx-2 flex items-center gap-3 rounded-md px-2 py-3"
+                        >
+                          {inner}
+                        </Link>
+                      );
+                    })}
+                  </CardContent>
+                )}
               </Card>
             ))}
           </div>

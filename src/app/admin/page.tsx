@@ -24,8 +24,9 @@ const SECTIONS = [
   },
   {
     title: "Assignments",
-    text: "Give exercise sets to a class as practice or exam.",
+    text: "Give exercise sets to a class or to groups of it.",
     icon: ClipboardList,
+    href: "/admin/assignments",
   },
   {
     title: "Reports",

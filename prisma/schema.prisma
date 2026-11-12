@@ -241,14 +241,20 @@ model Attempt {
   hintsUsed        Int           @default(0)
   checkOutput      String?
   startedAt        DateTime      @default(now())
+  /// Last time the setup script ran (null = folder not prepared yet)
+  setupAt          DateTime?
+  /// How often the student reset the exercise folder
+  resets           Int           @default(0)
   finishedAt       DateTime?
+  updatedAt        DateTime      @default(now()) @updatedAt
 
   user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   assignmentItem AssignmentItem @relation(fields: [assignmentItemId], references: [id], onDelete: Cascade)
   commands       CommandLog[]
   events         ExamEvent[]
 
-  @@index([userId])
+  /// One attempt per student and assignment exercise; retries update it.
+  @@unique([userId, assignmentItemId])
   @@index([assignmentItemId])
 }
 
