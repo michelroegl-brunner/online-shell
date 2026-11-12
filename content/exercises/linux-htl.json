@@ -1,0 +1,380 @@
+{
+  "format": "online-shell-exercises",
+  "version": 1,
+  "exercises": [
+    {
+      "title": "Linux-Shell Grundlagen 1: echo, help und Umleitungen",
+      "slug": "linux-shell-grundlagen-1",
+      "description": "Erste Schritte in der **Bash**. Du arbeitest in deinem Übungsordner\n`~/exercises/linux-shell-grundlagen-1` (dort startet das Terminal).\n\nWeil man Bildschirmausgaben nicht automatisch prüfen kann, speicherst du\ndie Ergebnisse jeweils mit einer **Umleitung** (`>` bzw. `>>`) in einer Datei.\n\n> Die Box ist ein echtes Debian-Linux ohne Internet und ohne `sudo`.",
+      "shell": "BASH",
+      "difficulty": 1,
+      "setupScript": "# Ordner ist anfangs leer – alles entsteht durch die Lernenden.\ntrue",
+      "tags": [
+        "bash",
+        "echo",
+        "help",
+        "grundlagen"
+      ],
+      "visibility": "PRIVATE",
+      "steps": [
+        {
+          "title": "Verzeichnis COPR anlegen",
+          "description": "Lege im Übungsordner ein Verzeichnis mit dem Namen `COPR` an\n(Gross-/Kleinschreibung beachten).",
+          "checkScript": "[ -d COPR ] || { echo \"Der Ordner COPR fehlt (Gross-/Kleinschreibung beachten).\"; exit 1; }\necho \"Ordner COPR ist angelegt.\"",
+          "hints": [
+            "Mit `mkdir` legst du Verzeichnisse an.",
+            "Prüfe mit `ls -l`, ob der Ordner da ist."
+          ],
+          "points": 2,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Hello, world!",
+          "description": "Gib den String `Hello, world!` mit `echo` aus und leite die Ausgabe\nin die Datei `hello.txt` um.",
+          "checkScript": "[ -f hello.txt ] || { echo \"hello.txt gibt es noch nicht.\"; exit 1; }\nif [ \"$(cat hello.txt)\" != \"Hello, world!\" ]; then\n  echo \"hello.txt muss genau 'Hello, world!' enthalten.\"\n  exit 1\nfi\necho \"Richtig!\"",
+          "hints": [
+            "`echo 'Text' > datei` schreibt die Ausgabe in eine Datei.",
+            "Einfache Anführungszeichen verhindern, dass die Bash das `!` interpretiert."
+          ],
+          "points": 2,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Hilfe zu echo",
+          "description": "Prüfe mit `help`, wie `echo` offiziell beschrieben wird, und speichere\ndiese Hilfe in der Datei `echo-hilfe.txt`.",
+          "checkScript": "[ -s echo-hilfe.txt ] || { echo \"echo-hilfe.txt fehlt oder ist leer.\"; exit 1; }\nif ! grep -q 'echo \\[-neE\\]' echo-hilfe.txt; then\n  echo \"Das sieht nicht nach der Ausgabe von 'help echo' aus.\"\n  exit 1\nfi\necho \"Gut – das ist die Hilfe von echo.\"",
+          "hints": [
+            "`help` zeigt die Hilfe zu eingebauten Bash-Befehlen.",
+            "Auch die Ausgabe von `help` kannst du mit `>` umleiten."
+          ],
+          "points": 3,
+          "requiresPrevious": false
+        },
+        {
+          "title": "fee, fie, foe, fum mit der Historie",
+          "description": "Schreibe die Wörter `fee`, `fie`, `foe` und `fum` – jedes in einer\neigenen Zeile und in dieser Reihenfolge – in die Datei `fee.txt`.\n\nNutze dabei die **Befehls-Historie**: Tippe den ersten Befehl, hole ihn mit\nder Pfeiltaste ↑ zurück und ändere nur das Wort.",
+          "checkScript": "[ -f fee.txt ] || { echo \"fee.txt gibt es noch nicht.\"; exit 1; }\ngot=$(sed 's/[[:space:]]*$//' fee.txt | sed 's/fö/foe/' | grep -v '^$')\nwant=$(printf 'fee\\nfie\\nfoe\\nfum')\nif [ \"$got\" != \"$want\" ]; then\n  echo \"fee.txt muss die vier Wörter fee, fie, foe, fum in je einer Zeile enthalten (in dieser Reihenfolge).\"\n  exit 1\nfi\necho \"Perfekt!\"",
+          "hints": [
+            "`>>` hängt an eine Datei an, `>` überschreibt sie.",
+            "Mit ↑ holst du den letzten Befehl zurück; `history` zeigt alle."
+          ],
+          "points": 3,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Ausgabe löschen",
+          "description": "Lösche die sichtbare Ausgabe im Terminal. Schreibe danach den Befehl\n(oder die Tastenkombination), mit dem du das gemacht hast, in die Datei `clear.txt`.",
+          "checkScript": "[ -s clear.txt ] || { echo \"clear.txt fehlt oder ist leer.\"; exit 1; }\nif ! grep -Eqi 'clear|strg ?\\+? ?l|ctrl ?\\+? ?l|\\^l' clear.txt; then\n  echo \"In clear.txt steht nicht, wie man das Terminal leert.\"\n  exit 1\nfi\necho \"Genau.\"",
+          "hints": [
+            "Es gibt einen Befehl mit fünf Buchstaben dafür.",
+            "Auch eine Tastenkombination mit Strg funktioniert."
+          ],
+          "points": 2,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Anführungszeichen ausgeben",
+          "description": "Gib den Text `Use \"man echo\"` **mit** den doppelten Anführungszeichen aus\nund speichere die Ausgabe in `zitat.txt`.",
+          "checkScript": "[ -f zitat.txt ] || { echo \"zitat.txt gibt es noch nicht.\"; exit 1; }\ngot=$(sed 's/[[:space:]]*$//' zitat.txt)\nif [ \"$got\" != 'Use \"man echo\"' ] && [ \"$got\" != 'Use \"man echo\".' ]; then\n  echo \"zitat.txt muss genau: Use \\\"man echo\\\" enthalten (mit den Anführungszeichen).\"\n  exit 1\nfi\necho \"Richtig maskiert!\"",
+          "hints": [
+            "Doppelte Anführungszeichen kannst du in einfache einpacken.",
+            "Oder du maskierst sie mit `\\\"`."
+          ],
+          "points": 3,
+          "requiresPrevious": false
+        },
+        {
+          "title": "5 Sekunden pausieren",
+          "description": "Finde heraus, mit welchem Befehl das Terminal **5 Sekunden pausiert**,\nund probiere ihn aus. Schreibe den Befehl (nur diese eine Zeile) in `pause.txt`.\n\nHinweis: `sleep` ist kein Bash-Builtin – `help` kennt ihn daher nicht.\nVerwende `man sleep` oder `sleep --help`.",
+          "checkScript": "[ -s pause.txt ] || { echo \"pause.txt fehlt oder ist leer.\"; exit 1; }\nif ! grep -Eq '^[[:space:]]*sleep[[:space:]]+5(s|\\.0)?[[:space:]]*$' pause.txt; then\n  echo \"In pause.txt soll genau der Befehl für 5 Sekunden Pause stehen.\"\n  exit 1\nfi\necho \"Richtig: sleep 5.\"",
+          "hints": [
+            "Der Befehl heisst wie „schlafen“ auf Englisch.",
+            "Die Zahl ist die Dauer in Sekunden."
+          ],
+          "points": 3,
+          "requiresPrevious": false
+        }
+      ]
+    },
+    {
+      "title": "Linux-Shell Grundlagen 2: Dateien, cat, ls, cp, mv",
+      "slug": "linux-shell-grundlagen-2",
+      "description": "Dateien anlegen, zusammenfügen, auflisten, kopieren und umbenennen.\nDu arbeitest in `~/exercises/linux-shell-grundlagen-2`. Dort liegen schon ein\npaar Dateien (auch **versteckte**, deren Name mit einem Punkt beginnt) und\nder Ordner `aufgabe14/`.",
+      "shell": "BASH",
+      "difficulty": 1,
+      "setupScript": "echo \"Einkaufsliste: Brot, Milch\" > notiz.txt\necho \"id;name\" > liste.csv\necho \"Regal 3\" > lager.txt\necho \"geheim\" > .versteckt\necho \"auch versteckt\" > .lokal\nmkdir -p bilder aufgabe14\necho \"Inhalt von foo\" > aufgabe14/foo",
+      "tags": [
+        "bash",
+        "cat",
+        "ls",
+        "cp",
+        "mv",
+        "grundlagen"
+      ],
+      "visibility": "PRIVATE",
+      "steps": [
+        {
+          "title": "Zwei Dateien mit echo erzeugen",
+          "description": "Erzeuge mit `echo` und Umleitung die beiden Dateien `line_1.txt` und\n`line_2.txt` mit beliebigem (nicht leerem) Inhalt.",
+          "checkScript": "for f in line_1.txt line_2.txt; do\n  [ -s \"$f\" ] || { echo \"$f fehlt oder ist leer.\"; exit 1; }\ndone\necho \"Beide Dateien sind da.\"",
+          "hints": [
+            "`echo 'Text' > datei` legt die Datei an.",
+            "Prüfe mit `cat line_1.txt`."
+          ],
+          "points": 3,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Dateien mit cat kombinieren",
+          "description": "Kombiniere `line_1.txt` und `line_2.txt` (in dieser Reihenfolge) mit `cat`\nin eine dritte Datei `line_3.txt`.",
+          "checkScript": "[ -f line_3.txt ] || { echo \"line_3.txt gibt es noch nicht.\"; exit 1; }\nif ! cat line_1.txt line_2.txt | cmp -s - line_3.txt; then\n  echo \"line_3.txt muss genau line_1.txt und danach line_2.txt enthalten.\"\n  exit 1\nfi\necho \"Richtig kombiniert.\"",
+          "hints": [
+            "`cat` kann mehrere Dateien hintereinander ausgeben.",
+            "Die Ausgabe leitest du mit `>` in die neue Datei."
+          ],
+          "points": 3,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Inhalt mit less ansehen",
+          "description": "Zeige den Inhalt von `line_3.txt` mit `less` an (beenden mit `q`).\nZähle danach die Zeilen von `line_3.txt` mit `wc -l` und speichere die Zahl\nin `zeilen.txt`.",
+          "checkScript": "[ -s zeilen.txt ] || { echo \"zeilen.txt fehlt oder ist leer.\"; exit 1; }\nwant=$(wc -l < line_3.txt)\ngot=$(awk '{print $1; exit}' zeilen.txt)\nif [ \"$got\" != \"$want\" ]; then\n  echo \"In zeilen.txt steht nicht die Zeilenanzahl von line_3.txt.\"\n  exit 1\nfi\necho \"Stimmt: $want Zeilen.\"",
+          "hints": [
+            "In `less` blätterst du mit Leertaste, `q` beendet.",
+            "`wc -l < datei` gibt nur die Zahl aus."
+          ],
+          "points": 2,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Dateien mit l… auflisten",
+          "description": "Liste alle **nicht versteckten** Dateien im Übungsordner auf, deren Name\nmit `l` beginnt, und speichere die Ausgabe in `l-dateien.txt`.",
+          "checkScript": "[ -f l-dateien.txt ] || { echo \"l-dateien.txt gibt es noch nicht.\"; exit 1; }\nwant=$(ls -d l* | grep -vx 'l-dateien.txt' | sort)\ngot=$(tr -s ' \\t' '\\n' < l-dateien.txt | sed 's#^\\./##' | grep -v '^$' | grep -vx 'l-dateien.txt' | sort)\nif [ \"$got\" != \"$want\" ]; then\n  echo \"In l-dateien.txt sollen genau die Dateien stehen, die mit l beginnen (ohne versteckte).\"\n  exit 1\nfi\nif grep -q '\\.lokal' l-dateien.txt; then\n  echo \"Versteckte Dateien gehören nicht dazu.\"\n  exit 1\nfi\necho \"Richtig gefiltert.\"",
+          "hints": [
+            "Der Platzhalter `*` passt auf beliebige Zeichen.",
+            "Versteckte Dateien (mit Punkt am Anfang) zeigt `ls` ohne `-a` nicht an."
+          ],
+          "points": 3,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Alles in der langen Form",
+          "description": "Liste **alle** Dateien inklusive der versteckten in der **langen Form** auf\nund speichere die Ausgabe in `alle.txt`.",
+          "checkScript": "[ -s alle.txt ] || { echo \"alle.txt fehlt oder ist leer.\"; exit 1; }\ngrep -q '\\.versteckt' alle.txt || { echo \"Die versteckten Dateien fehlen (z. B. .versteckt).\"; exit 1; }\ngrep -Eq '^[-d][rwx-]{9}' alle.txt || { echo \"Das ist nicht die lange Form (Rechte, Besitzer, Grösse …).\"; exit 1; }\necho \"Alles da.\"",
+          "hints": [
+            "`-l` steht für die lange Form.",
+            "`-a` zeigt auch versteckte Dateien."
+          ],
+          "points": 3,
+          "requiresPrevious": false
+        },
+        {
+          "title": "foo.txt kopieren",
+          "description": "Erstelle `foo.txt` mit dem Inhalt `hello world`, kopiere die Datei und\nnenne die Kopie `bar.txt`.",
+          "checkScript": "for f in foo.txt bar.txt; do\n  [ -f \"$f\" ] || { echo \"$f fehlt.\"; exit 1; }\n  [ \"$(cat \"$f\")\" = \"hello world\" ] || { echo \"$f muss genau 'hello world' enthalten.\"; exit 1; }\ndone\necho \"Beide Dateien passen.\"",
+          "hints": [
+            "Kopieren geht mit `cp quelle ziel`.",
+            "Den Inhalt erzeugst du mit `echo`."
+          ],
+          "points": 3,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Umbenennen und kopieren",
+          "description": "Im Ordner `aufgabe14/` liegt die Datei `foo`. Benenne sie in `bar` um\nund erzeuge danach eine Kopie `foobar`.\n\nNotiere die beiden Befehle (je eine Zeile) in `aufgabe14/befehle.txt`.",
+          "checkScript": "cd aufgabe14 || { echo \"Der Ordner aufgabe14 fehlt.\"; exit 1; }\n[ -e foo ] && { echo \"foo gibt es noch – sie soll umbenannt werden.\"; exit 1; }\nfor f in bar foobar; do\n  [ -f \"$f\" ] || { echo \"aufgabe14/$f fehlt.\"; exit 1; }\n  [ \"$(cat \"$f\")\" = \"Inhalt von foo\" ] || { echo \"aufgabe14/$f hat nicht den Inhalt der ursprünglichen foo.\"; exit 1; }\ndone\n[ -f befehle.txt ] || { echo \"aufgabe14/befehle.txt fehlt.\"; exit 1; }\ngrep -Eq '(^|[[:space:]])mv[[:space:]]' befehle.txt || { echo \"In befehle.txt fehlt der Befehl zum Umbenennen.\"; exit 1; }\ngrep -Eq '(^|[[:space:]])cp[[:space:]]' befehle.txt || { echo \"In befehle.txt fehlt der Befehl zum Kopieren.\"; exit 1; }\necho \"Sauber gemacht.\"",
+          "hints": [
+            "Umbenennen ist in Linux dasselbe wie Verschieben.",
+            "Danach brauchst du `cp`."
+          ],
+          "points": 4,
+          "requiresPrevious": false
+        }
+      ]
+    },
+    {
+      "title": "Shell-Skripte (leicht): Rechner und Dateizähler",
+      "slug": "linux-skripte-leicht",
+      "description": "Erste eigene **Bash-Skripte** mit Parametern (`$1`, `$2`, `$#`) und\nExit-Codes. Lege die Skripte im Übungsordner an (z. B. mit `nano rechner.sh`).\n\nDie Prüfung startet deine Skripte mit `bash ./name.sh …`. Mit\n`#!/bin/bash` und `chmod +x` kannst du sie auch direkt mit `./name.sh` starten.\n\nIm Ordner `testdaten/` liegen Dateien und Unterordner zum Ausprobieren.",
+      "shell": "BASH",
+      "difficulty": 2,
+      "setupScript": "mkdir -p testdaten/bilder testdaten/docs testdaten/leer\nfor f in a.txt b.txt c.log d.csv e.txt; do echo \"$f\" > \"testdaten/$f\"; done\necho x > testdaten/bilder/x.png\necho y > testdaten/bilder/y.txt\necho z > testdaten/docs/z.txt",
+      "tags": [
+        "bash",
+        "skript",
+        "parameter",
+        "if"
+      ],
+      "visibility": "PRIVATE",
+      "steps": [
+        {
+          "title": "Einfache Rechenmaschine (rechner.sh)",
+          "description": "Schreibe `rechner.sh`, das zwei ganze Zahlen als Parameter nimmt und\nSumme, Differenz, Produkt und (ganzzahlige) Division ausgibt.\n\n*Beispiel:* `./rechner.sh 10 5` →\n`Summe: 15, Differenz: 5, Produkt: 50, Division: 2`",
+          "checkScript": "[ -f rechner.sh ] || { echo \"rechner.sh gibt es noch nicht.\"; exit 1; }\nt() {\n  out=$(timeout 5 bash ./rechner.sh \"$1\" \"$2\" 2>&1)\n  for kv in \"Summe:$3\" \"Differenz:$4\" \"Produkt:$5\" \"Division:$6\"; do\n    k=$(echo \"$kv\" | cut -d: -f1); v=$(echo \"$kv\" | cut -d: -f2)\n    if ! echo \"$out\" | grep -Eq \"$k:[[:space:]]*$v([^0-9]|$)\"; then\n      echo \"Bei './rechner.sh $1 $2' fehlt '$k: $v'. Ausgabe war: $out\"\n      exit 1\n    fi\n  done\n}\nt 10 5 15 5 50 2\nt 20 4 24 16 80 5\necho \"Rechnet richtig!\"",
+          "hints": [
+            "Rechnen geht mit `$(( $1 + $2 ))`.",
+            "Die Parameter heissen `$1` und `$2`."
+          ],
+          "points": 10,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Rechner: Fehlerbehandlung",
+          "description": "Erweitere `rechner.sh`: Fehlen Parameter, sind sie keine ganzen Zahlen oder\nist die zweite Zahl `0`, soll das Skript eine **Fehlermeldung** ausgeben und\nmit einem **Exit-Code ungleich 0** enden (z. B. `exit 1`).",
+          "checkScript": "bad() {\n  out=$(timeout 5 bash ./rechner.sh \"$@\" 2>&1); rc=$?\n  if [ \"$rc\" -eq 0 ]; then echo \"'./rechner.sh $*' sollte mit einem Fehler (Exit-Code ≠ 0) enden.\"; exit 1; fi\n  if [ -z \"$out\" ]; then echo \"'./rechner.sh $*' soll eine Fehlermeldung ausgeben.\"; exit 1; fi\n}\nbad\nbad 10\nbad abc 5\nbad 10 x\nbad 10 0\nout=$(timeout 5 bash ./rechner.sh 10 5 2>&1) || { echo \"Mit gültigen Zahlen darf kein Fehler kommen.\"; exit 1; }\necho \"$out\" | grep -Eq 'Summe:[[:space:]]*15' || { echo \"Die normale Berechnung funktioniert nicht mehr.\"; exit 1; }\necho \"Fehler werden sauber abgefangen.\"",
+          "hints": [
+            "`$#` enthält die Anzahl der Parameter.",
+            "Ob etwas eine Zahl ist, prüft z. B. `[[ $1 =~ ^-?[0-9]+$ ]]`."
+          ],
+          "points": 5,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Dateizähler (count_files.sh)",
+          "description": "Schreibe `count_files.sh`, das ein Verzeichnis als Parameter bekommt,\nprüft, ob es existiert, und **rekursiv** (inklusive Unterordner) die Dateien\nund die Unterordner zählt.\n\n*Beispiel:* `./count_files.sh ./testdaten` → `Dateien: 8, Ordner: 3`\n\nExistiert das Verzeichnis nicht: Fehlermeldung und Exit-Code ≠ 0.",
+          "checkScript": "[ -f count_files.sh ] || { echo \"count_files.sh gibt es noch nicht.\"; exit 1; }\nout=$(timeout 5 bash ./count_files.sh ./testdaten 2>&1)\necho \"$out\" | grep -Eq 'Dateien:[[:space:]]*8([^0-9]|$)' || { echo \"Für testdaten erwartet: Dateien: 8. Ausgabe: $out\"; exit 1; }\necho \"$out\" | grep -Eq 'Ordner:[[:space:]]*3([^0-9]|$)' || { echo \"Für testdaten erwartet: Ordner: 3. Ausgabe: $out\"; exit 1; }\n# zweites, zufälliges Verzeichnis (gegen fest eingetragene Zahlen)\nt=$(mktemp -d)\nnd=$(( RANDOM % 3 + 1 )); nf=0\nfor i in $(seq 1 $nd); do mkdir \"$t/d$i\"; touch \"$t/d$i/f$i\"; nf=$((nf + 1)); done\nextra=$(( RANDOM % 4 + 2 ))\nfor i in $(seq 1 $extra); do touch \"$t/x$i.dat\"; nf=$((nf + 1)); done\nout=$(timeout 5 bash ./count_files.sh \"$t\" 2>&1)\nrm -rf \"$t\"\necho \"$out\" | grep -Eq \"Dateien:[[:space:]]*$nf([^0-9]|$)\" || { echo \"Für ein anderes Verzeichnis stimmt die Dateianzahl nicht (erwartet $nf). Ausgabe: $out\"; exit 1; }\necho \"$out\" | grep -Eq \"Ordner:[[:space:]]*$nd([^0-9]|$)\" || { echo \"Für ein anderes Verzeichnis stimmt die Ordneranzahl nicht (erwartet $nd). Ausgabe: $out\"; exit 1; }\nif timeout 5 bash ./count_files.sh ./gibts-nicht >/dev/null 2>&1; then\n  echo \"Bei einem nicht existierenden Verzeichnis soll das Skript mit Exit-Code ≠ 0 enden.\"\n  exit 1\nfi\necho \"Zählt richtig!\"",
+          "hints": [
+            "`find DIR -type f` findet Dateien, `-type d` Verzeichnisse.",
+            "`wc -l` zählt Zeilen; das Startverzeichnis selbst zählt nicht als Unterordner (`-mindepth 1`)."
+          ],
+          "points": 10,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Dateizähler: nur eine Endung",
+          "description": "Erweitere `count_files.sh` um einen **optionalen zweiten Parameter**: eine\nDateiendung wie `.txt`. Ist er angegeben, werden nur Dateien mit dieser\nEndung gezählt.\n\n*Beispiel:* `./count_files.sh ./testdaten .txt` → `Dateien: 5, Ordner: 3`",
+          "checkScript": "out=$(timeout 5 bash ./count_files.sh ./testdaten .txt 2>&1)\necho \"$out\" | grep -Eq 'Dateien:[[:space:]]*5([^0-9]|$)' || { echo \"Mit .txt erwartet: Dateien: 5. Ausgabe: $out\"; exit 1; }\nout=$(timeout 5 bash ./count_files.sh ./testdaten .log 2>&1)\necho \"$out\" | grep -Eq 'Dateien:[[:space:]]*1([^0-9]|$)' || { echo \"Mit .log erwartet: Dateien: 1. Ausgabe: $out\"; exit 1; }\nout=$(timeout 5 bash ./count_files.sh ./testdaten 2>&1)\necho \"$out\" | grep -Eq 'Dateien:[[:space:]]*8([^0-9]|$)' || { echo \"Ohne Endung müssen weiterhin alle 8 Dateien gezählt werden.\"; exit 1; }\necho \"Filter funktioniert.\"",
+          "hints": [
+            "`find … -name \"*.txt\"` filtert nach Namen.",
+            "Mit `[ -n \"$2\" ]` prüfst du, ob der zweite Parameter gesetzt ist."
+          ],
+          "points": 5,
+          "requiresPrevious": true
+        }
+      ]
+    },
+    {
+      "title": "Shell-Skripte (mittel): Backup, Log-Analyse, Dateien verschieben",
+      "slug": "linux-skripte-mittel",
+      "description": "Praktische **Bash-Skripte** für typische Admin-Aufgaben.\n\nIm Übungsordner liegen:\n- `projekt/` – ein kleines Projekt zum Sichern\n- `app.log` – eine Logdatei\n- `sammlung/` – gemischte Dateien zum Ausprobieren von `mvprot.sh`\n\nDie Prüfung startet deine Skripte mit `bash` und testet sie auch mit\n**eigenen** Daten – fest eingetragene Ergebnisse reichen also nicht.",
+      "shell": "BASH",
+      "difficulty": 3,
+      "setupScript": "mkdir -p projekt/src sammlung\necho '#!/bin/bash' > projekt/main.sh\necho '# Projekt' > projekt/README.md\necho 'Hallo' > projekt/src/app.txt\nfor n in rechnung angebot notiz brief liste; do echo \"$n\" > \"sammlung/$n.txt\"; done\necho log1 > sammlung/system.log\necho log2 > sammlung/fehler.log\necho '# Info' > sammlung/info.md\ncat > app.log <<'LOGEOF'\n2026-04-01 08:00:12 INFO Application start\n2026-04-01 08:00:15 INFO Loading configuration\n2026-04-01 08:00:18 WARNING Config key cache.ttl missing, using default\n2026-04-01 08:01:03 INFO User login attempt: anna\n2026-04-01 08:01:04 ERROR Authentication failed for user anna\n2026-04-01 08:01:32 INFO User login attempt: lukas\n2026-04-01 08:01:33 INFO Authentication successful for user lukas\n2026-04-01 08:02:10 WARNING Disk space below 15 percent\n2026-04-01 08:02:59 ERROR Database timeout on query getOrders\n2026-04-01 08:03:05 INFO Retry query getOrders successful\nLOGEOF",
+      "tags": [
+        "bash",
+        "skript",
+        "backup",
+        "grep",
+        "schleifen"
+      ],
+      "visibility": "PRIVATE",
+      "steps": [
+        {
+          "title": "Backup-Skript (backup.sh)",
+          "description": "Schreibe `backup.sh QUELLE ZIEL`, das das Verzeichnis `QUELLE` in einen\nneuen Ordner im Verzeichnis `ZIEL` kopiert. Der neue Ordner heisst\n`backup_JJJJ-MM-TT_HH-MM` (Zeitstempel). Existiert `ZIEL` nicht, wird es angelegt.\n\n*Beispiel:* `./backup.sh ./projekt ./backups` →\n`Backup erstellt: ./backups/backup_2026-02-27_14-30`",
+          "checkScript": "[ -f backup.sh ] || { echo \"backup.sh gibt es noch nicht.\"; exit 1; }\nt=$(mktemp -d)\nout=$(timeout 10 bash ./backup.sh ./projekt \"$t/ziel\" 2>&1)\nb=$(find \"$t/ziel\" -mindepth 1 -maxdepth 1 -type d -name 'backup_*' 2>/dev/null | head -1)\nif [ -z \"$b\" ]; then rm -rf \"$t\"; echo \"Im Ziel wurde kein Ordner backup_… angelegt. Ausgabe: $out\"; exit 1; fi\nname=$(basename \"$b\")\nif ! echo \"$name\" | grep -Eq '^backup_[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}(-[0-9]{2})?$'; then\n  rm -rf \"$t\"; echo \"Der Ordnername '$name' passt nicht zu backup_JJJJ-MM-TT_HH-MM.\"; exit 1\nfi\nif ! diff -r ./projekt \"$b\" >/dev/null 2>&1; then\n  rm -rf \"$t\"; echo \"Der Inhalt des Backups unterscheidet sich vom Projekt (Unterordner mitkopiert?).\"; exit 1\nfi\nrm -rf \"$t\"\necho \"$out\" | grep -qi 'backup erstellt' || { echo \"Gib am Ende 'Backup erstellt: …' aus.\"; exit 1; }\necho \"Backup funktioniert.\"",
+          "hints": [
+            "`date +%Y-%m-%d_%H-%M` liefert den Zeitstempel.",
+            "`cp -r` kopiert ganze Verzeichnisse, `mkdir -p` legt das Ziel an."
+          ],
+          "points": 10,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Backup: alte Sicherungen löschen",
+          "description": "Erweitere `backup.sh`: Nach dem Sichern werden Backup-Ordner im Ziel,\ndie **älter als 7 Tage** sind, automatisch gelöscht. Jüngere bleiben erhalten.",
+          "checkScript": "t=$(mktemp -d)\nmkdir -p \"$t/ziel/backup_2020-01-01_10-00\" \"$t/ziel/backup_neu-gestern\"\ntouch -d '10 days ago' \"$t/ziel/backup_2020-01-01_10-00\"\ntouch -d '1 day ago' \"$t/ziel/backup_neu-gestern\"\ntimeout 10 bash ./backup.sh ./projekt \"$t/ziel\" >/dev/null 2>&1\nalt=0; [ -d \"$t/ziel/backup_2020-01-01_10-00\" ] && alt=1\njung=0; [ -d \"$t/ziel/backup_neu-gestern\" ] && jung=1\nneu=$(find \"$t/ziel\" -mindepth 1 -maxdepth 1 -type d -newer \"$t/ziel/backup_neu-gestern\" -name 'backup_*' | wc -l)\nrm -rf \"$t\"\n[ \"$alt\" -eq 0 ] || { echo \"Ein 10 Tage altes Backup wurde nicht gelöscht.\"; exit 1; }\n[ \"$jung\" -eq 1 ] || { echo \"Ein Backup von gestern wurde gelöscht – nur ältere als 7 Tage sollen weg.\"; exit 1; }\n[ \"$neu\" -ge 1 ] || { echo \"Das neue Backup fehlt.\"; exit 1; }\necho \"Rotation funktioniert.\"",
+          "hints": [
+            "`find ZIEL -maxdepth 1 -name 'backup_*' -mtime +7` findet alte Ordner.",
+            "`-exec rm -rf {} +` löscht die Treffer."
+          ],
+          "points": 5,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Logfile-Analyzer (log_analyzer.sh)",
+          "description": "Schreibe `log_analyzer.sh LOGDATEI`, das zählt, wie oft `ERROR`, `WARNING`\nund `INFO` vorkommen, und das Ergebnis formatiert ausgibt.\n\n*Beispiel:* `./log_analyzer.sh app.log` → `ERROR: 2, WARNING: 2, INFO: 6`\n\nFehlt die Datei: Fehlermeldung und Exit-Code ≠ 0.",
+          "checkScript": "[ -f log_analyzer.sh ] || { echo \"log_analyzer.sh gibt es noch nicht.\"; exit 1; }\nchk() {\n  out=$(timeout 5 bash ./log_analyzer.sh \"$1\" 2>&1)\n  for kv in \"ERROR:$2\" \"WARNING:$3\" \"INFO:$4\"; do\n    k=$(echo \"$kv\" | cut -d: -f1); v=$(echo \"$kv\" | cut -d: -f2)\n    echo \"$out\" | grep -Eq \"$k:[[:space:]]*$v([^0-9]|$)\" || { echo \"Für $5 erwartet '$k: $v'. Ausgabe: $out\"; exit 1; }\n  done\n}\nchk app.log 2 2 6 app.log\nt=$(mktemp)\nfor i in 1 2 3; do echo \"2026-05-0$i 10:00:0$i ERROR Fehler $i\" >> \"$t\"; done\necho \"2026-05-04 10:00:04 WARNING Warnung\" >> \"$t\"\nfor i in 1 2 3 4; do echo \"2026-05-05 10:00:0$i INFO Info $i\" >> \"$t\"; done\nchk \"$t\" 3 1 4 \"eine andere Logdatei\"\nrm -f \"$t\"\nif timeout 5 bash ./log_analyzer.sh ./gibts-nicht.log >/dev/null 2>&1; then\n  echo \"Bei einer fehlenden Datei soll das Skript mit Exit-Code ≠ 0 enden.\"; exit 1\nfi\necho \"Analyse stimmt.\"",
+          "hints": [
+            "`grep -c WORT datei` zählt Zeilen mit einem Wort.",
+            "Mit `-w` zählt `grep` nur ganze Wörter."
+          ],
+          "points": 10,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Log-Analyzer: nur ein Level",
+          "description": "Erweitere `log_analyzer.sh` um einen **optionalen zweiten Parameter** mit\neinem Log-Level. Ist er angegeben, wird nur dieses Level ausgegeben.\n\n*Beispiel:* `./log_analyzer.sh app.log ERROR` → `ERROR: 2`",
+          "checkScript": "out=$(timeout 5 bash ./log_analyzer.sh app.log ERROR 2>&1)\necho \"$out\" | grep -Eq 'ERROR:[[:space:]]*2([^0-9]|$)' || { echo \"Für 'app.log ERROR' erwartet: ERROR: 2. Ausgabe: $out\"; exit 1; }\necho \"$out\" | grep -Eq 'INFO|WARNING' && { echo \"Mit Level ERROR sollen INFO und WARNING nicht ausgegeben werden.\"; exit 1; }\nout=$(timeout 5 bash ./log_analyzer.sh app.log INFO 2>&1)\necho \"$out\" | grep -Eq 'INFO:[[:space:]]*6([^0-9]|$)' || { echo \"Für 'app.log INFO' erwartet: INFO: 6. Ausgabe: $out\"; exit 1; }\nout=$(timeout 5 bash ./log_analyzer.sh app.log 2>&1)\necho \"$out\" | grep -Eq 'WARNING:[[:space:]]*2' || { echo \"Ohne Level müssen weiterhin alle drei Werte kommen.\"; exit 1; }\necho \"Filter funktioniert.\"",
+          "hints": [
+            "Prüfe mit `[ -n \"$2\" ]`, ob ein Level übergeben wurde.",
+            "Den Level kannst du direkt an `grep -cw` übergeben."
+          ],
+          "points": 5,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Dateien verschieben mit Protokoll (mvprot.sh)",
+          "description": "Schreibe `mvprot.sh ENDUNG ORDNER PROTOKOLL`. Das Skript verschiebt im\n**aktuellen Verzeichnis** alle Dateien mit der Endung `ENDUNG` (ohne Punkt,\nz. B. `txt`) in das neu erstellte Unterverzeichnis `ORDNER`.\n\nIst `PROTOKOLL` gleich `ja`, schreibt es Anzahl und Namen der verschobenen\nDateien in die Datei `mvprot.log` im aktuellen Verzeichnis. Bei `nein` wird\nkein Protokoll angelegt.\n\n*Beispiel* (im Ordner `sammlung/`): `bash ../mvprot.sh txt archiv ja` →\n`5 Dateien nach ./archiv verschoben. Protokoll: ./mvprot.log`",
+          "checkScript": "[ -f mvprot.sh ] || { echo \"mvprot.sh gibt es noch nicht.\"; exit 1; }\ns=\"$PWD/mvprot.sh\"\nt=$(mktemp -d)\nnames=\"\"\nfor i in 1 2 3 4; do n=\"datei$RANDOM$i.txt\"; echo \"$i\" > \"$t/$n\"; names=\"$names $n\"; done\necho a > \"$t/bleibt.log\"; echo b > \"$t/bleibt2.log\"\nout=$(cd \"$t\" && timeout 10 bash \"$s\" txt archiv ja 2>&1)\nfail() { rm -rf \"$t\"; echo \"$1\"; exit 1; }\n[ -d \"$t/archiv\" ] || fail \"Der Ordner archiv wurde nicht angelegt. Ausgabe: $out\"\nfor n in $names; do [ -f \"$t/archiv/$n\" ] || fail \"$n wurde nicht nach archiv verschoben.\"; done\nls \"$t\"/*.txt >/dev/null 2>&1 && fail \"Im aktuellen Verzeichnis liegen noch .txt-Dateien.\"\n[ -f \"$t/bleibt.log\" ] || fail \"Dateien mit anderer Endung dürfen nicht verschoben werden.\"\n[ -f \"$t/mvprot.log\" ] || fail \"Bei 'ja' muss mvprot.log im aktuellen Verzeichnis angelegt werden.\"\ngrep -q 4 \"$t/mvprot.log\" || fail \"Im Protokoll fehlt die Anzahl (4).\"\nfor n in $names; do grep -q \"$n\" \"$t/mvprot.log\" || fail \"Im Protokoll fehlt der Name $n.\"; done\nrm -rf \"$t\"\nt=$(mktemp -d)\necho x > \"$t/eins.txt\"; echo y > \"$t/zwei.txt\"\n(cd \"$t\" && timeout 10 bash \"$s\" txt ablage nein >/dev/null 2>&1)\n[ -f \"$t/ablage/eins.txt\" ] || fail \"Mit 'nein' werden die Dateien nicht verschoben.\"\n[ -e \"$t/mvprot.log\" ] && fail \"Mit 'nein' darf kein Protokoll angelegt werden.\"\nrm -rf \"$t\"\necho \"Verschieben und Protokoll funktionieren.\"",
+          "hints": [
+            "`AnzahlDateien=$(ls *.txt | wc -w)` zählt die Dateien.",
+            "Mit einer `for`-Schleife über `*.$1` kannst du verschieben und protokollieren."
+          ],
+          "points": 10,
+          "requiresPrevious": false
+        }
+      ]
+    },
+    {
+      "title": "Shell-Skripte (schwer): Benutzerverwaltung",
+      "slug": "linux-skripte-benutzerverwaltung",
+      "description": "Ein **Benutzer-Management-Skript** mit Unterbefehlen (`add` / `delete`).\n\nIn der Übungsbox gibt es kein `sudo` und `/etc/passwd` ist schreibgeschützt.\nDeshalb verwaltet dein Skript die Benutzer in einer eigenen Datei\n`benutzer.db` **im aktuellen Verzeichnis** – eine Zeile pro Benutzer im\nFormat `name:gruppe:passwort` (ähnlich wie `/etc/passwd`).\n\nDie Prüfung startet `user_manager.sh` in einem eigenen leeren Ordner.",
+      "shell": "BASH",
+      "difficulty": 4,
+      "setupScript": "# Beispiel-Datenbank zum Ausprobieren\nprintf 'anna:lehrer:Xk29fLpq\\nlukas:schueler:pQ8zr2Tm\\n' > benutzer.db",
+      "tags": [
+        "bash",
+        "skript",
+        "case",
+        "benutzer"
+      ],
+      "visibility": "PRIVATE",
+      "steps": [
+        {
+          "title": "Benutzer anlegen (add)",
+          "description": "Schreibe `user_manager.sh`:\n\n- `./user_manager.sh add NAME` legt den Benutzer an (neue Zeile in\n  `benutzer.db`, die mit `NAME:` beginnt; die Datei wird angelegt, falls sie\n  fehlt) und gibt `Benutzer NAME wurde erfolgreich angelegt.` aus.\n- Existiert der Benutzer schon: Fehlermeldung, Exit-Code ≠ 0, keine doppelte Zeile.\n- Fehlen Parameter oder ist der Befehl unbekannt: Hilfe-Text, Exit-Code ≠ 0.",
+          "checkScript": "[ -f user_manager.sh ] || { echo \"user_manager.sh gibt es noch nicht.\"; exit 1; }\ns=\"$PWD/user_manager.sh\"\nt=$(mktemp -d)\nfail() { rm -rf \"$t\"; echo \"$1\"; exit 1; }\nout=$(cd \"$t\" && timeout 5 bash \"$s\" add max 2>&1) || fail \"'add max' ist fehlgeschlagen: $out\"\n[ -f \"$t/benutzer.db\" ] || fail \"benutzer.db wurde nicht angelegt.\"\n[ \"$(grep -c '^max:' \"$t/benutzer.db\")\" -eq 1 ] || fail \"In benutzer.db fehlt eine Zeile, die mit 'max:' beginnt.\"\necho \"$out\" | grep -qi 'max.*erfolgreich angelegt' || fail \"Erwartet: 'Benutzer max wurde erfolgreich angelegt.' – Ausgabe: $out\"\n(cd \"$t\" && timeout 5 bash \"$s\" add max >/dev/null 2>&1) && fail \"Einen vorhandenen Benutzer nochmal anlegen muss mit Exit-Code ≠ 0 enden.\"\n[ \"$(grep -c '^max:' \"$t/benutzer.db\")\" -eq 1 ] || fail \"max steht jetzt doppelt in benutzer.db.\"\n(cd \"$t\" && timeout 5 bash \"$s\" add susi >/dev/null 2>&1) || fail \"Ein zweiter Benutzer (susi) liess sich nicht anlegen.\"\n(cd \"$t\" && timeout 5 bash \"$s\" >/dev/null 2>&1) && fail \"Ohne Parameter soll das Skript mit Exit-Code ≠ 0 enden.\"\n(cd \"$t\" && timeout 5 bash \"$s\" add >/dev/null 2>&1) && fail \"'add' ohne Namen soll mit Exit-Code ≠ 0 enden.\"\n(cd \"$t\" && timeout 5 bash \"$s\" foo bar >/dev/null 2>&1) && fail \"Ein unbekannter Befehl soll mit Exit-Code ≠ 0 enden.\"\nrm -rf \"$t\"\necho \"Anlegen funktioniert.\"",
+          "hints": [
+            "Mit `case \"$1\" in add) … ;; esac` unterscheidest du die Befehle.",
+            "`grep -q \"^$2:\" benutzer.db` prüft, ob es den Benutzer schon gibt."
+          ],
+          "points": 10,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Benutzer löschen (delete)",
+          "description": "Erweitere `user_manager.sh` um `delete`:\n\n- `./user_manager.sh delete NAME` entfernt die Zeile des Benutzers aus\n  `benutzer.db` und gibt `Benutzer NAME wurde gelöscht.` aus.\n- Gibt es den Benutzer nicht: Fehlermeldung, Exit-Code ≠ 0.\n- Andere Benutzer bleiben unverändert.",
+          "checkScript": "s=\"$PWD/user_manager.sh\"\nt=$(mktemp -d)\nfail() { rm -rf \"$t\"; echo \"$1\"; exit 1; }\nprintf 'max:schueler:-\\nmaxi:schueler:-\\nsusi:lehrer:-\\n' > \"$t/benutzer.db\"\nout=$(cd \"$t\" && timeout 5 bash \"$s\" delete max 2>&1) || fail \"'delete max' ist fehlgeschlagen: $out\"\ngrep -q '^max:' \"$t/benutzer.db\" && fail \"max steht noch in benutzer.db.\"\ngrep -q '^maxi:' \"$t/benutzer.db\" || fail \"maxi wurde mitgelöscht – nur genau 'max' soll weg.\"\ngrep -q '^susi:' \"$t/benutzer.db\" || fail \"susi wurde mitgelöscht.\"\necho \"$out\" | grep -qi 'gel[oö]scht' || fail \"Erwartet: 'Benutzer max wurde gelöscht.' – Ausgabe: $out\"\n(cd \"$t\" && timeout 5 bash \"$s\" delete niemand >/dev/null 2>&1) && fail \"Einen nicht vorhandenen Benutzer löschen muss mit Exit-Code ≠ 0 enden.\"\n(cd \"$t\" && timeout 5 bash \"$s\" add neu >/dev/null 2>&1) || fail \"'add' funktioniert nicht mehr.\"\nrm -rf \"$t\"\necho \"Löschen funktioniert.\"",
+          "hints": [
+            "`grep -v \"^$name:\"` gibt alle anderen Zeilen aus.",
+            "Schreibe zuerst in eine temporäre Datei und benenne sie dann mit `mv` um."
+          ],
+          "points": 10,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Passwort und Gruppe",
+          "description": "Erweitere `add`: `./user_manager.sh add NAME [GRUPPE]`\n\n- Die Gruppe ist optional, Standard ist `schueler`.\n- Für jeden neuen Benutzer wird ein **zufälliges Passwort** mit mindestens\n  8 Zeichen (Buchstaben/Ziffern) erzeugt.\n- Die Zeile in `benutzer.db` lautet `NAME:GRUPPE:PASSWORT`.\n- Gib das Passwort in der Bestätigung mit aus.",
+          "checkScript": "s=\"$PWD/user_manager.sh\"\nt=$(mktemp -d)\nfail() { rm -rf \"$t\"; echo \"$1\"; exit 1; }\n(cd \"$t\" && timeout 5 bash \"$s\" add anna lehrer >/dev/null 2>&1) || fail \"'add anna lehrer' ist fehlgeschlagen.\"\n(cd \"$t\" && timeout 5 bash \"$s\" add bob >/dev/null 2>&1) || fail \"'add bob' ist fehlgeschlagen.\"\nla=$(grep '^anna:' \"$t/benutzer.db\")\nlb=$(grep '^bob:' \"$t/benutzer.db\")\necho \"$la\" | grep -Eq '^anna:lehrer:[A-Za-z0-9]{8,}$' || fail \"Zeile für anna sollte 'anna:lehrer:PASSWORT' (≥ 8 Zeichen) sein, ist: $la\"\necho \"$lb\" | grep -Eq '^bob:schueler:[A-Za-z0-9]{8,}$' || fail \"Zeile für bob sollte 'bob:schueler:PASSWORT' sein (Standardgruppe), ist: $lb\"\npa=$(echo \"$la\" | cut -d: -f3); pb=$(echo \"$lb\" | cut -d: -f3)\n[ \"$pa\" != \"$pb\" ] || fail \"Beide Benutzer haben dasselbe Passwort – es soll zufällig sein.\"\nout=$(cd \"$t\" && timeout 5 bash \"$s\" add carl 2>&1)\npc=$(grep '^carl:' \"$t/benutzer.db\" | cut -d: -f3)\necho \"$out\" | grep -q \"$pc\" || fail \"Das Passwort soll in der Bestätigung mit ausgegeben werden.\"\n(cd \"$t\" && timeout 5 bash \"$s\" delete anna >/dev/null 2>&1) || fail \"'delete' funktioniert nicht mehr.\"\nrm -rf \"$t\"\necho \"Passwörter und Gruppen passen.\"",
+          "hints": [
+            "`tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 10` erzeugt ein Zufallspasswort.",
+            "Mit `gruppe=${3:-schueler}` bekommt der 3. Parameter einen Standardwert."
+          ],
+          "points": 10,
+          "requiresPrevious": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,301 @@
+{
+  "format": "online-shell-exercises",
+  "version": 1,
+  "exercises": [
+    {
+      "title": "PowerShell Serie 1: Prozesse und Services",
+      "slug": "ps-serie-1-prozesse-services",
+      "description": "Diese Serie übt den Umgang mit **Prozessen und Services**, der Pipeline und dem Export von Ergebnissen.\n\n> Hinweis: Die Übungsumgebung ist **PowerShell 7 unter Linux**. Windows-Dienste (`Get-Service`, `Start-Service`, …) werden **simuliert** und verhalten sich wie unter Windows. Prozesse (`Get-Process`) sind echt – in der Box laufen aber nur wenige.\n\nAlle Dateien legst du im Übungsordner an (dort startet dein Terminal).",
+      "shell": "PWSH",
+      "difficulty": 2,
+      "setupScript": "#!/usr/bin/env pwsh\n# Nichts vorzubereiten – nur eine kurze Info-Datei.\n'Übungsordner für PowerShell Serie 1' | Set-Content README.txt",
+      "tags": [
+        "powershell",
+        "prozesse",
+        "services",
+        "export"
+      ],
+      "visibility": "PRIVATE",
+      "steps": [
+        {
+          "title": "Prozesse nach CPU sortieren",
+          "description": "Erstelle eine Liste **aller Prozesse**, **absteigend nach CPU-Nutzung** sortiert.\n\nSpeichere die Liste mit den Eigenschaften `Name`, `Id` und `CPU` als **`prozesse.csv`**.",
+          "checkScript": "#!/usr/bin/env pwsh\nif (-not (Test-Path prozesse.csv)) { 'prozesse.csv gibt es noch nicht.'; exit 1 }\n$rows = @(Import-Csv prozesse.csv)\nif ($rows.Count -lt 2) { 'prozesse.csv enthält zu wenige Prozesse – es sollen ALLE Prozesse sein.'; exit 1 }\nforeach ($c in 'Name', 'CPU') {\n  if ($c -notin $rows[0].PSObject.Properties.Name) { \"In prozesse.csv fehlt die Spalte '$c'.\"; exit 1 }\n}\n$cpu = $rows | ForEach-Object { if ($_.CPU) { [double]::Parse($_.CPU, [cultureinfo]::InvariantCulture) } else { 0 } }\nfor ($i = 1; $i -lt $cpu.Count; $i++) {\n  if ($cpu[$i] -gt $cpu[$i - 1]) { 'Die Liste ist nicht absteigend nach CPU sortiert.'; exit 1 }\n}\n\"Richtig: $($rows.Count) Prozesse, absteigend nach CPU sortiert.\"",
+          "hints": [
+            "`Get-Process | Sort-Object CPU -Descending` sortiert die Prozesse.",
+            "Mit `Select-Object Name, Id, CPU` und `Export-Csv prozesse.csv -NoTypeInformation` speicherst du die Liste."
+          ],
+          "points": 5,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Top 10 nach CPU-Zeit",
+          "description": "Erzeuge eine Liste der **Top-10-Prozesse** nach CPU-Zeit (höchste zuerst) und speichere sie mit `Name` und `CPU` als **`top10.csv`**.\n\n(In der Übungsbox laufen weniger als 10 Prozesse – dann sind es eben alle.)",
+          "checkScript": "#!/usr/bin/env pwsh\nif (-not (Test-Path top10.csv)) { 'top10.csv gibt es noch nicht.'; exit 1 }\n$rows = @(Import-Csv top10.csv)\nif ($rows.Count -lt 1) { 'top10.csv ist leer.'; exit 1 }\nif ($rows.Count -gt 10) { \"top10.csv enthält $($rows.Count) Einträge – es sollen höchstens 10 sein.\"; exit 1 }\nif ('CPU' -notin $rows[0].PSObject.Properties.Name) { \"In top10.csv fehlt die Spalte 'CPU'.\"; exit 1 }\n$cpu = $rows | ForEach-Object { if ($_.CPU) { [double]::Parse($_.CPU, [cultureinfo]::InvariantCulture) } else { 0 } }\nfor ($i = 1; $i -lt $cpu.Count; $i++) {\n  if ($cpu[$i] -gt $cpu[$i - 1]) { 'top10.csv ist nicht absteigend nach CPU sortiert.'; exit 1 }\n}\n\"Richtig: $($rows.Count) Prozesse mit der höchsten CPU-Zeit.\"",
+          "hints": [
+            "`Select-Object -First 10` nimmt die ersten 10 Objekte aus der Pipeline.",
+            "Zuerst sortieren, dann die ersten 10 auswählen – die Reihenfolge in der Pipeline ist wichtig."
+          ],
+          "points": 5,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Variable $P in eine Textdatei",
+          "description": "Weise der Variable **`$P`** die Ausgabe aus Schritt 2 zu (die Top-10-Prozesse als Objekte).\n\nSpeichere den Inhalt von `$P` in der Textdatei **`A4.txt`**.",
+          "checkScript": "#!/usr/bin/env pwsh\nif (-not (Test-Path A4.txt)) { 'A4.txt gibt es noch nicht.'; exit 1 }\n$t = Get-Content A4.txt -Raw\nif ([string]::IsNullOrWhiteSpace($t)) { 'A4.txt ist leer.'; exit 1 }\nif ($t -notmatch 'ProcessName|Name') { 'A4.txt sieht nicht nach einer Prozessliste aus (Spalte Name/ProcessName fehlt).'; exit 1 }\n'Richtig: A4.txt enthält die Prozessliste.'",
+          "hints": [
+            "`$P = Get-Process | …` speichert die Objekte in einer Variable.",
+            "`$P | Out-File A4.txt` schreibt die Ausgabe so in eine Datei, wie sie in der Konsole erscheint."
+          ],
+          "points": 5,
+          "requiresPrevious": false
+        },
+        {
+          "title": "$P als CSV und XML exportieren",
+          "description": "Exportiere den Inhalt von `$P` (Top-10-Prozesse) zusätzlich\n\n- als CSV-Datei **`A4.csv`** und\n- als XML-Datei **`A4.xml`** (PowerShell-XML, damit man die Objekte wieder einlesen kann).",
+          "checkScript": "#!/usr/bin/env pwsh\nif (-not (Test-Path A4.csv)) { 'A4.csv gibt es noch nicht.'; exit 1 }\nif (-not (Test-Path A4.xml)) { 'A4.xml gibt es noch nicht.'; exit 1 }\n$csv = @(Import-Csv A4.csv)\nif ($csv.Count -lt 1 -or $csv.Count -gt 10) { \"A4.csv soll 1 bis 10 Prozesse enthalten (gefunden: $($csv.Count)).\"; exit 1 }\nif (-not ($csv[0].PSObject.Properties.Name -match 'Name')) { 'A4.csv enthält keine Prozessnamen.'; exit 1 }\ntry { $xml = @(Import-Clixml A4.xml) } catch { 'A4.xml lässt sich nicht mit Import-Clixml einlesen – verwende Export-Clixml.'; exit 1 }\nif ($xml.Count -lt 1 -or $xml.Count -gt 10) { \"A4.xml soll 1 bis 10 Prozesse enthalten (gefunden: $($xml.Count)).\"; exit 1 }\n'Richtig: A4.csv und A4.xml enthalten die Top-Prozesse.'",
+          "hints": [
+            "`Export-Csv .\\A4.csv -NoTypeInformation`",
+            "`Export-Clixml .\\A4.xml` speichert Objekte so, dass `Import-Clixml` sie wiederherstellen kann."
+          ],
+          "points": 5,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Services nach Status sortieren",
+          "description": "Erzeuge eine Liste **aller Services**, sortiert nach der Eigenschaft **`Status`**.\n\nSpeichere sie mit den Eigenschaften `Name` und `Status` als **`services.csv`**.",
+          "checkScript": "#!/usr/bin/env pwsh\nif (-not (Test-Path services.csv)) { 'services.csv gibt es noch nicht.'; exit 1 }\n$rows = @(Import-Csv services.csv)\n$all = @(Get-Service).Count\nif ($rows.Count -ne $all) { \"services.csv enthält $($rows.Count) Services, es gibt aber $all.\"; exit 1 }\nif ('Status' -notin $rows[0].PSObject.Properties.Name) { \"In services.csv fehlt die Spalte 'Status'.\"; exit 1 }\n$rank = @{ Stopped = 1; StartPending = 2; StopPending = 3; Running = 4; Paused = 7 }\n$v = $rows | ForEach-Object { $rank[\"$($_.Status)\"] }\n$asc = $true; $desc = $true\nfor ($i = 1; $i -lt $v.Count; $i++) { if ($v[$i] -lt $v[$i - 1]) { $asc = $false }; if ($v[$i] -gt $v[$i - 1]) { $desc = $false } }\nif (-not ($asc -or $desc)) { 'services.csv ist nicht nach Status sortiert.'; exit 1 }\n'Richtig: alle Services, nach Status sortiert.'",
+          "hints": [
+            "`Get-Service | Sort-Object Status`",
+            "`Select-Object Name, Status` und danach `Export-Csv … -NoTypeInformation`"
+          ],
+          "points": 5,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Name und Status in roter Schrift",
+          "description": "Schreibe ein Skript **`rot.ps1`**, das alle Services ausgibt – **nur `Name` und `Status`**, und zwar in **roter Schrift**.\n\nStarte es mit `./rot.ps1`.",
+          "checkScript": "#!/usr/bin/env pwsh\nif (-not (Test-Path rot.ps1)) { 'rot.ps1 gibt es noch nicht.'; exit 1 }\n$src = Get-Content rot.ps1 -Raw\nif ($src -notmatch '(?i)ForegroundColor\\s+[''\"]?Red|Foreground\\.Red|\\e\\[31m') { 'rot.ps1 gibt nichts in roter Farbe aus (z. B. Write-Host … -ForegroundColor Red).'; exit 1 }\n$out = & pwsh -NoProfile -NonInteractive -File ./rot.ps1 *>&1 | Out-String\nif ($LASTEXITCODE -ne 0) { \"rot.ps1 bricht mit einem Fehler ab:`n$out\"; exit 1 }\nif ($out -notmatch 'Spooler' -or $out -notmatch 'wuauserv') { 'Die Ausgabe von rot.ps1 enthält nicht alle Services.'; exit 1 }\nif ($out -notmatch 'Running|Stopped') { 'Die Ausgabe von rot.ps1 enthält keinen Status.'; exit 1 }\n'Richtig: rot.ps1 gibt Name und Status rot aus.'",
+          "hints": [
+            "`Write-Host … -ForegroundColor Red` gibt Text farbig aus.",
+            "Mit `ForEach-Object { Write-Host \"$($_.Name) $($_.Status)\" … }` verarbeitest du jeden Service einzeln."
+          ],
+          "points": 5,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Färben per if-Abfrage",
+          "description": "Schreibe ein Skript **`farbe.ps1`**, das alle Services ausgibt und die Zeile per **`if`-Abfrage** färbt:\n\n- **Rot** bei `Stopped`\n- **Grün** bei `Running`",
+          "checkScript": "#!/usr/bin/env pwsh\nif (-not (Test-Path farbe.ps1)) { 'farbe.ps1 gibt es noch nicht.'; exit 1 }\n$src = Get-Content farbe.ps1 -Raw\nif ($src -notmatch '(?i)\\bif\\b') { 'farbe.ps1 verwendet keine if-Abfrage.'; exit 1 }\nif ($src -notmatch '(?i)Green' -or $src -notmatch '(?i)Red') { 'farbe.ps1 soll Rot UND Grün verwenden.'; exit 1 }\nif ($src -notmatch '(?i)Running|Stopped') { 'farbe.ps1 prüft den Status nicht (Running/Stopped).'; exit 1 }\n$out = & pwsh -NoProfile -NonInteractive -File ./farbe.ps1 *>&1 | Out-String\nif ($LASTEXITCODE -ne 0) { \"farbe.ps1 bricht mit einem Fehler ab:`n$out\"; exit 1 }\nif ($out -notmatch 'Spooler' -or $out -notmatch 'wuauserv') { 'Die Ausgabe von farbe.ps1 enthält nicht alle Services.'; exit 1 }\n'Richtig: Services rot/grün nach Status.'",
+          "hints": [
+            "In `ForEach-Object { … }` kannst du mit `if ($_.Status -eq 'Running') { … } else { … }` unterscheiden.",
+            "`-ForegroundColor Green` bzw. `-ForegroundColor Red`"
+          ],
+          "points": 5,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Services als HTML",
+          "description": "Konvertiere die Ausgabe von `Get-Service` in **HTML** und speichere sie als **`services.html`**.",
+          "checkScript": "#!/usr/bin/env pwsh\nif (-not (Test-Path services.html)) { 'services.html gibt es noch nicht.'; exit 1 }\n$h = Get-Content services.html -Raw\nif ($h -notmatch '(?i)<table') { 'services.html enthält keine HTML-Tabelle (ConvertTo-Html verwenden).'; exit 1 }\nif ($h -notmatch 'Spooler' -or $h -notmatch 'wuauserv') { 'services.html enthält nicht alle Services.'; exit 1 }\n'Richtig: services.html ist eine HTML-Tabelle der Services.'",
+          "hints": [
+            "`ConvertTo-Html` macht aus Objekten eine HTML-Tabelle.",
+            "Mit `Out-File services.html` speicherst du das Ergebnis."
+          ],
+          "points": 5,
+          "requiresPrevious": false
+        }
+      ]
+    },
+    {
+      "title": "PowerShell Serie 2: Dateien, Skripte und Daten",
+      "slug": "ps-serie-2-dateien-skripte-daten",
+      "description": "In dieser Serie schreibst du kleine **Skripte** (`.ps1`) für Dateien, Verzeichnisse, Systeminformationen und CSV-Daten.\n\n> Hinweis: Die Übungsumgebung ist **PowerShell 7 unter Linux**. Statt `C:\\Windows\\System32` verwendest du `/usr/bin`, statt `C:\\Temp\\` den Ordner `./Temp` im Übungsordner. `Get-ComputerInfo` und `Get-CimInstance` liefern **simulierte** Windows-Daten.\n\nSkripte startest du mit `./name.ps1`.",
+      "shell": "PWSH",
+      "difficulty": 2,
+      "setupScript": "#!/usr/bin/env pwsh\nNew-Item -ItemType Directory quelle | Out-Null\n'Einkaufsliste: Brot, Milch'   | Set-Content quelle/a.txt\n'Notizen zur Besprechung'      | Set-Content quelle/b.txt\n'Todo: PowerShell üben'        | Set-Content quelle/d.txt\n'2026-04-01 INFO gestartet'    | Set-Content quelle/c.log\n'# Projekt'                    | Set-Content quelle/notes.md",
+      "tags": [
+        "powershell",
+        "dateien",
+        "skripte",
+        "csv",
+        "funktionen"
+      ],
+      "visibility": "PRIVATE",
+      "steps": [
+        {
+          "title": "Dateien auflisten",
+          "description": "Schreibe ein Skript **`dateien.ps1`**, das alle Dateien im Verzeichnis **`/usr/bin`** auflistet und dabei **Dateigröße** und **Erstellungsdatum** anzeigt.\n\n(Unter Windows wäre das `C:\\Windows\\System32`.)",
+          "checkScript": "#!/usr/bin/env pwsh\nif (-not (Test-Path dateien.ps1)) { 'dateien.ps1 gibt es noch nicht.'; exit 1 }\n$src = Get-Content dateien.ps1 -Raw\nif ($src -notmatch '/usr/bin') { 'dateien.ps1 soll das Verzeichnis /usr/bin auflisten.'; exit 1 }\n$out = & pwsh -NoProfile -NonInteractive -File ./dateien.ps1 *>&1 | Out-String -Width 300\nif ($LASTEXITCODE -ne 0) { \"dateien.ps1 bricht mit einem Fehler ab:`n$($out.Substring(0, [Math]::Min(600, $out.Length)))\"; exit 1 }\nif ($out -notmatch '\\bbash\\b') { 'In der Ausgabe fehlen Dateien aus /usr/bin (z. B. bash).'; exit 1 }\nif ($out -notmatch '(?i)Length|Größe|Groesse|Size') { 'Die Ausgabe zeigt keine Dateigröße (Length).'; exit 1 }\nif ($out -notmatch '(?i)CreationTime|Erstell') { 'Die Ausgabe zeigt kein Erstellungsdatum (CreationTime).'; exit 1 }\n'Richtig: Dateien mit Größe und Erstellungsdatum.'",
+          "hints": [
+            "`Get-ChildItem /usr/bin -File` liefert nur Dateien.",
+            "Die Eigenschaften heißen `Length` und `CreationTime` – wähle sie mit `Select-Object` aus."
+          ],
+          "points": 5,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Verzeichnis mit Datum erstellen",
+          "description": "Entwickle ein Skript **`ordner.ps1`**, das unter **`./Temp/`** ein neues Verzeichnis erstellt, **falls es noch nicht existiert**. Der Verzeichnisname soll auf dem **aktuellen Datum und der Uhrzeit** basieren (z. B. `2026-11-12_10-30`).\n\nDas Skript darf auch zweimal hintereinander laufen, ohne einen Fehler zu werfen.",
+          "checkScript": "#!/usr/bin/env pwsh\nif (-not (Test-Path ordner.ps1)) { 'ordner.ps1 gibt es noch nicht.'; exit 1 }\n$src = Get-Content ordner.ps1 -Raw\nif ($src -notmatch '(?i)Test-Path') { 'ordner.ps1 soll mit Test-Path prüfen, ob das Verzeichnis schon existiert.'; exit 1 }\n$before = @(Get-ChildItem ./Temp -Directory -ErrorAction SilentlyContinue).Name\nforeach ($run in 1..2) {\n  $out = & pwsh -NoProfile -NonInteractive -File ./ordner.ps1 *>&1 | Out-String\n  if ($LASTEXITCODE -ne 0) { \"ordner.ps1 bricht beim $run. Aufruf mit einem Fehler ab:`n$out\"; exit 1 }\n}\n$dirs = @(Get-ChildItem ./Temp -Directory -ErrorAction SilentlyContinue)\nif ($dirs.Count -eq 0) { 'Unter ./Temp wurde kein Verzeichnis erstellt.'; exit 1 }\n$d = Get-Date\n$pats = $d.ToString('yyyy-MM-dd'), $d.ToString('yyyyMMdd'), $d.ToString('dd.MM.yyyy'), $d.ToString('dd-MM-yyyy'), $d.ToString('yyyy_MM_dd')\n$hit = $dirs | Where-Object { $n = $_.Name; $pats | Where-Object { $n.Contains($_) } }\nif (-not $hit) { \"Kein Verzeichnis unter ./Temp enthält das heutige Datum (z. B. $($pats[0])).\"; exit 1 }\n\"Richtig: ./Temp/$($hit[0].Name) wurde erstellt.\"",
+          "hints": [
+            "`Get-Date -Format 'yyyy-MM-dd_HH-mm'` liefert Datum und Uhrzeit als Text.",
+            "`Test-Path` prüft, ob ein Pfad existiert; `New-Item -ItemType Directory` erstellt ihn."
+          ],
+          "points": 5,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Textdatei erstellen",
+          "description": "Erstelle eine Textdatei **`nachricht.txt`** und speichere darin eine **eigene Nachricht** (mindestens ein paar Wörter).",
+          "checkScript": "#!/usr/bin/env pwsh\nif (-not (Test-Path nachricht.txt)) { 'nachricht.txt gibt es noch nicht.'; exit 1 }\n$t = (Get-Content nachricht.txt -Raw)\nif ([string]::IsNullOrWhiteSpace($t)) { 'nachricht.txt ist leer.'; exit 1 }\nif ($t.Trim().Length -lt 5) { 'Die Nachricht ist sehr kurz – schreib ein paar Wörter.'; exit 1 }\n'Richtig: nachricht.txt enthält deine Nachricht.'",
+          "hints": [
+            "`Set-Content nachricht.txt 'Deine Nachricht'`",
+            "Kontrolliere das Ergebnis mit `Get-Content nachricht.txt`."
+          ],
+          "points": 5,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Inhalt einer Datei lesen",
+          "description": "Schreibe ein Skript **`lesen.ps1`**, das den Inhalt von **`nachricht.txt`** (aus Schritt 3) liest und in der Konsole ausgibt.",
+          "checkScript": "#!/usr/bin/env pwsh\nif (-not (Test-Path lesen.ps1)) { 'lesen.ps1 gibt es noch nicht.'; exit 1 }\nif (-not (Test-Path nachricht.txt)) { 'nachricht.txt fehlt (Schritt 3).'; exit 1 }\n$expected = (Get-Content nachricht.txt -Raw).Trim()\n$out = (& pwsh -NoProfile -NonInteractive -File ./lesen.ps1 *>&1 | Out-String).Trim()\nif ($LASTEXITCODE -ne 0) { \"lesen.ps1 bricht mit einem Fehler ab:`n$out\"; exit 1 }\nif (-not $out.Contains($expected)) { 'Die Ausgabe von lesen.ps1 enthält nicht den Inhalt von nachricht.txt.'; exit 1 }\n'Richtig: lesen.ps1 gibt die Nachricht aus.'",
+          "hints": [
+            "`Get-Content` liest eine Datei.",
+            "Teste dein Skript mit `./lesen.ps1`."
+          ],
+          "points": 5,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Dateien kopieren",
+          "description": "Im Ordner **`quelle/`** liegen verschiedene Dateien. Kopiere **alle `.txt`-Dateien** (und nur diese) in den Ordner **`ziel/`**.",
+          "checkScript": "#!/usr/bin/env pwsh\nif (-not (Test-Path ziel -PathType Container)) { 'Den Ordner ziel/ gibt es noch nicht.'; exit 1 }\n$want = @(Get-ChildItem quelle -Filter *.txt -File | Sort-Object Name).Name\n$got = @(Get-ChildItem ziel -File | Sort-Object Name).Name\n$missing = $want | Where-Object { $_ -notin $got }\n$extra = $got | Where-Object { $_ -notin $want }\nif ($missing) { \"In ziel/ fehlen: $($missing -join ', ')\"; exit 1 }\nif ($extra) { \"In ziel/ gehören nur .txt-Dateien – zu viel: $($extra -join ', ')\"; exit 1 }\n'Richtig: alle .txt-Dateien wurden kopiert.'",
+          "hints": [
+            "`Copy-Item quelle/*.txt …` kopiert mit Platzhalter.",
+            "Den Zielordner musst du vorher mit `New-Item -ItemType Directory` anlegen."
+          ],
+          "points": 5,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Systeminformationen abrufen",
+          "description": "Schreibe ein Skript **`sysinfo.ps1`**, das grundlegende Systeminformationen anzeigt: **Computername**, **Betriebssystem** und **installierte RAM-Größe**.\n\n(Die Box liefert dafür simulierte Windows-Daten.)",
+          "checkScript": "#!/usr/bin/env pwsh\nif (-not (Test-Path sysinfo.ps1)) { 'sysinfo.ps1 gibt es noch nicht.'; exit 1 }\n$out = & pwsh -NoProfile -NonInteractive -File ./sysinfo.ps1 *>&1 | Out-String -Width 300\nif ($LASTEXITCODE -ne 0) { \"sysinfo.ps1 bricht mit einem Fehler ab:`n$out\"; exit 1 }\n$ci = Get-ComputerInfo\nif ($out -notmatch [regex]::Escape($ci.CsName)) { \"Die Ausgabe enthält den Computernamen ($($ci.CsName)) nicht.\"; exit 1 }\nif ($out -notmatch 'Windows') { 'Die Ausgabe enthält das Betriebssystem nicht.'; exit 1 }\n$gb = [math]::Round($ci.CsTotalPhysicalMemory / 1GB)\nif ($out -notmatch \"\\b$gb\\b\" -and $out -notmatch [regex]::Escape(\"$($ci.CsTotalPhysicalMemory)\")) { \"Die Ausgabe enthält die RAM-Größe nicht (z. B. $gb GB).\"; exit 1 }\n'Richtig: Computername, Betriebssystem und RAM werden angezeigt.'",
+          "hints": [
+            "`Get-ComputerInfo` liefert z. B. `CsName`, `OsName` und `CsTotalPhysicalMemory`.",
+            "Alternativ: `Get-CimInstance Win32_OperatingSystem` und `Win32_ComputerSystem`."
+          ],
+          "points": 5,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Eigene Funktion",
+          "description": "Schreibe in **`summe.ps1`** eine Funktion **`Get-Summe`**, die **zwei Zahlen** als Eingabe erhält und deren **Summe zurückgibt**. Rufe die Funktion am Ende des Skripts auf (z. B. mit 3 und 4) und gib das Ergebnis aus.\n\nDie Funktion muss so aufrufbar sein: `Get-Summe 3 4` → `7`.",
+          "checkScript": "#!/usr/bin/env pwsh\nif (-not (Test-Path summe.ps1)) { 'summe.ps1 gibt es noch nicht.'; exit 1 }\n$src = Get-Content summe.ps1 -Raw\nif ($src -notmatch '(?i)function\\s+Get-Summe') { 'summe.ps1 enthält keine Funktion Get-Summe.'; exit 1 }\ntry { . ./summe.ps1 *> $null } catch { \"summe.ps1 bricht mit einem Fehler ab: $_\"; exit 1 }\n$tests = @(@(3, 4, 7), @(10, -2, 8), @(2.5, 0.5, 3))\nforeach ($t in $tests) {\n  $r = Get-Summe $t[0] $t[1]\n  if ([double]$r -ne $t[2]) { \"Get-Summe $($t[0]) $($t[1]) liefert '$r' statt $($t[2]).\"; exit 1 }\n}\n'Richtig: Get-Summe rechnet richtig.'",
+          "hints": [
+            "`function Get-Summe { param($a, $b) … }`",
+            "Mit `return $a + $b` (oder einfach `$a + $b`) gibt die Funktion den Wert zurück."
+          ],
+          "points": 5,
+          "requiresPrevious": false
+        },
+        {
+          "title": "CSV-Datei verarbeiten",
+          "description": "Erstelle eine CSV-Datei **`benutzer.csv`** mit Dummy-Daten im Format\n\n```\nVorname;Nachname;Geburtsdatum\nAnna;Huber;2007-05-14\n```\n\nmit **mindestens 5 Einträgen** (Geburtsdatum als `JJJJ-MM-TT`). Lies die CSV ein und speichere die Benutzer **nach Alter sortiert** (älteste zuerst) in **`sortiert.csv`** (ebenfalls mit `;`).",
+          "checkScript": "#!/usr/bin/env pwsh\nif (-not (Test-Path benutzer.csv)) { 'benutzer.csv gibt es noch nicht.'; exit 1 }\nif (-not (Test-Path sortiert.csv)) { 'sortiert.csv gibt es noch nicht.'; exit 1 }\n$b = @(Import-Csv benutzer.csv -Delimiter ';')\nif ($b.Count -lt 5) { \"benutzer.csv braucht mindestens 5 Einträge (gefunden: $($b.Count)).\"; exit 1 }\nforeach ($c in 'Vorname', 'Nachname', 'Geburtsdatum') {\n  if ($c -notin $b[0].PSObject.Properties.Name) { \"In benutzer.csv fehlt die Spalte '$c' (Trennzeichen ';'?).\"; exit 1 }\n}\n$s = @(Import-Csv sortiert.csv -Delimiter ';')\nif ($s.Count -ne $b.Count) { \"sortiert.csv enthält $($s.Count) statt $($b.Count) Benutzer (Trennzeichen ';'?).\"; exit 1 }\n$fmt = 'yyyy-MM-dd', 'dd.MM.yyyy', 'd.M.yyyy', 'yyyy/MM/dd'\n$dates = foreach ($r in $s) {\n  try { [datetime]::ParseExact($r.Geburtsdatum.Trim(), [string[]]$fmt, [cultureinfo]::InvariantCulture, 'None') }\n  catch { \"Ungültiges Geburtsdatum in sortiert.csv: '$($r.Geburtsdatum)'\"; exit 1 }\n}\nfor ($i = 1; $i -lt $dates.Count; $i++) {\n  if ($dates[$i] -lt $dates[$i - 1]) { 'sortiert.csv ist nicht nach Alter sortiert (älteste zuerst).'; exit 1 }\n}\n'Richtig: Benutzer nach Alter sortiert.'",
+          "hints": [
+            "`Import-Csv benutzer.csv -Delimiter ';'` liest die Datei mit Strichpunkt.",
+            "Nach Alter sortieren heißt nach Geburtsdatum sortieren: `Sort-Object { [datetime]$_.Geburtsdatum }`."
+          ],
+          "points": 5,
+          "requiresPrevious": false
+        }
+      ]
+    },
+    {
+      "title": "PowerShell Serie 3: Fortgeschrittene Automatisierung",
+      "slug": "ps-serie-3-automatisierung",
+      "description": "Fortgeschrittene Skripte zur **Automatisierung**: Log-Analyse, Dienst-Überwachung, Backups, Prüfsummen, Parameter und Inventarisierung.\n\n**Zusatzanforderungen für jedes Skript dieser Serie:**\n\n- `try { … } catch { … }` für Fehlerbehandlung\n- `param(...)` mit sinnvollen Standardwerten\n- am Ende ein klarer Status (`exit 0` / `exit 1`)\n- Logik in wiederverwendbare Funktionen trennen\n\n> Hinweis: Die Übungsumgebung ist **PowerShell 7 unter Linux**. Dienste (`Get-Service`) und CIM (`Get-CimInstance`) werden **simuliert**: Spooler und BITS laufen, wuauserv ist gestoppt; Rechner, deren Name mit `offline` beginnt, sind nicht erreichbar.\n\nIm Übungsordner liegen bereits `app.log`, `rechnerliste.txt` und der Ordner `daten/`.",
+      "shell": "PWSH",
+      "difficulty": 4,
+      "setupScript": "#!/usr/bin/env pwsh\n@'\n2026-04-01 09:10:02 INFO Service monitor started\n2026-04-01 09:10:04 INFO Checking services: Spooler,wuauserv,BITS\n2026-04-01 09:10:05 WARNING Service wuauserv is currently stopped\n2026-04-01 09:10:06 INFO Attempting restart of wuauserv\n2026-04-01 09:10:08 ERROR Restart failed for wuauserv with exit code 1068\n2026-04-01 09:10:15 INFO Service BITS is running\n2026-04-01 09:10:20 INFO Writing status report\n2026-04-01 09:10:25 WARNING Report directory did not exist and was created\n2026-04-01 09:10:31 INFO Report successfully written\n2026-04-01 09:10:33 ERROR Could not notify remote endpoint api/sync\n'@ | Set-Content app.log\n@'\nlocalhost\n127.0.0.1\nPC-R101-01\noffline-labor\n'@ | Set-Content rechnerliste.txt\nNew-Item -ItemType Directory daten | Out-Null\n'Monatsbericht Oktober'          | Set-Content daten/bericht.txt\n'Notizen: Server neu starten'    | Set-Content daten/notizen.txt\n'Inventarliste R101'             | Set-Content daten/inventar.txt\n[IO.File]::WriteAllBytes(\"$PWD/daten/bild.dat\", [byte[]](1..200))",
+      "tags": [
+        "powershell",
+        "skripte",
+        "automatisierung",
+        "try-catch",
+        "param"
+      ],
+      "visibility": "PRIVATE",
+      "steps": [
+        {
+          "title": "Log-Analyse mit Fehlerbericht",
+          "description": "Schreibe **`loganalyse.ps1`**: Das Skript liest **`app.log`** ein und zählt die Vorkommen von **`ERROR`**, **`WARNING`** und **`INFO`**.\n\nGib das Ergebnis aus und speichere es zusätzlich als CSV-Bericht **`bericht_<Zeitstempel>.csv`** (z. B. `bericht_20261112_1030.csv`) mit den Spalten **`Level`** und **`Anzahl`**.",
+          "checkScript": "#!/usr/bin/env pwsh\nif (-not (Test-Path loganalyse.ps1)) { 'loganalyse.ps1 gibt es noch nicht.'; exit 1 }\n$src = Get-Content loganalyse.ps1 -Raw\nif ($src -notmatch '(?i)\\btry\\b' -or $src -notmatch '(?i)\\bcatch\\b') { 'Zusatzanforderung: verwende try/catch in loganalyse.ps1.'; exit 1 }\n$before = Get-Date\nStart-Sleep -Milliseconds 1100\n$out = & pwsh -NoProfile -NonInteractive -File ./loganalyse.ps1 *>&1 | Out-String\nif ($LASTEXITCODE -ne 0) { \"loganalyse.ps1 endet mit Fehler (exit $LASTEXITCODE):`n$out\"; exit 1 }\n$rep = Get-ChildItem -Filter 'bericht_*.csv' | Where-Object LastWriteTime -ge $before.AddSeconds(-1) | Sort-Object LastWriteTime | Select-Object -Last 1\nif (-not $rep) { 'Es wurde kein Bericht bericht_<Zeitstempel>.csv erstellt.'; exit 1 }\nif ($rep.Name -notmatch '^bericht_.*\\d{4}.*\\.csv$') { \"Der Dateiname $($rep.Name) enthält keinen Zeitstempel.\"; exit 1 }\n$rows = @(Import-Csv $rep.FullName)\nif ($rows.Count -eq 1 -and $rows[0].PSObject.Properties.Name -contains 'Level;Anzahl') { $rows = @(Import-Csv $rep.FullName -Delimiter ';') }\nforeach ($lvl in 'ERROR', 'WARNING', 'INFO') {\n  $want = @(Get-Content app.log | Where-Object { ($_ -split '\\s+')[2] -eq $lvl }).Count\n  $row = $rows | Where-Object { $_.Level -eq $lvl }\n  if (-not $row) { \"Im Bericht fehlt die Zeile für $lvl (Spalten Level und Anzahl).\"; exit 1 }\n  if ([int]$row.Anzahl -ne $want) { \"$lvl ist im Bericht $($row.Anzahl), richtig wäre $want.\"; exit 1 }\n}\n\"Richtig: $($rep.Name) mit korrekten Zahlen.\"",
+          "hints": [
+            "`Select-String -Path app.log -Pattern 'ERROR'` findet Zeilen; `.Count` zählt sie. Alternativ: `Group-Object`.",
+            "`Get-Date -Format 'yyyyMMdd_HHmm'` für den Zeitstempel, `[pscustomobject]@{ Level = …; Anzahl = … }` für die Zeilen."
+          ],
+          "points": 10,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Service-Monitor mit Protokollierung",
+          "description": "Schreibe **`monitor.ps1`** mit dem Parameter **`-Dienste`** (Standard: `Spooler`, `wuauserv`, `BITS`).\n\nDas Skript prüft den Status jedes Dienstes und schreibt **pro Dienst eine Zeile** in die Logdatei **`monitor.log`** (mit Zeitstempel). Ist ein Dienst gestoppt, soll die Zeile **deutlich markiert** sein – sie muss das Wort **`STOPPED`** oder **`GESTOPPT`** in **Großbuchstaben** enthalten (der normale Status `Stopped` allein reicht nicht).",
+          "checkScript": "#!/usr/bin/env pwsh\nif (-not (Test-Path monitor.ps1)) { 'monitor.ps1 gibt es noch nicht.'; exit 1 }\n$src = Get-Content monitor.ps1 -Raw\nif ($src -notmatch '(?i)\\bparam\\s*\\(') { 'Zusatzanforderung: monitor.ps1 braucht param(...) mit -Dienste.'; exit 1 }\nif ($src -notmatch '(?i)\\btry\\b' -or $src -notmatch '(?i)\\bcatch\\b') { 'Zusatzanforderung: verwende try/catch in monitor.ps1.'; exit 1 }\nRemove-Item monitor.log -ErrorAction SilentlyContinue\n$out = & pwsh -NoProfile -NonInteractive -File ./monitor.ps1 *>&1 | Out-String\nif (-not (Test-Path monitor.log)) { \"monitor.ps1 hat keine monitor.log geschrieben.`n$out\"; exit 1 }\n$log = @(Get-Content monitor.log | Where-Object { $_.Trim() })\nforeach ($d in 'Spooler', 'wuauserv', 'BITS') {\n  if (-not ($log | Where-Object { $_ -match \"\\b$d\\b\" })) { \"In monitor.log fehlt eine Zeile für $d.\"; exit 1 }\n}\n$wu = $log | Where-Object { $_ -match '\\bwuauserv\\b' } | Select-Object -First 1\nif ($wu -cnotmatch 'STOPPED|GESTOPPT') { 'Der gestoppte Dienst wuauserv ist in monitor.log nicht deutlich markiert (STOPPED oder GESTOPPT in Großbuchstaben).'; exit 1 }\n$sp = $log | Where-Object { $_ -match '\\bSpooler\\b' } | Select-Object -First 1\nif ($sp -cmatch 'STOPPED|GESTOPPT') { 'Spooler läuft – er darf nicht als gestoppt markiert sein.'; exit 1 }\nRemove-Item monitor.log\n& pwsh -NoProfile -NonInteractive -File ./monitor.ps1 -Dienste 'Fax' *> $null\nif (-not (Test-Path monitor.log) -or ((Get-Content monitor.log -Raw) -notmatch '\\bFax\\b')) { 'Mit -Dienste Fax wird Fax nicht protokolliert – der Parameter funktioniert nicht.'; exit 1 }\n'Richtig: monitor.log protokolliert die Dienste und markiert gestoppte.'",
+          "hints": [
+            "`Get-Service -Name $name` liefert den Dienst; `.Status -eq 'Stopped'` prüft den Zustand.",
+            "`Add-Content monitor.log \"…\"` hängt eine Zeile an die Logdatei an."
+          ],
+          "points": 10,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Backup mit Rotation",
+          "description": "Schreibe **`backup.ps1`** mit den Parametern **`-Quelle`** (Standard `./daten`) und **`-Ziel`** (Standard `./backups`).\n\nJeder Aufruf sichert die Quelle in einen neuen Ordner **`backup_<Zeitstempel>`** (mit Sekunden, z. B. `backup_20261112_103015`) im Ziel. Es sollen **nur die letzten 5 Backups** bleiben – ältere werden automatisch gelöscht.",
+          "checkScript": "#!/usr/bin/env pwsh\nif (-not (Test-Path backup.ps1)) { 'backup.ps1 gibt es noch nicht.'; exit 1 }\n$src = Get-Content backup.ps1 -Raw\nif ($src -notmatch '(?i)\\bparam\\s*\\(') { 'Zusatzanforderung: backup.ps1 braucht param(...) mit -Quelle und -Ziel.'; exit 1 }\n$ziel = '/tmp/oshell-backup-check'\nRemove-Item $ziel -Recurse -Force -ErrorAction SilentlyContinue\nforeach ($i in 1..7) {\n  $out = & pwsh -NoProfile -NonInteractive -File ./backup.ps1 -Quelle ./daten -Ziel $ziel *>&1 | Out-String\n  if ($LASTEXITCODE -ne 0) { \"backup.ps1 endet beim $i. Aufruf mit Fehler:`n$out\"; exit 1 }\n  if ($i -lt 7) { Start-Sleep -Milliseconds 1100 }\n}\n$b = @(Get-ChildItem $ziel -Directory -Filter 'backup_*')\nif ($b.Count -ne 5) { \"Nach 7 Aufrufen sollen genau 5 Backups übrig sein, gefunden: $($b.Count).\"; exit 1 }\nforeach ($d in $b) {\n  if (-not (Test-Path (Join-Path $d.FullName 'bericht.txt'))) { \"$($d.Name) enthält die Dateien aus daten/ nicht.\"; exit 1 }\n}\nRemove-Item $ziel -Recurse -Force\n'Richtig: Backups mit Zeitstempel, die letzten 5 bleiben.'",
+          "hints": [
+            "`Copy-Item -Path \"$Quelle/*\" -Destination $neu -Recurse` kopiert den Inhalt.",
+            "`Get-ChildItem $Ziel -Directory -Filter 'backup_*' | Sort-Object Name -Descending | Select-Object -Skip 5` liefert die zu alten Backups."
+          ],
+          "points": 10,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Datei-Integrity-Check",
+          "description": "Schreibe zwei Skripte, beide mit den Parametern **`-Pfad`** (Standard `./daten`) und **`-Referenz`** (Standard `./referenz.csv`):\n\n1. **`hash-referenz.ps1`** erstellt **SHA256**-Prüfsummen für alle Dateien im Verzeichnis und speichert sie in der Referenzdatei.\n2. **`hash-pruefen.ps1`** vergleicht bei einem späteren Lauf und gibt übersichtlich aus, welche Dateien **neu**, **gelöscht** oder **verändert** sind (jeweils mit Dateinamen).",
+          "checkScript": "#!/usr/bin/env pwsh\nforeach ($f in 'hash-referenz.ps1', 'hash-pruefen.ps1') { if (-not (Test-Path $f)) { \"$f gibt es noch nicht.\"; exit 1 } }\n$t = '/tmp/oshell-hash-check'\nRemove-Item $t -Recurse -Force -ErrorAction SilentlyContinue\nNew-Item -ItemType Directory $t | Out-Null\nCopy-Item ./daten \"$t/daten\" -Recurse\n$ref = \"$t/referenz.csv\"\n$o1 = & pwsh -NoProfile -NonInteractive -File ./hash-referenz.ps1 -Pfad \"$t/daten\" -Referenz $ref *>&1 | Out-String\nif (-not (Test-Path $ref)) { \"hash-referenz.ps1 hat keine Referenzdatei geschrieben (-Referenz).`n$o1\"; exit 1 }\n$refText = Get-Content $ref -Raw\n$h = (Get-FileHash \"$t/daten/bericht.txt\" -Algorithm SHA256).Hash\nif ($refText -notmatch $h) { 'Die Referenzdatei enthält keine SHA256-Prüfsummen (z. B. für bericht.txt).'; exit 1 }\n'GEÄNDERT' | Add-Content \"$t/daten/notizen.txt\"\nRemove-Item \"$t/daten/bild.dat\"\n'ganz neu' | Set-Content \"$t/daten/neu.txt\"\n$o2 = & pwsh -NoProfile -NonInteractive -File ./hash-pruefen.ps1 -Pfad \"$t/daten\" -Referenz $ref *>&1 | Out-String -Width 300\nforeach ($n in 'notizen.txt', 'bild.dat', 'neu.txt') {\n  if ($o2 -notmatch [regex]::Escape($n)) { \"hash-pruefen.ps1 meldet $n nicht (verändert/gelöscht/neu).`nAusgabe:`n$o2\"; exit 1 }\n}\nforeach ($ok in 'bericht.txt', 'inventar.txt') {\n  $line = ($o2 -split \"`n\") | Where-Object { $_ -match [regex]::Escape($ok) }\n  if ($line -and ($line -match '(?i)neu|gel(ö|oe)scht|ver(ä|ae)ndert|changed|deleted|new')) { \"$ok ist unverändert, wird aber als Änderung gemeldet.\"; exit 1 }\n}\nRemove-Item $t -Recurse -Force\n'Richtig: neue, gelöschte und veränderte Dateien werden erkannt.'",
+          "hints": [
+            "`Get-FileHash -Algorithm SHA256` berechnet die Prüfsumme; speichere Name und Hash mit `Export-Csv`.",
+            "`Compare-Object` oder ein Hashtable-Vergleich findet Unterschiede zwischen Referenz und aktuellem Stand."
+          ],
+          "points": 10,
+          "requiresPrevious": false
+        },
+        {
+          "title": "Parameterisiertes Admin-Skript",
+          "description": "Entwickle **`admin.ps1`** mit den Parametern **`-Mode`**, **`-Path`** und **`-WhatIf`**:\n\n- `-Mode List`: listet die Dateien in `-Path`\n- `-Mode Archive`: erstellt aus `-Path` eine ZIP-Datei **`<Ordnername>.zip`** neben dem Ordner\n- `-Mode Delete`: löscht die Dateien in `-Path` – mit **`-WhatIf`** wird nur angezeigt, was gelöscht würde\n\nUngültige Werte für `-Mode` müssen mit einer **verständlichen Fehlermeldung** abgefangen werden (Exit-Code ungleich 0).",
+          "checkScript": "#!/usr/bin/env pwsh\nif (-not (Test-Path admin.ps1)) { 'admin.ps1 gibt es noch nicht.'; exit 1 }\n$t = '/tmp/oshell-admin-check'\nRemove-Item $t -Recurse -Force -ErrorAction SilentlyContinue\nNew-Item -ItemType Directory \"$t/akten\" -Force | Out-Null\n'a' | Set-Content \"$t/akten/eins.txt\"; 'b' | Set-Content \"$t/akten/zwei.txt\"\n$run = { param($a) & pwsh -NoProfile -NonInteractive -File ./admin.ps1 @a *>&1 | Out-String -Width 300 }\n$o = & $run @('-Mode', 'Quatsch', '-Path', \"$t/akten\")\nif ($LASTEXITCODE -eq 0) { \"Ein ungültiger -Mode (Quatsch) muss mit Exit-Code ungleich 0 enden.`n$o\"; exit 1 }\n$o = & $run @('-Mode', 'List', '-Path', \"$t/akten\")\nif ($LASTEXITCODE -ne 0 -or $o -notmatch 'eins\\.txt' -or $o -notmatch 'zwei\\.txt') { \"-Mode List soll die Dateien auflisten.`n$o\"; exit 1 }\n$o = & $run @('-Mode', 'Archive', '-Path', \"$t/akten\")\nif (-not (Test-Path \"$t/akten.zip\")) { \"-Mode Archive soll $t/akten.zip erstellen.`n$o\"; exit 1 }\n$o = & $run @('-Mode', 'Delete', '-Path', \"$t/akten\", '-WhatIf')\nif (-not (Test-Path \"$t/akten/eins.txt\")) { '-Mode Delete -WhatIf darf nichts löschen!'; exit 1 }\n$o = & $run @('-Mode', 'Delete', '-Path', \"$t/akten\")\nif (@(Get-ChildItem \"$t/akten\" -File).Count -ne 0) { \"-Mode Delete soll die Dateien löschen.`n$o\"; exit 1 }\nRemove-Item $t -Recurse -Force\n'Richtig: List, Archive, Delete und -WhatIf funktionieren.'",
+          "hints": [
+            "`[ValidateSet('List','Archive','Delete')]` vor dem Parameter prüft erlaubte Werte; `[CmdletBinding(SupportsShouldProcess)]` liefert `-WhatIf` automatisch.",
+            "`Compress-Archive -Path … -DestinationPath …` erstellt ZIP-Dateien; `$PSCmdlet.ShouldProcess(…)` vor dem Löschen beachtet `-WhatIf`."
+          ],
+          "points": 10,
+          "requiresPrevious": false
+        },
+        {
+          "title": "CIM-Inventarisierung mehrerer Rechner",
+          "description": "Schreibe **`inventar.ps1`**: Lies die Rechnernamen aus **`rechnerliste.txt`** und sammle pro Rechner mit **CIM** die Systemdaten **Betriebssystem, RAM, CPU und letzter Boot-Zeitpunkt**.\n\nErstelle daraus einen Gesamtbericht als **`inventar.csv`** und als HTML-Tabelle **`inventar.html`** – mit einer Spalte **`Computer`**. Nicht erreichbare Rechner (z. B. `offline-labor`) dürfen das Skript **nicht abbrechen** (try/catch).",
+          "checkScript": "#!/usr/bin/env pwsh\nif (-not (Test-Path inventar.ps1)) { 'inventar.ps1 gibt es noch nicht.'; exit 1 }\n$src = Get-Content inventar.ps1 -Raw\nif ($src -notmatch '(?i)Get-CimInstance') { 'inventar.ps1 soll die Daten mit Get-CimInstance sammeln.'; exit 1 }\nif ($src -notmatch '(?i)\\btry\\b' -or $src -notmatch '(?i)\\bcatch\\b') { 'Zusatzanforderung: verwende try/catch (für nicht erreichbare Rechner).'; exit 1 }\nRemove-Item inventar.csv, inventar.html -ErrorAction SilentlyContinue\n$out = & pwsh -NoProfile -NonInteractive -File ./inventar.ps1 *>&1 | Out-String -Width 300\nif (-not (Test-Path inventar.csv)) { \"inventar.csv wurde nicht erstellt (bricht das Skript beim offline-Rechner ab?).`n$out\"; exit 1 }\nif (-not (Test-Path inventar.html)) { 'inventar.html wurde nicht erstellt.'; exit 1 }\n$rows = @(Import-Csv inventar.csv)\nif ('Computer' -notin $rows[0].PSObject.Properties.Name) { \"inventar.csv braucht eine Spalte 'Computer'.\"; exit 1 }\n$online = $rows | Where-Object { $_.Computer -match '(?i)PC-R101-01' }\nif (-not $online) { 'Der Rechner PC-R101-01 fehlt in inventar.csv.'; exit 1 }\nif ($rows.Count -lt 3) { \"inventar.csv soll die 3 erreichbaren Rechner enthalten (gefunden: $($rows.Count)).\"; exit 1 }\n$all = ($rows | ConvertTo-Csv | Out-String)\nif ($all -notmatch 'Windows') { 'inventar.csv enthält kein Betriebssystem.'; exit 1 }\n$cpu = (Get-CimInstance Win32_Processor -ComputerName PC-R101-01).Name\nif ($all -notmatch [regex]::Escape($cpu)) { 'inventar.csv enthält die CPU nicht.'; exit 1 }\n$h = Get-Content inventar.html -Raw\nif ($h -notmatch '(?i)<table' -or $h -notmatch '(?i)PC-R101-01') { 'inventar.html ist keine HTML-Tabelle mit den Rechnern.'; exit 1 }\n'Richtig: Inventar als CSV und HTML, offline-Rechner abgefangen.'",
+          "hints": [
+            "`Get-CimInstance Win32_OperatingSystem -ComputerName $name` (Caption, LastBootUpTime, TotalVisibleMemorySize) und `Win32_Processor` (Name).",
+            "`-ErrorAction Stop` in try/catch fängt nicht erreichbare Rechner ab; danach `Export-Csv` und `ConvertTo-Html | Out-File`."
+          ],
+          "points": 10,
+          "requiresPrevious": false
+        }
+      ]
+    }
+  ]
+}
