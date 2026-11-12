@@ -96,7 +96,9 @@ Members come from Microsoft Graph with **app-only** permissions
 
 - **Application** `Group.Read.All` (search and read groups)
 - **Application** `GroupMember.Read.All` (read members)
-- admin consent for both
+- **Application** `User.ReadBasic.All` (members' names and emails; without
+  it Graph returns members with only their id and the sync fails)
+- admin consent for all three
 
 "Sync members" (and the first import) creates missing users as students and
 makes the class membership match the group exactly. Teachers/admins in the
@@ -148,7 +150,9 @@ on the server. tRPC has `protectedProcedure`, `teacherProcedure`, `adminProcedur
 4. **App roles → Create app role** (member types: *Users/Groups*), values exactly:
    `Admin`, `Teacher`, `Student`
 5. **API permissions → Microsoft Graph → Delegated**: `User.Read`,
-   `GroupMember.Read.All` (+ `openid`, `profile`, `email`) → **Grant admin consent**
+   `GroupMember.Read.All` (+ `openid`, `profile`, `email`); **Application**:
+   `Group.Read.All`, `GroupMember.Read.All`, `User.ReadBasic.All` →
+   **Grant admin consent**
 6. **Enterprise applications → Online Shell → Users and groups**: assign yourself →
    `Admin`, the teachers group → `Teacher`. Users with no role become students.
    Optional: *Properties → Assignment required = Yes* to limit who can sign in

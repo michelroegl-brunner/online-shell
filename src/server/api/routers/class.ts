@@ -96,14 +96,31 @@ async function syncFromGraph(
 ) {
   const members = await guardGraph(() => listGroupMembers(cls.entraGroupId));
 
+  // Without the User.ReadBasic.All application permission Graph returns
+  // members with ONLY their id. Fail loudly instead of "skipping" everyone
+  // (and wiping the class's memberships below).
+  if (
+    members.length > 0 &&
+    members.every((m) => !m.displayName && !m.mail && !m.userPrincipalName)
+  ) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message:
+        "Microsoft Graph returned the members without names or emails. The Entra app needs the Application permission User.ReadBasic.All (with admin consent).",
+    });
+  }
+
   let created = 0;
   let skipped = 0;
+  let noEmail = 0;
+  let emailTaken = 0;
   const studentIds: string[] = [];
 
   for (const m of members) {
     const email = (m.mail ?? m.userPrincipalName)?.toLowerCase();
     if (!email) {
       skipped++;
+      noEmail++;
       continue;
     }
     let user = await ctx.db.user.findUnique({
@@ -126,6 +143,7 @@ async function syncFromGraph(
         // e.g. the email already belongs to another (dev) account
         if (isUniqueViolation(e)) {
           skipped++;
+          emailTaken++;
           continue;
         }
         throw e;
@@ -150,6 +168,10 @@ async function syncFromGraph(
     students: studentIds.length,
     createdUsers: created,
     skipped,
+    /** Members without mail/UPN */
+    noEmail,
+    /** Email already used by another account (e.g. a dev-login user) */
+    emailTaken,
   };
 }
 

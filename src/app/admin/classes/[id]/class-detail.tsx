@@ -51,7 +51,15 @@ export function ClassDetail({ id }: { id: string }) {
       toast.success(
         `Synced: ${r.students} students` +
           (r.createdUsers ? `, ${r.createdUsers} new accounts` : "") +
-          (r.skipped ? `, ${r.skipped} skipped` : ""),
+          (r.skipped
+            ? `, ${r.skipped} skipped (${[
+                r.noEmail && `${r.noEmail} without email`,
+                r.emailTaken &&
+                  `${r.emailTaken} email already used by another account`,
+              ]
+                .filter(Boolean)
+                .join(", ")})`
+            : ""),
       );
     },
     onError,

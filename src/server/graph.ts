@@ -8,6 +8,8 @@ import { env } from "~/env";
  * Needs APPLICATION permissions on the app registration (admin consent):
  *   - Group.Read.All        (search / read groups)
  *   - GroupMember.Read.All  (read group members)
+ *   - User.ReadBasic.All    (names + emails of those members; without it
+ *                            Graph returns members with only their id)
  */
 
 export const graphEnabled = Boolean(
