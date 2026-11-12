@@ -32,6 +32,7 @@ const SECTIONS = [
     title: "Reports",
     text: "Class × exercise matrix, per-student details, CSV export.",
     icon: BarChart3,
+    href: "/admin/reports",
   },
 ];
 

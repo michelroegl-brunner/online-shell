@@ -167,6 +167,7 @@ check prints.
 | `/admin/exercises` | TEACHER, ADMIN | exercise library, editor, test run |
 | `/admin/classes` | TEACHER, ADMIN | import M365 groups, members, teachers, groups |
 | `/admin/assignments` | TEACHER, ADMIN | create / edit / publish assignments |
+| `/admin/reports` | TEACHER, ADMIN | results per assignment (matrix, CSV, per-exercise stats), per student, per attempt (command history) |
 
 `src/proxy.ts` guards `/learn` and `/admin`; the admin layout checks the role again
 on the server. tRPC has `protectedProcedure`, `teacherProcedure`, `adminProcedure`.

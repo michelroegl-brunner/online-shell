@@ -4,6 +4,7 @@ import { classRouter } from "~/server/api/routers/class";
 import { exerciseRouter } from "~/server/api/routers/exercise";
 import { learnRouter } from "~/server/api/routers/learn";
 import { meRouter } from "~/server/api/routers/me";
+import { reportRouter } from "~/server/api/routers/report";
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 
 export const appRouter = createTRPCRouter({
@@ -13,6 +14,7 @@ export const appRouter = createTRPCRouter({
   class: classRouter,
   assignment: assignmentRouter,
   learn: learnRouter,
+  report: reportRouter,
 });
 
 export type AppRouter = typeof appRouter;

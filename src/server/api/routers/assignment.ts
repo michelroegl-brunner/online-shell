@@ -1,9 +1,13 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
+import {
+  assignmentWhere,
+  classWhere,
+  exerciseReadableWhere,
+} from "~/server/access";
 import { createTRPCRouter, teacherProcedure } from "~/server/api/trpc";
 import { type db as Db } from "~/server/db";
-import type { Prisma } from "../../../../generated/prisma";
 
 /**
  * Teacher side of assignments (create / edit / publish).
@@ -15,17 +19,6 @@ import type { Prisma } from "../../../../generated/prisma";
  */
 
 type Ctx = { db: typeof Db; user: { id: string; role: string } };
-
-const isAdmin = (u: Ctx["user"]) => u.role === "ADMIN";
-
-const classWhere = (u: Ctx["user"]): Prisma.ClassWhereInput =>
-  isAdmin(u) ? {} : { teachers: { some: { userId: u.id } } };
-
-const assignmentWhere = (u: Ctx["user"]): Prisma.AssignmentWhereInput =>
-  isAdmin(u) ? {} : { class: classWhere(u) };
-
-const exerciseReadableWhere = (u: Ctx["user"]): Prisma.ExerciseWhereInput =>
-  isAdmin(u) ? {} : { OR: [{ authorId: u.id }, { visibility: "SHARED" }] };
 
 async function loadAssignment(ctx: Ctx, id: string) {
   const a = await ctx.db.assignment.findFirst({
