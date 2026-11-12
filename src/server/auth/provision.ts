@@ -50,5 +50,12 @@ export async function syncClassMemberships(userId: string, groupIds: string[]) {
       data: classIds.map((classId) => ({ userId, classId })),
       skipDuplicates: true,
     }),
+    // Left a class → also leave that class's groups.
+    db.classGroupMember.deleteMany({
+      where: {
+        userId,
+        group: { class: { memberships: { none: { userId } } } },
+      },
+    }),
   ]);
 }

@@ -103,9 +103,24 @@ makes the class membership match the group exactly. Teachers/admins in the
 group are never counted as students. Students' memberships are also refreshed
 whenever they sign in (delegated `/me/transitiveMemberOf`).
 
-**Dev mode:** without the `AUTH_MICROSOFT_ENTRA_ID_*` variables and with
-`AUTH_DEV_LOGIN="true"`, the page offers "New dev class" and lets you add
-dev-login students by email, so you can test without Microsoft 365.
+**Dev classes:** with `AUTH_DEV_LOGIN="true"` (never active in production)
+the page also offers "New dev class" and lets you add dev-login students by
+email, so you can test without Microsoft 365.
+
+### Groups
+
+A class can be split into **groups** (e.g. "Gruppe A" / "Gruppe B" for lab
+lessons) on the class page: create, rename and delete groups, tick students in
+a students × groups matrix, or **Split evenly** (N groups, students dealt
+alphabetically; replacing existing groups asks first). A student may be in
+several groups; only students of the class can be added. When a student
+leaves the class (M365 sync, sign-in sync or dev removal), their group
+memberships in that class are removed too.
+
+**Assignment targeting** (used by the upcoming assignments feature): an
+assignment with **no groups** goes to the whole class; with groups, only to
+students in **at least one** of them. The rule lives in
+`assignmentWhereVisibleTo(userId)` (`src/server/assignments/visibility.ts`).
 
 ## Routes
 
@@ -116,7 +131,7 @@ dev-login students by email, so you can test without Microsoft 365.
 | `/learn/playground` | everyone | free Bash shell in your own box |
 | `/admin` | TEACHER, ADMIN | exercises, classes, assignments, reports |
 | `/admin/exercises` | TEACHER, ADMIN | exercise library, editor, test run |
-| `/admin/classes` | TEACHER, ADMIN | import M365 groups, members, teachers |
+| `/admin/classes` | TEACHER, ADMIN | import M365 groups, members, teachers, groups |
 
 `src/proxy.ts` guards `/learn` and `/admin`; the admin layout checks the role again
 on the server. tRPC has `protectedProcedure`, `teacherProcedure`, `adminProcedure`.

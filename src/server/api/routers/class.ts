@@ -16,8 +16,11 @@ import type { Prisma } from "../../../../generated/prisma";
 
 type Ctx = { db: typeof Db; user: { id: string; role: string } };
 
-/** Dev classes (no M365 group behind them) when Graph isn't configured. */
-const devFallback = () => !graphEnabled && devLoginEnabled;
+/**
+ * Dev classes (no M365 group behind them) are available whenever the dev
+ * login is on (never in production), also next to Graph import.
+ */
+const devFallback = () => devLoginEnabled;
 const DEV_PREFIX = "dev:";
 
 const visibleWhere = (u: Ctx["user"]): Prisma.ClassWhereInput =>
@@ -57,6 +60,31 @@ const emptyToNull = (s: string | null | undefined) =>
 
 const isUniqueViolation = (e: unknown) =>
   (e as { code?: string }).code === "P2002";
+
+/** Drop group memberships of users who are no longer in the class. */
+export const pruneGroupMembers = (db: typeof Db, classId: string) =>
+  db.classGroupMember.deleteMany({
+    where: {
+      group: { classId },
+      user: { memberships: { none: { classId } } },
+    },
+  });
+
+/** Group ids of a class, with the class's student ids, for validation. */
+async function loadGroup(ctx: Ctx, groupId: string) {
+  const group = await ctx.db.classGroup.findUnique({ where: { id: groupId } });
+  if (!group) throw new TRPCError({ code: "NOT_FOUND" });
+  await loadClass(ctx, group.classId); // access check
+  return group;
+}
+
+const groupName = z.string().trim().min(1).max(50);
+
+/** "A", "B", …, "Z", "AA", … */
+const letter = (i: number): string =>
+  i < 26
+    ? String.fromCharCode(65 + i)
+    : letter(Math.floor(i / 26) - 1) + letter(i % 26);
 
 /**
  * Pull the group's members from Graph, upsert them as users and make the
@@ -114,6 +142,7 @@ async function syncFromGraph(
       data: studentIds.map((userId) => ({ userId, classId: cls.id })),
       skipDuplicates: true,
     }),
+    pruneGroupMembers(ctx.db, cls.id),
   ]);
 
   return {
@@ -176,9 +205,148 @@ export const classRouter = createTRPCRouter({
             orderBy: { user: { name: "asc" } },
             select: { user: { select: { id: true, name: true, email: true } } },
           },
+          groups: {
+            orderBy: { name: "asc" },
+            select: {
+              id: true,
+              name: true,
+              members: { select: { userId: true } },
+            },
+          },
         },
       });
       return { ...cls, isDev: cls.entraGroupId.startsWith(DEV_PREFIX) };
+    }),
+
+  // ── groups (splits of a class) ──
+
+  createGroup: teacherProcedure
+    .input(z.object({ classId: z.string(), name: groupName }))
+    .mutation(async ({ ctx, input }) => {
+      await loadClass(ctx, input.classId);
+      try {
+        return await ctx.db.classGroup.create({
+          data: { classId: input.classId, name: input.name },
+          select: { id: true },
+        });
+      } catch (e) {
+        if (isUniqueViolation(e)) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "A group with this name already exists in this class.",
+          });
+        }
+        throw e;
+      }
+    }),
+
+  renameGroup: teacherProcedure
+    .input(z.object({ groupId: z.string(), name: groupName }))
+    .mutation(async ({ ctx, input }) => {
+      await loadGroup(ctx, input.groupId);
+      try {
+        await ctx.db.classGroup.update({
+          where: { id: input.groupId },
+          data: { name: input.name },
+        });
+      } catch (e) {
+        if (isUniqueViolation(e)) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "A group with this name already exists in this class.",
+          });
+        }
+        throw e;
+      }
+    }),
+
+  deleteGroup: teacherProcedure
+    .input(z.object({ groupId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      await loadGroup(ctx, input.groupId);
+      await ctx.db.classGroup.delete({ where: { id: input.groupId } });
+    }),
+
+  /** Replace a group's members. Only students of the class are allowed. */
+  setGroupMembers: teacherProcedure
+    .input(
+      z.object({ groupId: z.string(), userIds: z.array(z.string()).max(500) }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const group = await loadGroup(ctx, input.groupId);
+      const userIds = [...new Set(input.userIds)];
+      const valid = await ctx.db.classMembership.count({
+        where: { classId: group.classId, userId: { in: userIds } },
+      });
+      if (valid !== userIds.length) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Only students of this class can be added to its groups.",
+        });
+      }
+      await ctx.db.$transaction([
+        ctx.db.classGroupMember.deleteMany({
+          where: { groupId: group.id, userId: { notIn: userIds } },
+        }),
+        ctx.db.classGroupMember.createMany({
+          data: userIds.map((userId) => ({ groupId: group.id, userId })),
+          skipDuplicates: true,
+        }),
+      ]);
+    }),
+
+  /**
+   * Create `count` groups ("Gruppe A", "Gruppe B", … or prefix + letter) and
+   * deal the current students into them alphabetically (A gets the first
+   * ceil(n/count), …). Existing groups are only deleted with `replace`.
+   */
+  splitEvenly: teacherProcedure
+    .input(
+      z.object({
+        classId: z.string(),
+        count: z.number().int().min(2).max(26),
+        prefix: z.string().trim().max(40).optional(),
+        replace: z.boolean().default(false),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await loadClass(ctx, input.classId);
+      const existing = await ctx.db.classGroup.count({
+        where: { classId: input.classId },
+      });
+      if (existing > 0 && !input.replace) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "This class already has groups. Confirm replacing them to split again.",
+        });
+      }
+      const students = await ctx.db.classMembership.findMany({
+        where: { classId: input.classId },
+        orderBy: { user: { name: "asc" } },
+        select: { userId: true },
+      });
+      const prefix = input.prefix ? `${input.prefix} ` : "Gruppe ";
+      const size = Math.ceil(students.length / input.count);
+
+      await ctx.db.$transaction(async (tx) => {
+        if (input.replace) {
+          await tx.classGroup.deleteMany({ where: { classId: input.classId } });
+        }
+        for (let i = 0; i < input.count; i++) {
+          const members = students.slice(i * size, (i + 1) * size);
+          await tx.classGroup.create({
+            data: {
+              classId: input.classId,
+              name: `${prefix}${letter(i)}`.slice(0, 50),
+              members: {
+                create: members.map((m) => ({ userId: m.userId })),
+              },
+            },
+          });
+        }
+      });
+      return { groups: input.count, students: students.length };
     }),
 
   /** Search M365 groups; marks the ones already imported. */
@@ -380,8 +548,11 @@ export const classRouter = createTRPCRouter({
           message: "Members of M365 classes are managed in Microsoft 365.",
         });
       }
-      await ctx.db.classMembership.deleteMany({
-        where: { classId: cls.id, userId: input.userId },
-      });
+      await ctx.db.$transaction([
+        ctx.db.classMembership.deleteMany({
+          where: { classId: cls.id, userId: input.userId },
+        }),
+        pruneGroupMembers(ctx.db, cls.id),
+      ]);
     }),
 });

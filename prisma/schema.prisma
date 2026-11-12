@@ -62,6 +62,7 @@ model User {
   authoredExercises    Exercise[]
   attempts             Attempt[]
   assignmentExtensions AssignmentExtension[]
+  classGroups          ClassGroupMember[]
 }
 
 model Class {
@@ -76,6 +77,33 @@ model Class {
   memberships ClassMembership[]
   teachers    ClassTeacher[]
   assignments Assignment[]
+  groups      ClassGroup[]
+}
+
+/// A split of a class, e.g. "Gruppe A" / "Gruppe B" for lab lessons.
+/// A student may be in several groups of the same class.
+model ClassGroup {
+  id        String   @id @default(cuid())
+  classId   String
+  name      String
+  createdAt DateTime @default(now())
+
+  class       Class              @relation(fields: [classId], references: [id], onDelete: Cascade)
+  members     ClassGroupMember[]
+  assignments AssignmentGroup[]
+
+  @@unique([classId, name])
+}
+
+model ClassGroupMember {
+  groupId String
+  userId  String
+
+  group ClassGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, userId])
+  @@index([userId])
 }
 
 model ClassMembership {
@@ -153,8 +181,21 @@ model Assignment {
   class      Class                 @relation(fields: [classId], references: [id], onDelete: Cascade)
   items      AssignmentItem[]
   extensions AssignmentExtension[]
+  /// No groups = whole class; otherwise only students in >= 1 of them.
+  groups     AssignmentGroup[]
 
   @@index([classId])
+}
+
+model AssignmentGroup {
+  assignmentId String
+  groupId      String
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  group      ClassGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@id([assignmentId, groupId])
+  @@index([groupId])
 }
 
 model AssignmentItem {

@@ -46,7 +46,9 @@ export function ClassList() {
           Archived
         </Button>
         {mode.data?.graphEnabled && <ImportDialog />}
-        {mode.data?.devFallback && <DevCreateDialog />}
+        {mode.data?.devFallback && (
+          <DevCreateDialog primary={!mode.data.graphEnabled} />
+        )}
       </div>
 
       {mode.data && !mode.data.graphEnabled && !mode.data.devFallback && (
@@ -56,8 +58,8 @@ export function ClassList() {
       )}
       {mode.data?.devFallback && (
         <p className="text-muted-foreground mb-4 text-sm">
-          Dev mode: Microsoft Graph isn’t configured, so you can create dev
-          classes and add dev-login students by hand.
+          Dev login is on: you can also create dev classes and add dev-login
+          students by hand (not available in production).
         </p>
       )}
 
@@ -89,9 +91,9 @@ export function ClassList() {
                 >
                   {archived
                     ? "No archived classes."
-                    : mode.data?.devFallback
-                      ? "No classes yet. Create a dev class to get started."
-                      : "No classes yet. Import an M365 group to get started."}
+                    : mode.data?.graphEnabled
+                      ? "No classes yet. Import an M365 group to get started."
+                      : "No classes yet. Create a dev class to get started."}
                 </TableCell>
               </TableRow>
             )}
@@ -260,7 +262,7 @@ function ImportDialog() {
   );
 }
 
-function DevCreateDialog() {
+function DevCreateDialog({ primary }: { primary: boolean }) {
   const router = useRouter();
   const utils = api.useUtils();
   const [open, setOpen] = useState(false);
@@ -277,7 +279,7 @@ function DevCreateDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button variant={primary ? "default" : "ghost"}>
           <Plus /> New dev class
         </Button>
       </DialogTrigger>

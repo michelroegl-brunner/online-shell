@@ -32,6 +32,7 @@ import {
   TableRow,
 } from "~/components/ui/table";
 import { api } from "~/trpc/react";
+import { GroupsCard } from "./groups-card";
 
 const fmt = new Intl.DateTimeFormat("en-GB", {
   dateStyle: "medium",
@@ -320,6 +321,15 @@ export function ClassDetail({ id }: { id: string }) {
           </CardContent>
         </Card>
       </div>
+
+      <GroupsCard
+        classId={id}
+        students={c.memberships.map((m) => ({
+          id: m.user.id,
+          name: m.user.name,
+        }))}
+        groups={c.groups}
+      />
     </div>
   );
 }
