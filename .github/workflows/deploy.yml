@@ -32,6 +32,18 @@ jobs:
           docker compose -p online-shell -f deploy/docker-compose.yml \
             --env-file /opt/online-shell/.env up -d --build --remove-orphans
 
+      # The Caddyfile is a single-file bind mount: `up` doesn't recreate an
+      # unchanged container, and a checkout may replace the file (new inode),
+      # so a changed Caddyfile only applies after a restart. Restart only
+      # then — it drops open terminal WebSockets.
+      - name: Apply Caddyfile changes
+        run: |
+          dc="docker compose -p online-shell -f deploy/docker-compose.yml --env-file /opt/online-shell/.env"
+          if ! $dc exec -T caddy cat /etc/caddy/Caddyfile | cmp -s - deploy/Caddyfile; then
+            echo "Caddyfile changed, restarting caddy"
+            $dc restart caddy
+          fi
+
       - name: Wait for the web app
         run: |
           for i in $(seq 1 60); do
