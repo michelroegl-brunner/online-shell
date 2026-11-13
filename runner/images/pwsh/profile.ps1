@@ -18,6 +18,10 @@ function global:prompt {
         $cmd = $h.CommandLine -replace "`r?`n", ' '
         $line = '{0}{1}{2}{1}{3}{1}{4}' -f [DateTimeOffset]::UtcNow.ToUnixTimeSeconds(), "`t", $code, $PWD.ProviderPath, $cmd
         try { [IO.File]::AppendAllText('/run/oshell/cmd.log', $line + "`n") } catch { }
+        # Live view: the runner strips this marker from the output
+        # (runner/src/commands.ts).
+        $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($line))
+        [Console]::Write("`e]7337;$b64`a")
     }
 
     $path = $PWD.ProviderPath -replace '^/home/student', '~'

@@ -26,9 +26,12 @@ import {
 } from "./boxes.js";
 import { config } from "./config.js";
 import { type PasteReason, pasteReporter } from "./paste-report.js";
+import { commandSniffer } from "./commands.js";
 import {
   addWatcher,
   closeSession,
+  controlResponse,
+  controlRevoke,
   openSession,
   openTerminals,
   sessionOutput,
@@ -152,7 +155,8 @@ const server = createServer((req, res) => {
 // Protocol: binary frames = terminal bytes (both directions);
 // text frames client→server = JSON control ({type:"resize",cols,rows} /
 //   {type:"paste-attempt",reason,bytes} when the browser blocked a paste);
-// text frames server→client = JSON status ({type:"ready"} / {type:"exit"}).
+// text frames server→client = JSON status ({type:"ready"} / {type:"exit"}),
+//   plus watch/take-over notices (see watch.ts).
 
 const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
 
@@ -170,8 +174,10 @@ server.on("upgrade", (req, socket, head) => {
   }
   if (isWatch) {
     verifyWatchToken(url.searchParams.get("token") ?? "").then(
-      ({ userId }) =>
-        wss.handleUpgrade(req, socket, head, (ws) => addWatcher(userId, ws)),
+      ({ userId, name }) =>
+        wss.handleUpgrade(req, socket, head, (ws) =>
+          addWatcher(userId, ws, name),
+        ),
       () => {
         socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
         socket.destroy();
@@ -237,6 +243,9 @@ const controlMsg = z.discriminatedUnion("type", [
     reason: z.enum(["paste", "drop", "shortcut"]),
     bytes: z.number().int().nonnegative().max(10_000_000).default(0),
   }),
+  // Take over (watch.ts): the student answers a teacher's request / ends it.
+  z.object({ type: z.literal("control-response"), allow: z.boolean() }),
+  z.object({ type: z.literal("control-revoke") }),
 ]);
 
 async function attach(
@@ -264,7 +273,23 @@ async function attach(
     return;
   }
   const { stream, resize, release } = pty;
-  const session = openSession(userId, cwd ?? "/home/student", cols, rows, ws);
+  const session = openSession(
+    userId,
+    cwd ?? "/home/student",
+    cols,
+    rows,
+    ws,
+    // A teacher the student handed control to types here (no paste limit).
+    (b) => {
+      touch(userId);
+      stream.write(b);
+    },
+  );
+  // Strips the hooks' command markers and records them (commands.ts).
+  const output = commandSniffer(userId, (chunk) => {
+    sessionOutput(session, chunk);
+    if (ws.readyState === ws.OPEN) ws.send(chunk, { binary: true });
+  });
   ws.send(JSON.stringify({ type: "ready" }));
 
   // Tell the browser when the policy flips, so it blocks paste and shows
@@ -281,10 +306,7 @@ async function attach(
     }
   }
 
-  stream.on("data", (chunk: Buffer) => {
-    sessionOutput(session, chunk);
-    if (ws.readyState === ws.OPEN) ws.send(chunk, { binary: true });
-  });
+  stream.on("data", (chunk: Buffer) => output(chunk));
   stream.on("end", () => {
     if (ws.readyState === ws.OPEN) {
       ws.send(JSON.stringify({ type: "exit" }));
@@ -317,6 +339,10 @@ async function attach(
       if (msg.type === "resize") {
         void resize(msg.cols, msg.rows);
         sessionResize(session, msg.cols, msg.rows);
+      } else if (msg.type === "control-response") {
+        controlResponse(session, msg.allow);
+      } else if (msg.type === "control-revoke") {
+        controlRevoke(session);
       } else if (pasteBlocked()) report.add(msg.reason, msg.bytes);
     } catch {
       /* ignore unknown control messages */

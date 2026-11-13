@@ -99,6 +99,14 @@ async function terminalsByUser() {
 }
 
 const IDLE_MINUTES = 10;
+
+/** `~/exercises/<slug>/…` → slug (null outside exercise folders). */
+const slugOf = (cwd: string) => {
+  const prefix = `${HOME}/exercises/`;
+  return cwd.startsWith(prefix)
+    ? (cwd.slice(prefix.length).split("/")[0] ?? null)
+    : null;
+};
 const STUCK_CHECKS = 3;
 const STUCK_FAILED_COMMANDS = 5;
 
@@ -276,7 +284,10 @@ export const manageRouter = createTRPCRouter({
         where: { id: input.userId },
         select: { id: true, name: true },
       });
-      return { ...(await runner.watchInfo(student.id)), name: student.name };
+      return {
+        ...(await runner.watchInfo(student.id, ctx.user.name ?? "Teacher")),
+        name: student.name,
+      };
     }),
 
   /**
@@ -426,11 +437,22 @@ export const manageRouter = createTRPCRouter({
           );
           return { it, att, passed };
         });
+        const term = open.get(s.id);
+        // Commands streamed by the runner (seconds old, not yet ingested),
+        // per exercise folder of this assignment.
+        const streamed = (term?.recent ?? [])
+          .map((c) => ({ ...c, slug: slugOf(c.cwd) }))
+          .filter(
+            (c) => c.slug && a.items.some((i) => i.exercise.slug === c.slug),
+          );
+        const streamedFor = (x: (typeof items)[number]) =>
+          streamed.filter((c) => c.slug === x.it.exercise.slug);
         // The exercise the student is on: newest activity.
         const activity = (x: (typeof items)[number]) =>
           Math.max(
             x.att?.updatedAt.getTime() ?? 0,
             (x.att && lastByAttempt.get(x.att.id)?.at.getTime()) ?? 0,
+            streamedFor(x).at(-1)?.at ?? 0,
           );
         const current = items
           .filter((x) => x.att)
@@ -441,15 +463,32 @@ export const manageRouter = createTRPCRouter({
         const currentStepChecks = current?.att?.steps.find(
           (st) => st.stepId === currentStep?.id,
         )?.checks;
-        const last = current?.att ? lastByAttempt.get(current.att.id) : null;
-        const term = open.get(s.id);
+        const stored = current?.att ? lastByAttempt.get(current.att.id) : null;
+        const live = current ? streamedFor(current).at(-1) : undefined;
+        const last =
+          live && (!stored || live.at >= stored.at.getTime())
+            ? {
+                command: live.command,
+                exitCode: live.exitCode,
+                at: new Date(live.at),
+              }
+            : stored;
         const lastActivity = Math.max(
           current ? activity(current) : 0,
           term?.lastActivity ?? 0,
         );
-        const failedRecently = items.reduce(
-          (n, x) => n + ((x.att && failedByAttempt.get(x.att.id)) ?? 0),
-          0,
+        // Stored and streamed commands overlap, so take the larger count.
+        const failedRecently = Math.max(
+          items.reduce(
+            (n, x) => n + ((x.att && failedByAttempt.get(x.att.id)) ?? 0),
+            0,
+          ),
+          streamed.filter(
+            (c) =>
+              c.exitCode !== null &&
+              c.exitCode !== 0 &&
+              now - c.at < IDLE_MINUTES * 60_000,
+          ).length,
         );
         const focusLost = items.reduce(
           (n, x) =>
@@ -484,6 +523,7 @@ export const manageRouter = createTRPCRouter({
           student: s,
           online: !!term,
           watchers: term?.watchers ?? 0,
+          controlled: term?.controlled ?? false,
           cwd: term?.cwd?.startsWith(HOME)
             ? `~${term.cwd.slice(HOME.length)}`
             : (term?.cwd ?? null),

@@ -6,6 +6,7 @@ import {
   ClipboardX,
   Eye,
   EyeOff,
+  Keyboard,
   Lock,
   Megaphone,
   Moon,
@@ -324,6 +325,11 @@ function StudentCard({
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
+          {r.controlled && (
+            <Badge variant="secondary" className="gap-1 text-sky-300">
+              <Keyboard className="size-3" /> teacher typing
+            </Badge>
+          )}
           {r.flags.stuck && (
             <Badge variant="destructive" className="gap-1">
               <AlertTriangle className="size-3" /> stuck

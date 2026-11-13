@@ -74,7 +74,7 @@ pnpm runner:dev                                  # :4100
 | `GET /sessions` | students with an open terminal (+ last input) for the live view |
 | `DELETE /boxes/:userId` | remove the box (volume stays) |
 | `WS /attach?token=…&cols=…&rows=…` | interactive shell |
-| `WS /watch?token=…` | teacher: read-only view of a student's newest terminal |
+| `WS /watch?token=…` | teacher: view of a student's newest terminal; typing only after the student allows a take-over |
 
 ## Exercises
 
@@ -212,12 +212,22 @@ as reports (classes you teach, admins all).
   online status (runner `GET /sessions`), current exercise/step, last
   command, progress, and flags — **stuck** (≥ 3 checks on the current step
   or ≥ 5 failed commands in 10 min) and **idle** (no activity for 10 min).
-  Polls every 5 s; while open it pulls command logs out of the boxes of
-  students with an open terminal every 15 s (throttled per student).
+  Polls every 5 s. **Live commands**: the shell hooks also print each
+  finished command as a private OSC sequence (`ESC ] 7337 ; base64 BEL`);
+  the runner strips it from the terminal output and keeps the last 30 per
+  student in memory (`runner/src/commands.ts`, exposed via `GET /sessions`),
+  so the live view is seconds behind, not one check behind. CommandLog is
+  still filled from `cmd.log`: while the page is open, every 15 s for
+  students with an open terminal (throttled per student).
 - **Watch** a student's terminal read-only (runner `WS /watch`, 60 s JWT
   `aud: oshell-watch`, minted only for students of your classes). The runner
   keeps 128 KB of scrollback per terminal and replays it; the watcher follows
   the student's newest terminal. The student sees "Teacher is watching".
+  **Take over**: the teacher asks, the student's terminal shows Allow / Deny;
+  only after Allow are the teacher's keystrokes written to that terminal.
+  The student can take control back at any time; it also ends when the
+  teacher releases it, closes the view or the terminal changes. Commands
+  typed meanwhile are logged as the student's.
 - **Messages to the class** (`Announcement`): sent from the live view, shown
   as a banner + toast on the student's assignment and exercise pages.
 - **Per student**: extra time (`AssignmentExtension`, from the results
@@ -238,6 +248,8 @@ as reports (classes you teach, admins all).
   what opens / publishes / is due in the next 7 days, exercises worth a look.
 - **Scheduled publishing** (`Assignment.publishAt`): a draft becomes visible
   at that time; decided at query time in `assignmentWhereVisibleTo`, no job.
+  "Publish when it opens" sets it to the opening time, so students see
+  nothing before (not even a locked entry).
 
 ### Exam mode
 

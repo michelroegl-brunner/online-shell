@@ -33,14 +33,17 @@ export type AttachClaims = {
  */
 export async function verifyWatchToken(
   token: string,
-): Promise<{ userId: string }> {
+): Promise<{ userId: string; name: string }> {
   const { payload } = await jwtVerify(token, secretKey, {
     audience: "oshell-watch",
     issuer: "oshell-web",
     algorithms: ["HS256"],
   });
   if (typeof payload.sub !== "string") throw new Error("bad claims");
-  return { userId: payload.sub };
+  // Shown to the student when this teacher asks to take over.
+  const name =
+    typeof payload.name === "string" ? payload.name.slice(0, 100) : "Teacher";
+  return { userId: payload.sub, name };
 }
 
 const CWD_RE = /^\/home\/student(\/[A-Za-z0-9._-]+)*$/;

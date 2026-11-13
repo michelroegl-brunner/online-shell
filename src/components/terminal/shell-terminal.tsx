@@ -4,7 +4,7 @@ import "@xterm/xterm/css/xterm.css";
 
 import type { FitAddon } from "@xterm/addon-fit";
 import type { Terminal } from "@xterm/xterm";
-import { Eye, Loader2, RotateCw } from "lucide-react";
+import { Eye, Hand, Keyboard, Loader2, RotateCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -41,6 +41,9 @@ export function ShellTerminal({
   const [pasteBlocked, setPasteBlocked] = useState(false);
   /** Teachers watching this student's terminal (read-only). */
   const [watchers, setWatchers] = useState(0);
+  /** A teacher asks to type in this terminal (name), or is typing. */
+  const [controlRequest, setControlRequest] = useState<string | null>(null);
+  const [controlledBy, setControlledBy] = useState<string | null>(null);
   const [errorText, setErrorText] = useState<string | null>(null);
 
   const notifyPasteBlocked = useCallback(() => {
@@ -191,12 +194,19 @@ export function ShellTerminal({
             type: string;
             allowed?: boolean;
             count?: number;
+            by?: string | null;
+            active?: boolean;
           };
           if (msg.type === "ready") {
             setStatus("ready");
             term.focus();
           } else if (msg.type === "watched") {
             setWatchers(msg.count ?? 0);
+          } else if (msg.type === "control-request") {
+            setControlRequest(msg.by ?? null);
+          } else if (msg.type === "control") {
+            setControlRequest(null);
+            setControlledBy(msg.active ? (msg.by ?? "Your teacher") : null);
           } else if (msg.type === "paste-blocked") {
             notifyPasteBlocked();
           } else if (msg.type === "paste-policy" && msg.allowed === false) {
@@ -207,6 +217,8 @@ export function ShellTerminal({
         };
         ws.onclose = () => {
           if (!closedByUs) setStatus("closed");
+          setControlRequest(null);
+          setControlledBy(null);
         };
         ws.onerror = () => setStatus("error");
 
@@ -234,6 +246,11 @@ export function ShellTerminal({
     };
   }, [session, shell, exercise, trpc, notifyPasteBlocked]);
 
+  const sendControl = (msg: object) => {
+    const ws = wsRef.current;
+    if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+  };
+
   const reconnect = useCallback(() => {
     termRef.current?.reset();
     setSession((s) => s + 1);
@@ -255,11 +272,52 @@ export function ShellTerminal({
           Pasting disabled
         </span>
       )}
+      {status === "ready" && controlRequest && (
+        <div className="absolute inset-x-3 bottom-3 z-10 flex flex-wrap items-center gap-3 rounded-lg border border-sky-400/40 bg-black/90 px-3 py-2 text-sm">
+          <Hand className="size-4 text-sky-300" />
+          <span className="flex-1">
+            <strong>{controlRequest}</strong> wants to type in your terminal.
+          </span>
+          <Button
+            size="sm"
+            onClick={() =>
+              sendControl({ type: "control-response", allow: true })
+            }
+          >
+            Allow
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              sendControl({ type: "control-response", allow: false });
+              setControlRequest(null);
+            }}
+          >
+            Deny
+          </Button>
+        </div>
+      )}
+      {status === "ready" && controlledBy && (
+        <div className="absolute inset-x-3 bottom-3 z-10 flex flex-wrap items-center gap-3 rounded-lg border border-sky-400/40 bg-sky-950/90 px-3 py-2 text-sm">
+          <Keyboard className="size-4 text-sky-300" />
+          <span className="flex-1">
+            <strong>{controlledBy}</strong> is typing in your terminal.
+          </span>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => sendControl({ type: "control-revoke" })}
+          >
+            Take back control
+          </Button>
+        </div>
+      )}
       {watchers > 0 && status === "ready" && (
         <span
           className="pointer-events-none absolute top-2 right-3 flex items-center gap-1 rounded border border-sky-400/30 bg-black/80 px-1.5 py-0.5 text-[11px] text-sky-300"
           style={pasteBlocked ? { top: "1.9rem" } : undefined}
-          title="Your teacher can see this terminal (they can't type in it)."
+          title="Your teacher can see this terminal. They can only type in it if you allow it."
         >
           <Eye className="size-3" /> Teacher is watching
         </span>

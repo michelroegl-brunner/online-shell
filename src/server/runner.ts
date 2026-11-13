@@ -60,6 +60,15 @@ export const runner = {
         terminals: number;
         cwd: string | null;
         watchers: number;
+        /** A teacher is typing in one of the student's terminals. */
+        controlled: boolean;
+        /** Newest last; streamed from the shell, not yet in CommandLog. */
+        recent: {
+          at: number;
+          exitCode: number | null;
+          cwd: string;
+          command: string;
+        }[];
         lastActivity: number | null;
       }[];
     }>("GET", "/sessions"),
@@ -68,8 +77,8 @@ export const runner = {
    * Token for a teacher to watch a student's terminal (read-only). The
    * caller must have checked that the teacher may see this student.
    */
-  async watchInfo(studentId: string) {
-    const token = await new SignJWT({})
+  async watchInfo(studentId: string, teacherName: string) {
+    const token = await new SignJWT({ name: teacherName })
       .setProtectedHeader({ alg: "HS256" })
       .setSubject(studentId)
       .setIssuer("oshell-web")

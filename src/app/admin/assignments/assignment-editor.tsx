@@ -77,6 +77,8 @@ type Form = Omit<
   dueAt: string;
   maxChecks: string;
   publishAt: string;
+  /** Publish exactly when it opens (publishAt follows opensAt). */
+  publishOnOpen: boolean;
 };
 
 const toForm = (i: EditorInitial): Form => ({
@@ -85,6 +87,11 @@ const toForm = (i: EditorInitial): Form => ({
   dueAt: toLocalInput(i.dueAt),
   maxChecks: i.maxChecks == null ? "" : String(i.maxChecks),
   publishAt: toLocalInput(i.publishAt),
+  publishOnOpen:
+    !i.published &&
+    !!i.publishAt &&
+    !!i.opensAt &&
+    i.publishAt.getTime() === i.opensAt.getTime(),
 });
 
 export function AssignmentEditor({
@@ -141,7 +148,9 @@ export function AssignmentEditor({
       allowHints: form.allowHints,
       allowPaste: form.allowPaste,
       published: form.published,
-      publishAt: form.published ? null : fromLocalInput(form.publishAt),
+      publishAt: form.published
+        ? null
+        : fromLocalInput(form.publishOnOpen ? form.opensAt : form.publishAt),
       mode: form.mode,
     };
   }
@@ -152,6 +161,11 @@ export function AssignmentEditor({
     const input = buildInput();
     if (input.opensAt && input.dueAt && input.dueAt <= input.opensAt) {
       return toast.error("The due date must be after the opening date.");
+    }
+    if (!form.published && form.publishOnOpen && !input.opensAt) {
+      return toast.error(
+        "Set an opening time, or untick “publish when it opens”.",
+      );
     }
     if (input.maxChecks != null && !(input.maxChecks >= 1)) {
       return toast.error("Max checks must be a positive number (or empty).");
@@ -200,8 +214,9 @@ export function AssignmentEditor({
     if (id && !dirty) {
       try {
         await setPublished.mutateAsync({ id, published: next });
-        setForm((f) => ({ ...f, published: next, publishAt: "" }));
-        setSaved((f) => ({ ...f, published: next, publishAt: "" }));
+        const clear = { published: next, publishAt: "", publishOnOpen: false };
+        setForm((f) => ({ ...f, ...clear }));
+        setSaved((f) => ({ ...f, ...clear }));
         await utils.assignment.invalidate();
         toast.success(
           next ? "Published: students can see it" : "Back to draft",
@@ -292,7 +307,7 @@ export function AssignmentEditor({
           {form.published ? <Eye /> : <EyeOff />}
           {form.published
             ? "Published"
-            : form.publishAt
+            : form.publishAt || form.publishOnOpen
               ? "Scheduled"
               : "Draft"}
         </Button>
@@ -422,12 +437,24 @@ export function AssignmentEditor({
             <Field label="Publish automatically" className="md:col-span-2">
               <Input
                 type="datetime-local"
-                value={form.publishAt}
+                value={form.publishOnOpen ? form.opensAt : form.publishAt}
+                disabled={form.publishOnOpen}
                 onChange={(e) => set("publishAt", e.target.value)}
               />
-              <span className="text-muted-foreground text-xs">
-                Empty = stays a draft until you publish it.
-              </span>
+              <label className="flex items-center gap-2 text-xs">
+                <input
+                  type="checkbox"
+                  className="accent-primary size-3.5"
+                  checked={form.publishOnOpen}
+                  onChange={(e) => set("publishOnOpen", e.target.checked)}
+                />
+                Publish when it opens (students see nothing before)
+              </label>
+              {!form.publishOnOpen && (
+                <span className="text-muted-foreground text-xs">
+                  Empty = stays a draft until you publish it.
+                </span>
+              )}
             </Field>
           )}
 
