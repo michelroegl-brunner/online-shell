@@ -123,45 +123,13 @@ export function ensureBox(userId: string, wanted?: ShellKind): Promise<string> {
 
     await ensureVolume(userId);
 
-    const container = await docker.createContainer({
-      name,
-      Image: image,
-      Hostname: "oshell",
-      User: "student",
-      WorkingDir: "/home/student",
-      Cmd: ["sleep", "infinity"],
-      Labels: {
-        [LABEL]: "1",
-        "oshell.user": userId,
-        "oshell.shell": shell,
-        "oshell.created": String(Date.now()),
-      },
-      HostConfig: {
-        NetworkMode: "none",
-        Memory: config.BOX_MEMORY_MB * 1024 * 1024,
-        MemorySwap: config.BOX_MEMORY_MB * 1024 * 1024,
-        NanoCpus: Math.round(config.BOX_CPUS * 1e9),
-        PidsLimit: config.BOX_PIDS,
-        ReadonlyRootfs: true,
-        Tmpfs: {
-          "/tmp": "rw,nosuid,nodev,size=64m",
-          "/run": "rw,nosuid,nodev,size=8m",
-        },
-        Mounts: [
-          {
-            Type: "volume",
-            Source: volumeName(userId),
-            Target: "/home/student",
-          },
-        ],
-        CapDrop: ["ALL"],
-        // Only for root setup/check scripts (docker exec -u root). The
-        // student can't gain them: no setuid binaries + no-new-privileges.
-        CapAdd: ["CHOWN", "DAC_OVERRIDE", "FOWNER"],
-        SecurityOpt: ["no-new-privileges"],
-        Init: true,
-      },
-    });
+    const container = await docker.createContainer(
+      containerSpec(userId, image, {
+        name,
+        network: "none",
+        labels: { "oshell.shell": shell },
+      }),
+    );
     await container.start();
 
     // /run is a fresh tmpfs: prepare the command-log location.
@@ -178,6 +146,56 @@ export function ensureBox(userId: string, wanted?: ShellKind): Promise<string> {
     s.lastActivity = Date.now();
     return name;
   });
+}
+
+/**
+ * Container settings shared by boxes and setup helpers: read-only rootfs,
+ * the student's home volume, dropped caps, resource limits.
+ */
+function containerSpec(
+  userId: string,
+  image: string,
+  opts: { name: string; network: string; labels: Record<string, string> },
+): Docker.ContainerCreateOptions {
+  return {
+    name: opts.name,
+    Image: image,
+    Hostname: "oshell",
+    User: "student",
+    WorkingDir: "/home/student",
+    Cmd: ["sleep", "infinity"],
+    Labels: {
+      [LABEL]: "1",
+      "oshell.user": userId,
+      "oshell.created": String(Date.now()),
+      ...opts.labels,
+    },
+    HostConfig: {
+      NetworkMode: opts.network,
+      Memory: config.BOX_MEMORY_MB * 1024 * 1024,
+      MemorySwap: config.BOX_MEMORY_MB * 1024 * 1024,
+      NanoCpus: Math.round(config.BOX_CPUS * 1e9),
+      PidsLimit: config.BOX_PIDS,
+      ReadonlyRootfs: true,
+      Tmpfs: {
+        "/tmp": "rw,nosuid,nodev,size=64m",
+        "/run": "rw,nosuid,nodev,size=8m",
+      },
+      Mounts: [
+        {
+          Type: "volume",
+          Source: volumeName(userId),
+          Target: "/home/student",
+        },
+      ],
+      CapDrop: ["ALL"],
+      // Only for root setup/check scripts (docker exec -u root). The
+      // student can't gain them: no setuid binaries + no-new-privileges.
+      CapAdd: ["CHOWN", "DAC_OVERRIDE", "FOWNER"],
+      SecurityOpt: ["no-new-privileges"],
+      Init: true,
+    },
+  };
 }
 
 async function ensureVolume(userId: string) {
@@ -216,17 +234,23 @@ export type ExecResult = {
 
 const MAX_OUTPUT = 64 * 1024;
 
-export async function execIn(
-  userId: string,
-  opts: {
-    cmd: string[];
-    user?: "root" | "student";
-    timeoutMs?: number;
-    workdir?: string;
-  },
-): Promise<ExecResult> {
+type ExecOpts = {
+  cmd: string[];
+  user?: "root" | "student";
+  timeoutMs?: number;
+  workdir?: string;
+};
+
+export function execIn(userId: string, opts: ExecOpts): Promise<ExecResult> {
   assertUserId(userId);
-  const container = docker.getContainer(boxName(userId));
+  return execInContainer(boxName(userId), opts);
+}
+
+async function execInContainer(
+  name: string,
+  opts: ExecOpts,
+): Promise<ExecResult> {
+  const container = docker.getContainer(name);
   const exec = await container.exec({
     Cmd: opts.cmd,
     User: opts.user ?? "student",
@@ -315,6 +339,138 @@ export async function execStream(
   return info.ExitCode ?? -1;
 }
 
+// ── internet access ──
+// Boxes start with no network. A step with "internet access" connects the
+// box to INTERNET_NETWORK while the student works on it; leaving it
+// disconnects again. Setups that need the internet run in a short-lived
+// helper container on that network instead (runOnline), so the student's
+// shell never gets it for a setup.
+
+let internetReady: Promise<void> | null = null;
+
+/** Create the internet bridge network once (no traffic between boxes). */
+function ensureInternetNetwork(): Promise<void> {
+  internetReady ??= (async () => {
+    try {
+      await docker.getNetwork(config.INTERNET_NETWORK).inspect();
+    } catch (err) {
+      if (!isNotFound(err)) throw err;
+      await docker.createNetwork({
+        Name: config.INTERNET_NETWORK,
+        Driver: "bridge",
+        Labels: { [LABEL]: "1" },
+        Options: {
+          "com.docker.network.bridge.name": config.INTERNET_BRIDGE,
+          "com.docker.network.bridge.enable_icc": "false",
+        },
+      });
+      console.log(`[internet] created network ${config.INTERNET_NETWORK}`);
+    }
+  })().catch((err: unknown) => {
+    internetReady = null; // retry next time
+    throw err;
+  });
+  return internetReady;
+}
+
+const networksOf = (info: Docker.ContainerInspectInfo) =>
+  Object.keys(info.NetworkSettings.Networks ?? {});
+
+/** Is the student's box on the internet network right now? */
+export async function hasInternet(userId: string): Promise<boolean> {
+  assertUserId(userId);
+  try {
+    const info = await docker.getContainer(boxName(userId)).inspect();
+    return networksOf(info).includes(config.INTERNET_NETWORK);
+  } catch (err) {
+    if (isNotFound(err)) return false;
+    throw err;
+  }
+}
+
+/**
+ * Connect the box to the internet network or take it off again (back to
+ * "none"). No box running → nothing to do: new boxes start offline.
+ */
+export function setInternet(userId: string, online: boolean): Promise<void> {
+  assertUserId(userId);
+  return withLock(userId, async () => {
+    const name = boxName(userId);
+    let info;
+    try {
+      info = await docker.getContainer(name).inspect();
+    } catch (err) {
+      if (isNotFound(err)) return;
+      throw err;
+    }
+    if (!info.State.Running) return;
+    const nets = networksOf(info);
+    const isOnline = nets.includes(config.INTERNET_NETWORK);
+    if (online === isOnline) return;
+    if (online) {
+      await ensureInternetNetwork();
+      // A container can't be on "none" and a real network at once.
+      if (nets.includes("none")) {
+        await docker.getNetwork("none").disconnect({ Container: name });
+      }
+      await docker
+        .getNetwork(config.INTERNET_NETWORK)
+        .connect({ Container: name });
+    } else {
+      await docker
+        .getNetwork(config.INTERNET_NETWORK)
+        .disconnect({ Container: name, Force: true });
+      await docker
+        .getNetwork("none")
+        .connect({ Container: name })
+        .catch(() => undefined); // no network at all is offline too
+    }
+    console.log(`[internet] ${name} ${online ? "online" : "offline"}`);
+  });
+}
+
+const helperName = (userId: string) => `oshell-setup-${userId}`;
+
+/**
+ * Run a command as in execIn, but in a throwaway container on the internet
+ * network that mounts the same home volume (setup scripts that download
+ * files). The student's box stays offline.
+ */
+export function runOnline(
+  userId: string,
+  shell: ShellKind,
+  opts: ExecOpts,
+): Promise<ExecResult> {
+  assertUserId(userId);
+  return withLock(`setup:${userId}`, async () => {
+    await ensureVolume(userId);
+    await ensureInternetNetwork();
+    const name = helperName(userId);
+    // Left over from a crash: remove it first.
+    await docker
+      .getContainer(name)
+      .remove({ force: true })
+      .catch((err: unknown) => {
+        if (!isNotFound(err)) throw err;
+      });
+    const container = await docker.createContainer(
+      containerSpec(userId, imageFor(shell), {
+        name,
+        network: config.INTERNET_NETWORK,
+        labels: { "oshell.role": "setup" },
+      }),
+    );
+    try {
+      await container.start();
+      return await execInContainer(name, opts);
+    } finally {
+      await container.remove({ force: true }).catch((e: unknown) => {
+        console.error(`[internet] could not remove ${name}`, e);
+      });
+    }
+  });
+}
+
 // ── interactive PTY ──
 
 export type Pty = {
@@ -383,6 +539,17 @@ export async function reap() {
     const userId = c.Labels["oshell.user"];
     if (!userId) continue;
     const created = Number(c.Labels["oshell.created"] ?? 0);
+    // Setup helpers remove themselves; this only catches leftovers.
+    if (c.Labels["oshell.role"] === "setup") {
+      if (now - created > 10 * 60_000) {
+        console.log(`[reaper] removing leftover ${c.Names[0]}`);
+        await docker
+          .getContainer(c.Id)
+          .remove({ force: true })
+          .catch(() => undefined);
+      }
+      continue;
+    }
     const s = getState(userId); // unknown box (runner restart) → grace period
     const idle = s.attached === 0 && now - s.lastActivity > idleMs;
     const tooOld = now - created > maxMs;

@@ -25,7 +25,7 @@ import {
 import { type db as dbType } from "~/server/db";
 import { runStepChecks } from "~/server/exercises/checks";
 import { runSetup, type RunResult } from "~/server/exercises/run";
-import { type ShellKind } from "~/server/runner";
+import { runner, type ShellKind } from "~/server/runner";
 import type { Prisma } from "../../../../generated/prisma";
 
 /**
@@ -92,6 +92,7 @@ async function loadItem(db: Db, user: Viewer, itemId: string) {
           difficulty: true,
           points: true,
           setupScript: true,
+          setupInternet: true,
           steps: {
             orderBy: { order: "asc" },
             select: {
@@ -103,6 +104,7 @@ async function loadItem(db: Db, user: Viewer, itemId: string) {
               hints: true,
               points: true,
               requiresPrevious: true,
+              allowInternet: true,
             },
           },
         },
@@ -219,6 +221,73 @@ const HIDDEN_OUTPUT_PASSED = "Check passed.";
 const HIDDEN_OUTPUT_FAILED = "Not solved yet. (Exam: check output is hidden.)";
 
 type Loaded = Awaited<ReturnType<typeof loadItem>>;
+
+/** The step to work on: the first open step that isn't solved yet. */
+const currentStep = (loaded: Loaded) =>
+  loaded.steps.find((s) => s.unlocked && s.progress?.status !== "PASSED") ??
+  null;
+
+/**
+ * Internet access: the box is online while the current step allows it
+ * (exercise prepared, assignment open, not gated).
+ */
+const wantsInternet = (loaded: Loaded) =>
+  Boolean(loaded.attempt?.setupAt) &&
+  loaded.state === "open" &&
+  !loaded.lockedBy &&
+  Boolean(currentStep(loaded)?.allowInternet);
+
+/**
+ * Should my box be online for this item's terminal? false when the item
+ * isn't mine to open (the attach call stays allowed, just offline).
+ */
+export async function internetForItem(
+  db: Db,
+  user: Viewer,
+  itemId: string,
+  slug: string | undefined,
+): Promise<boolean> {
+  try {
+    const loaded = await loadItem(db, user, itemId);
+    return loaded.item.exercise.slug === slug && wantsInternet(loaded);
+  } catch {
+    return false;
+  }
+}
+
+/** Switch the box's internet to what the item's current step wants. */
+async function syncInternet(db: Db, user: Viewer, itemId: string) {
+  try {
+    const loaded = await loadItem(db, user, itemId);
+    await runner.setInternet(user.id, wantsInternet(loaded));
+  } catch (e) {
+    console.error("[learn] internet switch failed", e);
+  }
+}
+
+/**
+ * After a check: does the box's internet maybe have to change? Yes when a
+ * step was solved ("current" moved on) or a step that isn't the current one
+ * had its check run online. Never for exercises without internet steps.
+ */
+const internetMayChange = (
+  loaded: Loaded,
+  step: { id: string; allowInternet: boolean },
+  passed: boolean,
+) =>
+  loaded.steps.some((s) => s.allowInternet) &&
+  (passed || (step.allowInternet && step.id !== currentStep(loaded)?.id));
+
+/** Before checking a step with internet access: make sure it's online. */
+async function internetForCheck(
+  userId: string,
+  step: { allowInternet: boolean },
+) {
+  if (!step.allowInternet) return;
+  await runner.setInternet(userId, true).catch((e: unknown) => {
+    console.error("[learn] internet switch failed", e);
+  });
+}
 
 /** Items after an unsolved gated item stay locked for students. */
 function assertNotGated(loaded: Loaded) {
@@ -592,6 +661,8 @@ export const learnRouter = createTRPCRouter({
           title: s.title,
           unlocked: s.unlocked,
           requiresPrevious: s.requiresPrevious,
+          /** The terminal is online while this is the current step. */
+          internet: s.allowInternet,
           description: s.unlocked ? s.description : null,
           points: scale(s.points),
           hintCount: s.unlocked ? s.hints.length : 0,
@@ -719,6 +790,7 @@ export const learnRouter = createTRPCRouter({
           message: `No checks left for this step (${max} allowed).`,
         });
       }
+      await internetForCheck(userId, step);
       let res;
       try {
         res = await runChecksFor(
@@ -751,6 +823,9 @@ export const learnRouter = createTRPCRouter({
         item.exercise.steps,
         item.points,
       );
+      if (internetMayChange(loaded, step, res.ok)) {
+        await syncInternet(ctx.db, ctx.user, input.itemId);
+      }
       return {
         ok: res.ok,
         output: exam
@@ -789,9 +864,7 @@ export const learnRouter = createTRPCRouter({
       if (!attempt?.setupAt) return { ...idle, exerciseSolved: false };
       const step = input.stepId
         ? findStep(loaded, input.stepId)
-        : loaded.steps.find(
-            (s) => s.unlocked && s.progress?.status !== "PASSED",
-          );
+        : currentStep(loaded);
       const solved = attempt.status === "PASSED";
       if (!step || step.progress?.status === "PASSED") {
         return { ...idle, exerciseSolved: solved };
@@ -800,6 +873,7 @@ export const learnRouter = createTRPCRouter({
       autoChecking.add(userId);
       let res: RunResult;
       try {
+        await internetForCheck(userId, step);
         res = await runChecksFor(
           ctx.db,
           userId,
@@ -811,6 +885,9 @@ export const learnRouter = createTRPCRouter({
         autoChecking.delete(userId);
       }
       if (!res.ok) {
+        if (internetMayChange(loaded, step, false)) {
+          await syncInternet(ctx.db, ctx.user, input.itemId);
+        }
         return { ...idle, ran: true, stepId: step.id, exerciseSolved: solved };
       }
 
@@ -841,6 +918,9 @@ export const learnRouter = createTRPCRouter({
         item.exercise.steps,
         item.points,
       );
+      if (internetMayChange(loaded, step, true)) {
+        await syncInternet(ctx.db, ctx.user, input.itemId);
+      }
       return {
         ran: true,
         ok: true,
@@ -960,6 +1040,10 @@ export const learnRouter = createTRPCRouter({
         },
         create: { assignmentId: a.id, userId: ctx.user.id },
         update: {},
+      });
+      // Handed in: no step is current any more.
+      await runner.setInternet(ctx.user.id, false).catch((e: unknown) => {
+        console.error("[learn] internet switch failed", e);
       });
       return { ok: true };
     }),

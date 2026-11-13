@@ -33,6 +33,19 @@ docker compose -p online-shell -f deploy/docker-compose.yml --env-file /opt/onli
   exec -T db pg_dump -U oshell oshell | gzip > /root/oshell-$(date +%F).sql.gz
 ```
 
+## Internet access for exercises
+
+Steps with *internet access* and setups with *internet during setup* put
+student containers on the Docker network `oshell-internet` (bridge
+`oshell-inet`, created by the runner on first use). Keep it off the LAN and
+the host with the firewall script (as root, idempotent; rules are lost on
+reboot, so install it as a boot unit, see the script header):
+
+```bash
+install -m 755 deploy/internet-firewall.sh /opt/online-shell/internet-firewall.sh
+/opt/online-shell/internet-firewall.sh
+```
+
 ## Entra
 
 Redirect URIs of the app registration "Online Shell":

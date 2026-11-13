@@ -39,6 +39,7 @@ export function TestRunPanel({
   exerciseId,
   slug,
   shell,
+  internet,
   steps,
   dirty,
   onSaveFirst,
@@ -46,6 +47,8 @@ export function TestRunPanel({
   exerciseId: string;
   slug: string;
   shell: "BASH" | "PWSH";
+  /** A step has internet access: the test terminal gets it too. */
+  internet: boolean;
   /** Saved steps, in order. */
   steps: { id: string; title: string }[];
   dirty: boolean;
@@ -208,6 +211,7 @@ export function TestRunPanel({
             key={termKey}
             shell={shell}
             exercise={slug}
+            testInternet={internet}
             className="h-96"
           />
         )}

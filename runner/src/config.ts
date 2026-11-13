@@ -25,6 +25,17 @@ const schema = z.object({
   BOX_MEMORY_MB: z.coerce.number().int().positive().default(256),
   BOX_CPUS: z.coerce.number().positive().default(0.5),
   BOX_PIDS: z.coerce.number().int().positive().default(128),
+  /**
+   * Docker bridge network for boxes that may reach the internet (steps
+   * with "internet access", setups with "internet during setup"). Created
+   * on first use with the Linux interface name INTERNET_BRIDGE, so the
+   * host firewall can block private ranges (deploy/internet-firewall.sh).
+   */
+  INTERNET_NETWORK: z.string().default("oshell-internet"),
+  INTERNET_BRIDGE: z
+    .string()
+    .regex(/^[a-z0-9-]{1,15}$/)
+    .default("oshell-inet"),
 });
 
 const parsed = schema.safeParse(process.env);

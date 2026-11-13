@@ -133,6 +133,7 @@ export function toBundle(
       kind: e.kind,
       difficulty: e.difficulty,
       setupScript: e.setupScript,
+      setupInternet: e.setupInternet,
       tags: e.tags,
       visibility: e.visibility,
       steps: e.steps.map((s) => ({
@@ -143,6 +144,7 @@ export function toBundle(
         hints: s.hints,
         points: s.points,
         requiresPrevious: s.requiresPrevious,
+        allowInternet: s.allowInternet,
       })),
     })),
   };

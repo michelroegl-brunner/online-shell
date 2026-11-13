@@ -18,11 +18,14 @@ import {
   ensureBox,
   execIn,
   execStream,
+  hasInternet,
   HttpError,
   lastActivityOf,
   openPty,
   reap,
   removeBox,
+  runOnline,
+  setInternet,
   touch,
 } from "./boxes.js";
 import { config } from "./config.js";
@@ -75,7 +78,15 @@ const execBody = z.object({
   user: z.enum(["root", "student"]).default("student"),
   timeoutMs: z.number().int().min(100).max(120_000).default(30_000),
   workdir: z.string().startsWith("/").optional(),
+  /**
+   * Run in a throwaway container with internet access that shares the home
+   * volume (setup scripts that download files), not in the offline box.
+   */
+  internet: z.boolean().default(false),
+  /** Image for the `internet` helper container. */
+  shell: shellSchema.default("BASH"),
 });
+const internetBody = z.object({ online: z.boolean() });
 
 /** Normalized absolute path inside /home/student (no `..`). */
 function homePath(raw: string | null) {
@@ -127,13 +138,32 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
         ? ["pwsh", "-NoLogo", "-NonInteractive", "-Command", body.script]
         : ["bash", "-c", body.script];
     touch(userId);
-    const result = await execIn(userId, {
+    const opts = {
       cmd,
       user: body.user,
       timeoutMs: body.timeoutMs,
       workdir: body.workdir,
-    });
+    };
+    const result = body.internet
+      ? await runOnline(userId, body.shell, opts)
+      : await execIn(userId, opts);
     return send(res, 200, result);
+  }
+
+  // PUT /boxes/:userId/internet  { online } → connect / disconnect the box
+  // GET /boxes/:userId/internet → { online }
+  if (
+    parts.length === 3 &&
+    parts[0] === "boxes" &&
+    parts[2] === "internet" &&
+    (req.method === "PUT" || req.method === "GET")
+  ) {
+    const userId = parts[1]!;
+    if (req.method === "PUT") {
+      const body = internetBody.parse(await readJson(req));
+      await setInternet(userId, body.online);
+    }
+    return send(res, 200, { online: await hasInternet(userId) });
   }
 
   // GET /boxes/:userId/download?path=/home/student/… → the file's bytes, or
@@ -309,7 +339,7 @@ const controlMsg = z.discriminatedUnion("type", [
 
 async function attach(
   ws: WebSocket,
-  { userId, shell, cwd, allowPaste, pasteBlockFrom }: AttachClaims,
+  { userId, shell, cwd, allowPaste, pasteBlockFrom, internet }: AttachClaims,
   params: URLSearchParams,
 ) {
   // Paste policy can tighten during the session: a no-paste assignment
@@ -332,6 +362,13 @@ async function attach(
     return;
   }
   const { stream, resize, release } = pty;
+  // The newest terminal decides: a step with internet access turns it on,
+  // anything else (other exercise, playground) turns it off again.
+  try {
+    await setInternet(userId, internet);
+  } catch (err) {
+    console.error("[attach] internet switch failed", err);
+  }
   const session = openSession(
     userId,
     cwd ?? "/home/student",

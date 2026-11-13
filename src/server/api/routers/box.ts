@@ -6,6 +6,7 @@ import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { openExamsFor } from "~/server/assignments/exam";
 import { pastePolicyFor } from "~/server/assignments/paste";
 import { exerciseDir } from "~/server/exercises/run";
+import { internetForItem } from "./learn";
 import { runner } from "~/server/runner";
 
 export const boxRouter = createTRPCRouter({
@@ -21,6 +22,10 @@ export const boxRouter = createTRPCRouter({
       z.object({
         shell: z.enum(["BASH", "PWSH"]).default("BASH"),
         exercise: z.string().regex(SLUG_RE).optional(),
+        /** Assignment item: online while its current step allows it. */
+        itemId: z.string().max(100).optional(),
+        /** Teacher test run of an exercise with internet steps. */
+        testInternet: z.boolean().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -39,16 +44,22 @@ export const boxRouter = createTRPCRouter({
         });
       }
       const paste = await pastePolicyFor(ctx.db, ctx.user);
+      // The newest terminal decides the box's internet (runner, on attach).
+      const internet = input.itemId
+        ? await internetForItem(ctx.db, ctx.user, input.itemId, input.exercise)
+        : Boolean(input.testInternet) && ctx.user.role !== "STUDENT";
       const info = await runner.attachInfo(
         ctx.user.id,
         input.shell,
         input.exercise ? exerciseDir(input.exercise) : undefined,
         paste,
+        internet,
       );
       return {
         ...info,
         allowPaste: paste.allowed,
         pasteBlockFrom: paste.blockFrom,
+        internet,
       };
     }),
 });

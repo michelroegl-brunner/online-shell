@@ -83,16 +83,22 @@ function assertSlug(slug: string) {
   if (!SLUG_RE.test(slug)) throw new Error(`invalid slug: ${slug}`);
 }
 
-/** Wipe ~/exercises/<slug> and run the setup script in it (as root, set -e). */
+/**
+ * Wipe ~/exercises/<slug> and run the setup script in it (as root, set -e).
+ * `setupInternet`: the runner runs it in a helper container with internet
+ * access on the same home volume (downloads); the box itself stays offline.
+ */
 export async function runSetup(
   userId: string,
-  ex: Ex & { setupScript: string },
+  ex: Ex & { setupScript: string; setupInternet?: boolean },
 ): Promise<RunResult> {
   assertSlug(ex.slug);
   await runner.ensureBox(userId, ex.shell);
   const res = await runner.exec(userId, {
     user: "root",
-    timeoutMs: 60_000,
+    // Downloads take longer than local file juggling.
+    timeoutMs: ex.setupInternet ? 120_000 : 60_000,
+    ...(ex.setupInternet ? { internet: true, shell: ex.shell } : {}),
     script: wrap({
       dir: exerciseDir(ex.slug),
       body: ex.setupScript,

@@ -10,13 +10,12 @@ ENV POWERSHELL_TELEMETRY_OPTOUT=1 \
     POWERSHELL_UPDATECHECK=Off \
     DOTNET_CLI_TELEMETRY_OPTOUT=1
 
+# curl comes from the bash image (students use it too, so don't purge it).
 RUN apt-get update \
- && apt-get install -y --no-install-recommends curl \
  && curl -fsSL https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb -o /tmp/ms.deb \
  && dpkg -i /tmp/ms.deb && rm /tmp/ms.deb \
  && apt-get update \
  && apt-get install -y --no-install-recommends powershell \
- && apt-get purge -y --auto-remove curl \
  && rm -rf /var/lib/apt/lists/*
 
 # Windows-only cmdlets (Get-Service, Get-CimInstance, Get-ComputerInfo …)

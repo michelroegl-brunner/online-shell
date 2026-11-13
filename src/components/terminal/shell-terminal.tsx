@@ -38,6 +38,8 @@ export type ShellTerminalHandle = {
 export function ShellTerminal({
   shell = "BASH",
   exercise,
+  itemId,
+  testInternet,
   className,
   onCommand,
   ref,
@@ -45,6 +47,13 @@ export function ShellTerminal({
   shell?: "BASH" | "PWSH";
   /** Exercise slug: start the shell in ~/exercises/<slug>. */
   exercise?: string;
+  /**
+   * Assignment item this terminal works on: the server turns the box's
+   * internet on while the current step allows it.
+   */
+  itemId?: string;
+  /** Teacher test run of an exercise with internet steps. */
+  testInternet?: boolean;
   className?: string;
   /**
    * Called when the student presses Enter (a command was probably run).
@@ -201,6 +210,8 @@ export function ShellTerminal({
         const { url, token, allowPaste } = await trpc.box.attach.mutate({
           shell,
           exercise,
+          itemId,
+          testInternet,
         });
         if (closedByUs) return;
         pasteBlockedRef.current = !allowPaste;
@@ -275,7 +286,15 @@ export function ShellTerminal({
       disposables.forEach((d) => d.dispose());
       ws?.close();
     };
-  }, [session, shell, exercise, trpc, notifyPasteBlocked]);
+  }, [
+    session,
+    shell,
+    exercise,
+    itemId,
+    testInternet,
+    trpc,
+    notifyPasteBlocked,
+  ]);
 
   const sendControl = (msg: object) => {
     const ws = wsRef.current;

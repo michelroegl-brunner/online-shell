@@ -325,8 +325,36 @@ export function ExerciseEditor({
             <code>$OSHELL_DIR</code> ={" "}
             <code>~/exercises/{form.slug || "<slug>"}</code>. The folder is
             wiped before every run (also on “Reset”) and given to the student
-            afterwards. No network.
+            afterwards.{" "}
+            {form.setupInternet ? (
+              <>
+                Runs in a helper container <b>with internet</b> (
+                <code>wget</code> and <code>curl</code> are installed); the
+                student&apos;s shell stays offline.
+              </>
+            ) : (
+              "No network."
+            )}
           </ScriptHelp>
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="accent-primary mt-0.5 size-4"
+              checked={form.setupInternet}
+              disabled={readOnly}
+              onChange={(e) => set("setupInternet", e.target.checked)}
+            />
+            <span>
+              Internet during setup
+              <span className="text-muted-foreground block text-xs">
+                For downloads, e.g.{" "}
+                <code className="font-mono">
+                  wget -q https://raw.githubusercontent.com/…/data.csv
+                </code>
+                . Slower to start (an extra container per setup and reset).
+              </span>
+            </span>
+          </label>
           <Script
             readOnly={readOnly}
             value={form.setupScript}
@@ -349,6 +377,7 @@ export function ExerciseEditor({
           exerciseId={id}
           slug={saved.slug}
           shell={saved.shell}
+          internet={saved.steps.some((s) => s.allowInternet)}
           steps={saved.steps
             .filter((s): s is StepForm & { id: string } => Boolean(s.id))
             .map((s) => ({ id: s.id, title: s.title }))}

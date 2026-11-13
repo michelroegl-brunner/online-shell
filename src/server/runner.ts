@@ -52,6 +52,10 @@ export const runner = {
       user?: "root" | "student";
       timeoutMs?: number;
       workdir?: string;
+      /** Run in a helper container with internet access (setup). */
+      internet?: boolean;
+      /** Image of that helper container. */
+      shell?: ShellKind;
     },
   ) =>
     call<{
@@ -60,6 +64,14 @@ export const runner = {
       stderr: string;
       timedOut: boolean;
     }>("POST", `/boxes/${encodeURIComponent(userId)}/exec`, opts),
+
+  /** Connect the box to the internet or take it offline again. */
+  setInternet: (userId: string, online: boolean) =>
+    call<{ online: boolean }>(
+      "PUT",
+      `/boxes/${encodeURIComponent(userId)}/internet`,
+      { online },
+    ),
 
   removeBox: (userId: string) =>
     call<{ ok: true }>("DELETE", `/boxes/${encodeURIComponent(userId)}`),
@@ -113,9 +125,12 @@ export const runner = {
       allowed: true,
       blockFrom: null,
     },
+    /** Box online while this terminal is the newest (step with internet). */
+    internet = false,
   ) {
     const token = await new SignJWT({
       shell,
+      ...(internet ? { internet: true } : {}),
       ...(cwd ? { cwd } : {}),
       // paste:false → the runner rate-limits / drops paste-like input.
       ...(paste.allowed ? {} : { paste: false }),

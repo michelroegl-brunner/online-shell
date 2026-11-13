@@ -157,6 +157,8 @@ model Exercise {
   points      Int        @default(10)
   /// Runs once for the whole exercise; all steps share the folder
   setupScript String     @default("")
+  /// Setup runs in a helper container with internet access (downloads)
+  setupInternet Boolean  @default(false)
   tags        String[]
   visibility  Visibility @default(PRIVATE)
   archived    Boolean    @default(false)
@@ -187,6 +189,8 @@ model ExerciseStep {
   points           Int      @default(10)
   /// Locked until the previous step is solved (set by the author per step)
   requiresPrevious Boolean  @default(true)
+  /// The student's box is online while this is their current step
+  allowInternet    Boolean  @default(false)
 
   exercise     Exercise      @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
   attemptSteps AttemptStep[]

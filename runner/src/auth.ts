@@ -24,6 +24,8 @@ export type AttachClaims = {
   allowPaste: boolean;
   /** epoch ms: from then on behave as if allowPaste were false. */
   pasteBlockFrom?: number;
+  /** true = connect the box to the internet (step with internet access). */
+  internet: boolean;
 };
 
 /**
@@ -81,5 +83,6 @@ export async function verifyAttachToken(token: string): Promise<AttachClaims> {
       typeof payload.pasteBlockFrom === "number"
         ? payload.pasteBlockFrom
         : undefined,
+    internet: payload.internet === true,
   };
 }

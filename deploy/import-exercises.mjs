@@ -60,6 +60,7 @@ try {
     hints: s.hints ?? [],
     points: s.points,
     requiresPrevious: s.requiresPrevious ?? true,
+    allowInternet: s.allowInternet ?? false,
     order,
   });
 
@@ -73,6 +74,7 @@ try {
       kind: ex.kind ?? "EXERCISE",
       difficulty: ex.difficulty ?? 1,
       setupScript: ex.setupScript ?? "",
+      setupInternet: ex.setupInternet ?? false,
       tags: ex.tags ?? [],
       visibility: ex.visibility ?? "PRIVATE",
       points: ex.steps.reduce((sum, s) => sum + s.points, 0),

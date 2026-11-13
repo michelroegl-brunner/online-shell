@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Globe,
   Lightbulb,
   Loader2,
   Lock,
@@ -414,6 +415,15 @@ export function Workspace({ initial }: { initial: Item }) {
             {assignment.allowCheatSheet && ready && (
               <CheatSheetButton itemId={item.itemId} />
             )}
+            {current?.internet && ready && (
+              <Badge
+                variant="outline"
+                className="gap-1 border-sky-400/40 text-sky-300"
+                title="Your terminal can reach the internet while you work on this step."
+              >
+                <Globe className="size-3" /> Internet on
+              </Badge>
+            )}
             {autoCheckOn && (
               <span className="text-muted-foreground ml-auto flex items-center gap-1.5 text-xs">
                 {autoCheck.isPending && (
@@ -447,6 +457,7 @@ export function Workspace({ initial }: { initial: Item }) {
               ref={terminal}
               shell={exercise.shell}
               exercise={exercise.slug}
+              itemId={item.itemId}
               className="min-h-[20rem] flex-1"
               onCommand={onCommand}
             />

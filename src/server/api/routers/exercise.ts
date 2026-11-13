@@ -49,6 +49,7 @@ const stepData = (s: StepInput, order: number) => ({
   hints: s.hints,
   points: s.points,
   requiresPrevious: s.requiresPrevious,
+  allowInternet: s.allowInternet,
 });
 
 export const exerciseRouter = createTRPCRouter({
@@ -398,6 +399,7 @@ export const exerciseRouter = createTRPCRouter({
           difficulty: src.difficulty,
           points: src.points,
           setupScript: src.setupScript,
+          setupInternet: src.setupInternet,
           tags: src.tags,
           visibility: "PRIVATE",
           authorId: ctx.user.id,
@@ -411,6 +413,7 @@ export const exerciseRouter = createTRPCRouter({
               hints: s.hints,
               points: s.points,
               requiresPrevious: s.requiresPrevious,
+              allowInternet: s.allowInternet,
             })),
           },
         },
@@ -465,7 +468,12 @@ function excerpt(md: string, max = 220) {
 async function loadForRun(ctx: { db: typeof db; user: Viewer }, id: string) {
   const ex = await ctx.db.exercise.findFirst({
     where: { AND: [{ id }, readableWhere(ctx.user)] },
-    select: { slug: true, shell: true, setupScript: true },
+    select: {
+      slug: true,
+      shell: true,
+      setupScript: true,
+      setupInternet: true,
+    },
   });
   if (!ex) throw new TRPCError({ code: "NOT_FOUND" });
   return ex;

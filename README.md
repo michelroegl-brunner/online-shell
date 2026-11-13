@@ -47,6 +47,17 @@ pnpm runner:dev                                  # :4100
   No network, read-only rootfs, 256 MB RAM, 0.5 CPU, 128 PIDs, all caps
   dropped (root exec for setup/check keeps CHOWN/DAC_OVERRIDE/FOWNER),
   `no-new-privileges`, non-root `student` user.
+- **Internet access** (opt-in per exercise): a step with *internet access*
+  connects the box to the Docker network `INTERNET_NETWORK`
+  (`oshell-internet`, bridge interface `oshell-inet`, no traffic between
+  boxes) while it is the student's current step; the newest terminal decides
+  (other exercise / playground → offline again), and solving the step
+  switches to what the next step wants. A setup with *internet during setup*
+  runs in a throwaway helper container `oshell-setup-<userId>` on that
+  network with the same home volume, so the student's shell stays offline.
+  On the server, `deploy/internet-firewall.sh` keeps that network away from
+  private ranges and the host. The images include `wget`, `curl`, `ping`,
+  `dig` and `nc`.
 - **Home**: volume `oshell-home-<userId>` at `/home/student`, kept when the box
   is removed. New volumes are seeded from the image's `/home/student`.
 - **Cleanup**: boxes with no terminal attached for `IDLE_MINUTES` (15) are
@@ -70,7 +81,8 @@ pnpm runner:dev                                  # :4100
 |---|---|
 | `GET /health` | Docker reachable? |
 | `POST /boxes` `{userId, shell?}` | ensure the box is running (no `shell`: reuse any running box, else start bash) |
-| `POST /boxes/:userId/exec` `{script, interpreter, user, timeoutMs}` | run setup/check scripts |
+| `POST /boxes/:userId/exec` `{script, interpreter, user, timeoutMs, internet?, shell?}` | run setup/check scripts (`internet`: in a helper container with internet access) |
+| `PUT /boxes/:userId/internet` `{online}` / `GET` | connect the box to the internet network or take it offline |
 | `GET /boxes/:userId/download?path=` | stream a file (≤ 50 MB) or a folder as `.tar.gz` (≤ 100 MB), read as the student |
 | `GET /sessions` | students with an open terminal (+ last input) for the live view |
 | `DELETE /boxes/:userId` | remove the box (volume stays) |
@@ -86,7 +98,10 @@ steps** ("chained" exercises). Each step has its own task text, **check**
 script, hints and points; the exercise is worth the sum. All steps work in
 the same folder, so later steps can build on earlier results. Per step the
 author decides whether it **unlocks only after the previous step** is
-solved (default) or is open right away.
+solved (default) or is open right away, and whether the student's shell
+gets **internet access** while it is their current step (`allowInternet`,
+e.g. "write a health check for google.com"; the step's check runs online
+too). The student sees an "Internet on" badge then.
 
 Scoring: a solved step earns its points; an assignment's points override
 for an exercise scales the step points proportionally
@@ -95,7 +110,7 @@ for an exercise scales the step points proportionally
 
 | Script | Runs | Meaning |
 |---|---|---|
-| **Setup** | as root, `set -e`, in `$OSHELL_DIR` = `~/exercises/<slug>` | The folder is wiped first and chowned to the student afterwards. Use `$RANDOM` to give every student different data. |
+| **Setup** | as root, `set -e`, in `$OSHELL_DIR` = `~/exercises/<slug>` | The folder is wiped first and chowned to the student afterwards. Use `$RANDOM` to give every student different data. With **Internet during setup** (`setupInternet`) it can download files (`wget -q https://raw.githubusercontent.com/…`); timeout 120 s. |
 | **Check** | as root in `$OSHELL_DIR`, 30 s timeout | **Exit 0 = passed.** Its output is shown to the student. |
 
 Scripts run with **bash** unless their first line is a pwsh shebang

@@ -33,6 +33,11 @@ export const stepInput = z.object({
   points: z.number().int().min(0).max(1000),
   /** Locked until the previous step is solved. Ignored for the first step. */
   requiresPrevious: z.boolean(),
+  /**
+   * The student's box may reach the internet while this is their current
+   * step (and while its check runs). Off = no network, like always.
+   */
+  allowInternet: z.boolean().default(false),
 });
 
 /**
@@ -55,6 +60,8 @@ export const exerciseInput = z.object({
   kind: z.enum(EXERCISE_KINDS).default("EXERCISE"),
   difficulty: z.number().int().min(1).max(5),
   setupScript: z.string().max(100_000),
+  /** Run the setup with internet access (wget/curl downloads). */
+  setupInternet: z.boolean().default(false),
   tags: z.array(z.string().trim().toLowerCase().min(1).max(40)).max(20),
   visibility: z.enum(["PRIVATE", "SHARED"]),
   steps: z
@@ -78,6 +85,7 @@ export const EMPTY_STEP: StepInput = {
   hints: [],
   points: 10,
   requiresPrevious: true,
+  allowInternet: false,
 };
 
 /** Starting point for "New exercise": a chained exercise with 3 steps. */
@@ -91,6 +99,7 @@ export const EXERCISE_TEMPLATE: ExerciseInput = {
   tags: ["find", "sort", "tar"],
   description: `In the folder \`logs/\` there are many log files.
 Work through the steps one by one; each step builds on the previous one.`,
+  setupInternet: false,
   setupScript: `# Runs ONCE as root inside ~/exercises/<slug> ($OSHELL_DIR), with set -e.
 # All steps share this folder. "Reset" wipes it and runs this again.
 mkdir -p logs
@@ -115,6 +124,7 @@ echo "Correct: $expected log files."`,
       hints: ["`ls logs/*.log` lists them", "`wc -l` counts lines"],
       points: 5,
       requiresPrevious: true,
+      allowInternet: false,
     },
     {
       title: "Find the big ones",
@@ -131,6 +141,7 @@ echo "Well done!"`,
       hints: ["Look at `find -size`", "`sort -n` sorts numerically"],
       points: 10,
       requiresPrevious: true,
+      allowInternet: false,
     },
     {
       title: "Archive them",
@@ -151,6 +162,7 @@ echo "Archive looks good!"`,
       ],
       points: 10,
       requiresPrevious: true,
+      allowInternet: false,
     },
   ],
 };

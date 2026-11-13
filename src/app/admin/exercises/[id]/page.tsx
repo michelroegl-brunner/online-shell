@@ -36,6 +36,7 @@ export default async function EditExercisePage({
           kind: ex.kind,
           difficulty: ex.difficulty,
           setupScript: ex.setupScript,
+          setupInternet: ex.setupInternet,
           tags: ex.tags,
           visibility: ex.visibility,
           steps: ex.steps.map((s) => ({
@@ -47,6 +48,7 @@ export default async function EditExercisePage({
             hints: s.hints,
             points: s.points,
             requiresPrevious: s.requiresPrevious,
+            allowInternet: s.allowInternet,
           })),
         }}
       />

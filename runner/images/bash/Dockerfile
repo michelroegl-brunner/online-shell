@@ -1,6 +1,7 @@
 # Student box for Bash exercises.
-# The runner starts it with: no network, read-only rootfs, tmpfs /tmp + /run,
-# a per-student volume at /home/student, dropped caps, no-new-privileges.
+# The runner starts it with: no network (a step with internet access
+# connects it to the internet network for a while), read-only rootfs,
+# tmpfs /tmp + /run, a per-student volume at /home/student, dropped caps, no-new-privileges.
 FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 TERM=xterm-256color
@@ -10,6 +11,7 @@ RUN apt-get update \
       bash bash-completion coreutils findutils grep sed gawk diffutils \
       less nano vim-tiny tree jq file procps psmisc bc zip unzip tar gzip \
       man-db manpages ca-certificates \
+      wget curl iputils-ping dnsutils netcat-openbsd \
  && rm -rf /var/lib/apt/lists/*
 
 # Non-root student user (uid 1000). Home is replaced by the per-student

@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronRight,
   Copy,
+  Globe,
   Lock,
   Plus,
   Trash2,
@@ -160,6 +161,12 @@ export function StepsEditor({
                     aria-label="Unlocks after the previous step"
                   />
                 )}
+                {s.allowInternet && (
+                  <Globe
+                    className="size-3.5 shrink-0 text-sky-400"
+                    aria-label="Internet access during this step"
+                  />
+                )}
                 <Badge variant="outline" className="ml-1 shrink-0">
                   {s.points} pts
                 </Badge>
@@ -268,6 +275,29 @@ export function StepsEditor({
                         The first step is always open.
                       </span>
                     )}
+                  </span>
+                </label>
+
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="accent-primary mt-0.5 size-4"
+                    checked={s.allowInternet}
+                    onChange={(e) =>
+                      patch(i, { allowInternet: e.target.checked })
+                    }
+                  />
+                  <span>
+                    Internet access during this step
+                    <span className="text-muted-foreground block text-xs">
+                      The student&apos;s shell (and this step&apos;s check) can
+                      reach the internet while this is their current step, e.g.
+                      a health check with{" "}
+                      <code className="font-mono">curl</code> against
+                      google.com. It goes offline again when they move on or
+                      open another terminal. In exams they could look things up
+                      from the shell.
+                    </span>
                   </span>
                 </label>
 
