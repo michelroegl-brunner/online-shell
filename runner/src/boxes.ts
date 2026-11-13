@@ -68,6 +68,10 @@ export const touch = (userId: string) => {
   getState(userId).lastActivity = Date.now();
 };
 
+/** Last input (ms epoch) per known box, for the teacher's live view. */
+export const lastActivityOf = (userId: string) =>
+  state.get(userId)?.lastActivity ?? null;
+
 // ── per-user lock so two requests can't create the same box twice ──
 
 const locks = new Map<string, Promise<unknown>>();

@@ -3,6 +3,8 @@ import { z } from "zod";
 
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { ingestCommandLog } from "~/server/assignments/command-log";
+import { EXAM_EVENT_TYPES, openExamsFor } from "~/server/assignments/exam";
+import { recomputeAttempt } from "~/server/assignments/recompute";
 import {
   itemMaxPoints,
   itemScore,
@@ -95,8 +97,10 @@ async function loadItem(db: Db, user: Viewer, itemId: string) {
           dueAt: true,
           maxChecks: true,
           allowHints: true,
+          mode: true,
           class: { select: { name: true } },
           extensions: { where: { userId }, select: { extraMinutes: true } },
+          submissions: { where: { userId }, select: { submittedAt: true } },
           items: { orderBy: { order: "asc" }, select: { id: true } },
         },
       },
@@ -106,10 +110,19 @@ async function loadItem(db: Db, user: Viewer, itemId: string) {
   if (!item) throw new TRPCError({ code: "NOT_FOUND" });
   const extra = item.assignment.extensions[0]?.extraMinutes;
   const preview = isPreview(user);
+  const submitted = item.assignment.submissions[0]?.submittedAt ?? null;
   const state: WindowState = preview
     ? "open"
-    : windowState(item.assignment, extra);
+    : submitted
+      ? "closed"
+      : windowState(item.assignment, extra);
   const attempt = item.attempts[0] ?? null;
+  const exam = item.assignment.mode === "EXAM";
+  // Checks per step: the assignment's limit plus what a teacher granted.
+  const maxChecks =
+    item.assignment.maxChecks === null
+      ? null
+      : item.assignment.maxChecks + (attempt?.extraChecks ?? 0);
 
   // Step states (unlock depends on the previous step's progress).
   const progress = new Map((attempt?.steps ?? []).map((s) => [s.stepId, s]));
@@ -127,8 +140,36 @@ async function loadItem(db: Db, user: Viewer, itemId: string) {
       ),
     };
   });
-  return { item, attempt, state, extra, steps, preview };
+  return {
+    item,
+    attempt,
+    state,
+    extra,
+    steps,
+    preview,
+    exam,
+    submitted,
+    maxChecks,
+  };
 }
+
+/** While an exam is running for a student, only that exam is available. */
+async function assertNotLockedByExam(
+  db: Db,
+  user: Viewer,
+  assignmentId: string,
+) {
+  const exams = await openExamsFor(db, user);
+  if (exams.length > 0 && !exams.some((e) => e.id === assignmentId)) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: `The exam "${exams[0]!.title}" is running — only its exercises are available until you hand it in.`,
+    });
+  }
+}
+
+const HIDDEN_OUTPUT_PASSED = "Check passed.";
+const HIDDEN_OUTPUT_FAILED = "Not solved yet. (Exam: check output is hidden.)";
 
 type Loaded = Awaited<ReturnType<typeof loadItem>>;
 
@@ -174,40 +215,6 @@ async function guardRunner<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
-/** Recompute the attempt totals from its step rows. */
-async function recomputeAttempt(
-  db: Db,
-  attemptId: string,
-  steps: { id: string; points: number }[],
-  override: number | null,
-) {
-  const rows = await db.attemptStep.findMany({ where: { attemptId } });
-  const byId = new Map(rows.map((r) => [r.stepId, r]));
-  const earned = steps.reduce(
-    (s, st) => s + (byId.get(st.id)?.status === "PASSED" ? st.points : 0),
-    0,
-  );
-  const total = steps.reduce((s, st) => s + st.points, 0);
-  const allPassed =
-    steps.length > 0 &&
-    steps.every((st) => byId.get(st.id)?.status === "PASSED");
-  const anyPassed = earned > 0 || rows.some((r) => r.status === "PASSED");
-  const current = await db.attempt.findUniqueOrThrow({
-    where: { id: attemptId },
-    select: { finishedAt: true },
-  });
-  return db.attempt.update({
-    where: { id: attemptId },
-    data: {
-      status: allPassed ? "PASSED" : "IN_PROGRESS",
-      score: anyPassed ? itemScore(earned, total, override) : null,
-      checks: rows.reduce((s, r) => s + r.checks, 0),
-      hintsUsed: rows.reduce((s, r) => s + r.hintsUsed, 0),
-      finishedAt: allPassed ? (current.finishedAt ?? new Date()) : null,
-    },
-  });
-}
-
 export const learnRouter = createTRPCRouter({
   /**
    * Teacher test run: delete my attempts for this assignment so it starts
@@ -243,7 +250,9 @@ export const learnRouter = createTRPCRouter({
         opensAt: true,
         dueAt: true,
         classId: true,
+        mode: true,
         extensions: { where: { userId }, select: { extraMinutes: true } },
+        submissions: { where: { userId }, select: { submittedAt: true } },
         items: {
           select: {
             points: true,
@@ -272,7 +281,11 @@ export const learnRouter = createTRPCRouter({
             title: a.title,
             opensAt: a.opensAt,
             dueAt: effectiveDueAt(a.dueAt, extra),
-            state: windowState(a, extra),
+            state: a.submissions.length
+              ? ("closed" as const)
+              : windowState(a, extra),
+            mode: a.mode,
+            submitted: a.submissions.length > 0,
             total: a.items.length,
             solved: a.items.filter((i) => i.attempts[0]?.status === "PASSED")
               .length,
@@ -302,8 +315,10 @@ export const learnRouter = createTRPCRouter({
           maxChecks: true,
           allowHints: true,
           published: true,
+          mode: true,
           class: { select: { name: true } },
           extensions: { where: { userId }, select: { extraMinutes: true } },
+          submissions: { where: { userId }, select: { submittedAt: true } },
           items: {
             orderBy: { order: "asc" },
             select: {
@@ -337,7 +352,12 @@ export const learnRouter = createTRPCRouter({
       });
       if (!a) throw new TRPCError({ code: "NOT_FOUND" });
       const extra = a.extensions[0]?.extraMinutes;
-      const state: WindowState = preview ? "open" : windowState(a, extra);
+      const submittedAt = a.submissions[0]?.submittedAt ?? null;
+      const state: WindowState = preview
+        ? "open"
+        : submittedAt
+          ? "closed"
+          : windowState(a, extra);
       if (state === "upcoming") {
         throw new TRPCError({
           code: "FORBIDDEN",
@@ -356,6 +376,8 @@ export const learnRouter = createTRPCRouter({
         published: a.published,
         maxChecks: a.maxChecks,
         allowHints: a.allowHints,
+        mode: a.mode,
+        submittedAt,
         items: a.items.map((i) => ({
           id: i.id,
           title: i.exercise.title,
@@ -376,11 +398,17 @@ export const learnRouter = createTRPCRouter({
   item: protectedProcedure
     .input(z.object({ itemId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const { item, attempt, state, extra, steps, preview } = await loadItem(
-        ctx.db,
-        ctx.user,
-        input.itemId,
-      );
+      const {
+        item,
+        attempt,
+        state,
+        extra,
+        steps,
+        preview,
+        exam,
+        submitted,
+        maxChecks,
+      } = await loadItem(ctx.db, ctx.user, input.itemId);
       // Task text stays hidden until the assignment opens (enforced here,
       // not only by the page).
       if (state === "upcoming") {
@@ -402,8 +430,10 @@ export const learnRouter = createTRPCRouter({
           className: item.assignment.class.name,
           dueAt: effectiveDueAt(item.assignment.dueAt, extra),
           state,
-          maxChecks: item.assignment.maxChecks,
+          maxChecks,
           allowHints: item.assignment.allowHints,
+          mode: item.assignment.mode,
+          submittedAt: submitted,
         },
         position: {
           index: idx,
@@ -432,7 +462,14 @@ export const learnRouter = createTRPCRouter({
           status: s.progress?.status ?? null,
           score: s.progress?.status === "PASSED" ? scale(s.points) : null,
           checks: s.progress?.checks ?? 0,
-          lastCheckOutput: s.progress?.checkOutput ?? null,
+          lastCheckOutput:
+            s.progress?.checkOutput == null
+              ? null
+              : exam
+                ? s.progress.status === "PASSED"
+                  ? HIDDEN_OUTPUT_PASSED
+                  : HIDDEN_OUTPUT_FAILED
+                : s.progress.checkOutput,
           revealedHints:
             s.unlocked && item.assignment.allowHints
               ? s.hints.slice(0, s.progress?.hintsUsed ?? 0)
@@ -444,6 +481,9 @@ export const learnRouter = createTRPCRouter({
           checks: attempt.checks,
           resets: attempt.resets,
           prepared: attempt.setupAt !== null,
+          feedback: attempt.feedback,
+          feedbackAt: attempt.feedbackAt,
+          scoreOverridden: attempt.scoreOverride !== null,
         },
       };
     }),
@@ -461,6 +501,7 @@ export const learnRouter = createTRPCRouter({
         ctx.user,
         input.itemId,
       );
+      await assertNotLockedByExam(ctx.db, ctx.user, item.assignment.id);
       if (attempt?.setupAt) {
         await ingestCommandLog(userId);
         // Touch updatedAt so command-log attribution prefers this attempt.
@@ -504,8 +545,9 @@ export const learnRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
       const loaded = await loadItem(ctx.db, ctx.user, input.itemId);
-      const { item, attempt, state } = loaded;
+      const { item, attempt, state, exam } = loaded;
       assertOpen(state);
+      await assertNotLockedByExam(ctx.db, ctx.user, item.assignment.id);
       if (!attempt?.setupAt) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
@@ -524,7 +566,7 @@ export const learnRouter = createTRPCRouter({
 
       // Claim a check atomically BEFORE running it, so parallel requests
       // can't get past maxChecks (per step; no limit once the step passed).
-      const max = item.assignment.maxChecks;
+      const max = loaded.maxChecks;
       const claim = await ctx.db.attemptStep.updateMany({
         where: {
           attemptId: attempt.id,
@@ -587,7 +629,11 @@ export const learnRouter = createTRPCRouter({
       );
       return {
         ok: res.ok,
-        output: res.output,
+        output: exam
+          ? res.ok
+            ? HIDDEN_OUTPUT_PASSED
+            : HIDDEN_OUTPUT_FAILED
+          : res.output,
         timedOut: res.timedOut,
         exerciseSolved: updated.status === "PASSED",
         score: updated.score,
@@ -652,6 +698,7 @@ export const learnRouter = createTRPCRouter({
         input.itemId,
       );
       assertOpen(state);
+      await assertNotLockedByExam(ctx.db, ctx.user, item.assignment.id);
       if (!attempt) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
@@ -672,4 +719,110 @@ export const learnRouter = createTRPCRouter({
         output: res.ok ? "" : "Resetting failed. Please tell your teacher.",
       };
     }),
+  /**
+   * Exam: hand in. Stores the last commands, then closes the assignment for
+   * me (a teacher can reopen it).
+   */
+  submit: protectedProcedure
+    .input(z.object({ assignmentId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      if (isPreview(ctx.user)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Test runs can not be handed in.",
+        });
+      }
+      const a = await ctx.db.assignment.findFirst({
+        where: {
+          AND: [
+            { id: input.assignmentId },
+            assignmentWhereVisibleTo(ctx.user.id),
+            { mode: "EXAM" },
+          ],
+        },
+        select: { id: true },
+      });
+      if (!a) throw new TRPCError({ code: "NOT_FOUND" });
+      await ingestCommandLog(ctx.user.id);
+      await ctx.db.assignmentSubmission.upsert({
+        where: {
+          assignmentId_userId: { assignmentId: a.id, userId: ctx.user.id },
+        },
+        create: { assignmentId: a.id, userId: ctx.user.id },
+        update: {},
+      });
+      return { ok: true };
+    }),
+
+  /**
+   * Exam: the page lost focus / was hidden / left fullscreen. Stored on my
+   * attempt for the teacher. Capped per attempt so a flapping window can't
+   * flood the table.
+   */
+  examEvent: protectedProcedure
+    .input(
+      z.object({
+        itemId: z.string(),
+        type: z.enum(EXAM_EVENT_TYPES),
+        /** Seconds away (sent when focus comes back), if known. */
+        seconds: z.number().int().min(0).max(86_400).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (isPreview(ctx.user)) return { stored: false };
+      const att = await ctx.db.attempt.findFirst({
+        where: {
+          userId: ctx.user.id,
+          assignmentItemId: input.itemId,
+          assignmentItem: { assignment: { mode: "EXAM" } },
+        },
+        select: { id: true, _count: { select: { events: true } } },
+      });
+      if (!att || att._count.events >= 2000) return { stored: false };
+      await ctx.db.examEvent.create({
+        data: {
+          attemptId: att.id,
+          type: input.type,
+          detail:
+            input.seconds === undefined
+              ? null
+              : JSON.stringify({ seconds: input.seconds }),
+        },
+      });
+      return { stored: true };
+    }),
+
+  /** Teacher messages for an assignment I can open (newest first). */
+  announcements: protectedProcedure
+    .input(z.object({ assignmentId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const a = await ctx.db.assignment.findFirst({
+        where: { AND: [{ id: input.assignmentId }, learnWhere(ctx.user)] },
+        select: {
+          announcements: {
+            orderBy: { createdAt: "desc" },
+            take: 20,
+            select: {
+              id: true,
+              text: true,
+              createdAt: true,
+              author: { select: { name: true } },
+            },
+          },
+        },
+      });
+      if (!a) throw new TRPCError({ code: "NOT_FOUND" });
+      return a.announcements.map((n) => ({
+        id: n.id,
+        text: n.text,
+        createdAt: n.createdAt,
+        author: n.author.name,
+      }));
+    }),
+
+  /** Is an exam running for me (locks the playground and other work)? */
+  examLock: protectedProcedure.query(async ({ ctx }) => {
+    const exams = await openExamsFor(ctx.db, ctx.user);
+    return exams[0] ? { id: exams[0].id, title: exams[0].title } : null;
+  }),
 });

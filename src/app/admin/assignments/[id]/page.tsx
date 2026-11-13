@@ -30,6 +30,8 @@ export default async function EditAssignmentPage({
         allowHints: a.allowHints,
         allowPaste: a.allowPaste,
         published: a.published,
+        publishAt: a.publishAt,
+        mode: a.mode,
         items: a.items.map((i) => ({
           exerciseId: i.exercise.id,
           title: i.exercise.title,

@@ -4,7 +4,7 @@ import "@xterm/xterm/css/xterm.css";
 
 import type { FitAddon } from "@xterm/addon-fit";
 import type { Terminal } from "@xterm/xterm";
-import { Loader2, RotateCw } from "lucide-react";
+import { Eye, Loader2, RotateCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -39,6 +39,9 @@ export function ShellTerminal({
   const pasteBlockedRef = useRef(false);
   const lastNoticeRef = useRef(0);
   const [pasteBlocked, setPasteBlocked] = useState(false);
+  /** Teachers watching this student's terminal (read-only). */
+  const [watchers, setWatchers] = useState(0);
+  const [errorText, setErrorText] = useState<string | null>(null);
 
   const notifyPasteBlocked = useCallback(() => {
     const now = Date.now();
@@ -158,6 +161,7 @@ export function ShellTerminal({
     let closedByUs = false;
     const disposables: { dispose(): void }[] = [];
     setStatus("connecting");
+    setErrorText(null);
 
     void (async () => {
       try {
@@ -186,10 +190,13 @@ export function ShellTerminal({
           const msg = JSON.parse(String(ev.data)) as {
             type: string;
             allowed?: boolean;
+            count?: number;
           };
           if (msg.type === "ready") {
             setStatus("ready");
             term.focus();
+          } else if (msg.type === "watched") {
+            setWatchers(msg.count ?? 0);
           } else if (msg.type === "paste-blocked") {
             notifyPasteBlocked();
           } else if (msg.type === "paste-policy" && msg.allowed === false) {
@@ -213,7 +220,9 @@ export function ShellTerminal({
             }
           }),
         );
-      } catch {
+      } catch (e) {
+        // e.g. an exam is running and this terminal isn't part of it.
+        setErrorText(e instanceof Error ? e.message : null);
         setStatus("error");
       }
     })();
@@ -246,6 +255,15 @@ export function ShellTerminal({
           Pasting disabled
         </span>
       )}
+      {watchers > 0 && status === "ready" && (
+        <span
+          className="pointer-events-none absolute top-2 right-3 flex items-center gap-1 rounded border border-sky-400/30 bg-black/80 px-1.5 py-0.5 text-[11px] text-sky-300"
+          style={pasteBlocked ? { top: "1.9rem" } : undefined}
+          title="Your teacher can see this terminal (they can't type in it)."
+        >
+          <Eye className="size-3" /> Teacher is watching
+        </span>
+      )}
       {status !== "ready" && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/60">
           {status === "connecting" ? (
@@ -257,7 +275,7 @@ export function ShellTerminal({
             <div className="flex flex-col items-center gap-3 text-sm">
               <span className="text-muted-foreground">
                 {status === "error"
-                  ? "Could not connect to the shell."
+                  ? (errorText ?? "Could not connect to the shell.")
                   : "Session ended."}
               </span>
               <Button size="sm" variant="secondary" onClick={reconnect}>

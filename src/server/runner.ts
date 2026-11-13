@@ -52,6 +52,34 @@ export const runner = {
   removeBox: (userId: string) =>
     call<{ ok: true }>("DELETE", `/boxes/${encodeURIComponent(userId)}`),
 
+  /** Students with an open terminal right now (live view). */
+  sessions: () =>
+    call<{
+      sessions: {
+        userId: string;
+        terminals: number;
+        cwd: string | null;
+        watchers: number;
+        lastActivity: number | null;
+      }[];
+    }>("GET", "/sessions"),
+
+  /**
+   * Token for a teacher to watch a student's terminal (read-only). The
+   * caller must have checked that the teacher may see this student.
+   */
+  async watchInfo(studentId: string) {
+    const token = await new SignJWT({})
+      .setProtectedHeader({ alg: "HS256" })
+      .setSubject(studentId)
+      .setIssuer("oshell-web")
+      .setAudience("oshell-watch")
+      .setIssuedAt()
+      .setExpirationTime("60s")
+      .sign(secret);
+    return { url: `${env.RUNNER_PUBLIC_URL}/watch`, token };
+  },
+
   /**
    * Short-lived token the browser presents when opening the terminal
    * WebSocket. Valid for 60 s; only used for the upgrade handshake.

@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, FlaskConical, Plus } from "lucide-react";
+import { Activity, Copy, FlaskConical, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -24,7 +24,7 @@ import {
   TableRow,
 } from "~/components/ui/table";
 import { api } from "~/trpc/react";
-import { windowLabel } from "./format";
+import { formatDateTime, windowLabel } from "./format";
 
 const ALL = "__all__";
 
@@ -116,9 +116,24 @@ export function AssignmentList() {
                     {a.title}
                     {a.published ? (
                       <Badge className="text-xs">published</Badge>
+                    ) : a.publishAt ? (
+                      <Badge
+                        variant="outline"
+                        className="text-xs"
+                        title={`Publishes ${formatDateTime(a.publishAt)}`}
+                      >
+                        {new Date(a.publishAt) <= new Date()
+                          ? "published (scheduled)"
+                          : `scheduled ${formatDateTime(a.publishAt)}`}
+                      </Badge>
                     ) : (
                       <Badge variant="outline" className="text-xs">
                         draft
+                      </Badge>
+                    )}
+                    {a.mode === "EXAM" && (
+                      <Badge variant="destructive" className="text-xs">
+                        exam
                       </Badge>
                     )}
                   </div>
@@ -158,6 +173,18 @@ export function AssignmentList() {
                   </div>
                 </TableCell>
                 <TableCell className="whitespace-nowrap">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Live view"
+                    title="Live view of the class"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/admin/reports/a/${a.id}/live`);
+                    }}
+                  >
+                    <Activity />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"

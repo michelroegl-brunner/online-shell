@@ -8,6 +8,7 @@ import {
   Lightbulb,
   Loader2,
   Lock,
+  MessageSquare,
   Play,
   RotateCcw,
   XCircle,
@@ -16,7 +17,9 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { Announcements } from "~/components/learn/announcements";
 import { WindowBadge } from "~/components/learn/badges";
+import { ExamGuard, HandInButton } from "~/components/learn/exam-guard";
 import { Markdown } from "~/components/markdown";
 import { ShellTerminal } from "~/components/terminal/shell-terminal";
 import { Badge } from "~/components/ui/badge";
@@ -134,11 +137,14 @@ export function Workspace({ initial }: { initial: Item }) {
   const stepsPassed = steps.filter((s) => s.status === "PASSED").length;
   const multi = steps.length > 1;
   const base = `/learn/a/${assignment.id}`;
+  const exam = assignment.mode === "EXAM";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+      {exam && open && !item.preview && <ExamGuard itemId={item.itemId} />}
       {/* ── Task ── */}
       <section className="flex flex-col gap-4 overflow-y-auto border-b p-4 sm:p-6 lg:w-[44%] lg:border-r lg:border-b-0">
+        <Announcements assignmentId={assignment.id} />
         <div className="flex items-center justify-between gap-2 text-sm">
           <Link
             href={base}
@@ -173,8 +179,29 @@ export function Workspace({ initial }: { initial: Item }) {
               </span>
             )}
             <WindowBadge state={assignment.state} dueAt={assignment.dueAt} />
+            {exam && <Badge variant="destructive">exam</Badge>}
           </div>
+          {assignment.submittedAt && (
+            <p className="text-primary mt-2 flex items-center gap-1.5 text-sm">
+              <Lock className="size-4" /> Handed in — you can look at your work,
+              but not change it.
+            </p>
+          )}
         </div>
+
+        {attempt?.feedback && (
+          <div className="border-primary/30 bg-primary/5 rounded-lg border p-3 text-sm">
+            <div className="text-primary mb-1 flex items-center gap-1.5 text-xs font-medium tracking-wide uppercase">
+              <MessageSquare className="size-3.5" /> Feedback from your teacher
+              {attempt.scoreOverridden && (
+                <span className="text-muted-foreground normal-case">
+                  · points set by your teacher
+                </span>
+              )}
+            </div>
+            <div className="whitespace-pre-wrap">{attempt.feedback}</div>
+          </div>
+        )}
 
         {exercise.description && <Markdown>{exercise.description}</Markdown>}
 
@@ -224,12 +251,18 @@ export function Workspace({ initial }: { initial: Item }) {
           ) : (
             <span />
           )}
-          {position.next && (
+          {position.next ? (
             <Button variant={solved ? "default" : "ghost"} size="sm" asChild>
               <Link href={`${base}/${position.next}`}>
                 Next exercise <ChevronRight />
               </Link>
             </Button>
+          ) : (
+            exam &&
+            open &&
+            !item.preview && (
+              <HandInButton assignmentId={assignment.id} size="sm" />
+            )
           )}
         </div>
       </section>

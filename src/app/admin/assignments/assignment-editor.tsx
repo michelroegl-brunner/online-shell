@@ -65,12 +65,18 @@ export type EditorInitial = {
   allowHints: boolean;
   allowPaste: boolean;
   published: boolean;
+  publishAt: Date | null;
+  mode: "PRACTICE" | "EXAM";
 };
 
-type Form = Omit<EditorInitial, "opensAt" | "dueAt" | "maxChecks"> & {
+type Form = Omit<
+  EditorInitial,
+  "opensAt" | "dueAt" | "maxChecks" | "publishAt"
+> & {
   opensAt: string;
   dueAt: string;
   maxChecks: string;
+  publishAt: string;
 };
 
 const toForm = (i: EditorInitial): Form => ({
@@ -78,6 +84,7 @@ const toForm = (i: EditorInitial): Form => ({
   opensAt: toLocalInput(i.opensAt),
   dueAt: toLocalInput(i.dueAt),
   maxChecks: i.maxChecks == null ? "" : String(i.maxChecks),
+  publishAt: toLocalInput(i.publishAt),
 });
 
 export function AssignmentEditor({
@@ -134,7 +141,8 @@ export function AssignmentEditor({
       allowHints: form.allowHints,
       allowPaste: form.allowPaste,
       published: form.published,
-      mode: "PRACTICE" as const,
+      publishAt: form.published ? null : fromLocalInput(form.publishAt),
+      mode: form.mode,
     };
   }
 
@@ -192,8 +200,8 @@ export function AssignmentEditor({
     if (id && !dirty) {
       try {
         await setPublished.mutateAsync({ id, published: next });
-        setForm((f) => ({ ...f, published: next }));
-        setSaved((f) => ({ ...f, published: next }));
+        setForm((f) => ({ ...f, published: next, publishAt: "" }));
+        setSaved((f) => ({ ...f, published: next, publishAt: "" }));
         await utils.assignment.invalidate();
         toast.success(
           next ? "Published: students can see it" : "Back to draft",
@@ -282,7 +290,11 @@ export function AssignmentEditor({
           title="Published assignments are visible to students"
         >
           {form.published ? <Eye /> : <EyeOff />}
-          {form.published ? "Published" : "Draft"}
+          {form.published
+            ? "Published"
+            : form.publishAt
+              ? "Scheduled"
+              : "Draft"}
         </Button>
         <Button
           onClick={() => void save()}
@@ -375,6 +387,49 @@ export function AssignmentEditor({
               </div>
             )}
           </Field>
+
+          <Field label="Mode" className="md:col-span-6">
+            <div className="flex flex-wrap items-center gap-2">
+              <Chip
+                active={form.mode === "PRACTICE"}
+                onClick={() => set("mode", "PRACTICE")}
+              >
+                Practice
+              </Chip>
+              <Chip
+                active={form.mode === "EXAM"}
+                onClick={() =>
+                  setForm((f) => ({
+                    ...f,
+                    mode: "EXAM",
+                    // Sensible exam defaults; still editable below.
+                    allowHints: false,
+                    allowPaste: false,
+                  }))
+                }
+              >
+                Exam
+              </Chip>
+              <span className="text-muted-foreground text-xs">
+                {form.mode === "EXAM"
+                  ? "Fullscreen, focus loss is logged, check output hidden, playground and other assignments locked while it runs, students hand in at the end."
+                  : "Students practise at their own pace; check output is shown."}
+              </span>
+            </div>
+          </Field>
+
+          {!form.published && (
+            <Field label="Publish automatically" className="md:col-span-2">
+              <Input
+                type="datetime-local"
+                value={form.publishAt}
+                onChange={(e) => set("publishAt", e.target.value)}
+              />
+              <span className="text-muted-foreground text-xs">
+                Empty = stays a draft until you publish it.
+              </span>
+            </Field>
+          )}
 
           <Field label="Opens" className="md:col-span-2">
             <Input

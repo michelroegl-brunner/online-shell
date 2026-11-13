@@ -71,8 +71,10 @@ pnpm runner:dev                                  # :4100
 | `GET /health` | Docker reachable? |
 | `POST /boxes` `{userId, shell}` | ensure the box is running |
 | `POST /boxes/:userId/exec` `{script, interpreter, user, timeoutMs}` | run setup/check scripts |
+| `GET /sessions` | students with an open terminal (+ last input) for the live view |
 | `DELETE /boxes/:userId` | remove the box (volume stays) |
 | `WS /attach?token=…&cols=…&rows=…` | interactive shell |
+| `WS /watch?token=…` | teacher: read-only view of a student's newest terminal |
 
 ## Exercises
 
@@ -201,6 +203,56 @@ the student's most recently active attempt in an open no-paste assignment
 (`src/server/assignments/paste-events.ts`); with no attempt yet they are
 dropped. Reports show a count per cell and a list on the attempt page.
 
+## Teacher tools
+
+Router `manage` (actions) and `insights` (read-only analysis); same access
+as reports (classes you teach, admins all).
+
+- **Live view** (`/admin/reports/a/<id>/live`): one card per student with
+  online status (runner `GET /sessions`), current exercise/step, last
+  command, progress, and flags — **stuck** (≥ 3 checks on the current step
+  or ≥ 5 failed commands in 10 min) and **idle** (no activity for 10 min).
+  Polls every 5 s; while open it pulls command logs out of the boxes of
+  students with an open terminal every 15 s (throttled per student).
+- **Watch** a student's terminal read-only (runner `WS /watch`, 60 s JWT
+  `aud: oshell-watch`, minted only for students of your classes). The runner
+  keeps 128 KB of scrollback per terminal and replays it; the watcher follows
+  the student's newest terminal. The student sees "Teacher is watching".
+- **Messages to the class** (`Announcement`): sent from the live view, shown
+  as a banner + toast on the student's assignment and exercise pages.
+- **Per student**: extra time (`AssignmentExtension`, from the results
+  table or the attempt page), extra checks per step (`Attempt.extraChecks`),
+  manual points (`Attempt.scoreOverride` wins over the computed score until
+  cleared), feedback shown on the exercise page, **reset attempt** (deletes
+  it; the next open runs the setup again), reopen a handed-in exam.
+- **Results**: auto-refresh, CSV per exercise / per step / with grades.
+  The grade scale (default 87.5 / 75 / 62.5 / 50 % for 1–4) is stored in
+  the browser.
+- **Solutions** (`/admin/reports/a/<id>/solutions`): per step, the last
+  successful non-trivial command before it passed, grouped by identical
+  text; identical long commands (≥ 40 chars, ≥ 2 students) are marked.
+- **Exercise analytics** (exercise page): pass rate, checks, hints and median
+  time per step across all assignments (aggregates only), with flags for
+  steps few solve, that need many checks, or take ≥ 3× longer than usual.
+- **Dashboard** (`/admin`): running assignments, stuck students (last 24 h),
+  what opens / publishes / is due in the next 7 days, exercises worth a look.
+- **Scheduled publishing** (`Assignment.publishAt`): a draft becomes visible
+  at that time; decided at query time in `assignmentWhereVisibleTo`, no job.
+
+### Exam mode
+
+`Assignment.mode = EXAM` (`src/server/assignments/exam.ts`):
+
+- The exercise page asks for fullscreen; window blur (with seconds away),
+  hidden tab and leaving fullscreen are stored as `ExamEvent`s and shown in
+  reports. Logged, not prevented.
+- Check output is hidden (only "passed" / "not solved yet").
+- While an exam is open for a student and not handed in, their box only
+  serves that exam: `box.attach` refuses other terminals (playground, other
+  assignments) and `learn.start/check/reset` refuse other assignments.
+- **Hand in** (`AssignmentSubmission`) closes the exam for that student
+  until a teacher reopens it.
+
 ## Routes
 
 | Path | Who | |
@@ -214,7 +266,9 @@ dropped. Reports show a count per cell and a list on the attempt page.
 | `/admin/exercises` | TEACHER, ADMIN | exercise library, editor, test run |
 | `/admin/classes` | TEACHER, ADMIN | import M365 groups, members, teachers, groups |
 | `/admin/assignments` | TEACHER, ADMIN | create / edit / publish assignments |
-| `/admin/reports` | TEACHER, ADMIN | results per assignment (matrix, CSV, per-exercise stats), per student, per attempt (command history) |
+| `/admin/reports` | TEACHER, ADMIN | results per assignment (matrix, CSV, per-exercise stats), per student, per attempt (command history, teacher actions) |
+| `/admin/reports/a/[id]/live` | TEACHER, ADMIN | live class view, watch terminals, messages |
+| `/admin/reports/a/[id]/solutions` | TEACHER, ADMIN | solutions compared per step |
 
 `src/proxy.ts` guards `/learn` and `/admin`; the admin layout checks the role again
 on the server. tRPC has `protectedProcedure`, `teacherProcedure`, `adminProcedure`.

@@ -63,6 +63,8 @@ model User {
   attempts             Attempt[]
   assignmentExtensions AssignmentExtension[]
   classGroups          ClassGroupMember[]
+  announcements        Announcement[]
+  submissions          AssignmentSubmission[]
 }
 
 model Class {
@@ -196,14 +198,18 @@ model Assignment {
   allowHints Boolean        @default(true)
   allowPaste Boolean        @default(true)
   published  Boolean        @default(false)
+  /// Draft that becomes visible to students at this time (scheduled publish).
+  publishAt  DateTime?
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
 
-  class      Class                 @relation(fields: [classId], references: [id], onDelete: Cascade)
-  items      AssignmentItem[]
-  extensions AssignmentExtension[]
+  class         Class                  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  items         AssignmentItem[]
+  extensions    AssignmentExtension[]
   /// No groups = whole class; otherwise only students in >= 1 of them.
-  groups     AssignmentGroup[]
+  groups        AssignmentGroup[]
+  announcements Announcement[]
+  submissions   AssignmentSubmission[]
 
   @@index([classId])
 }
@@ -246,6 +252,34 @@ model AssignmentExtension {
   @@id([assignmentId, userId])
 }
 
+/// Exam mode: the student handed in; the assignment is closed for them
+/// until a teacher reopens it (deletes this row).
+model AssignmentSubmission {
+  assignmentId String
+  userId       String
+  submittedAt  DateTime @default(now())
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([assignmentId, userId])
+  @@index([userId])
+}
+
+/// Message from a teacher to everyone working on an assignment.
+model Announcement {
+  id           String   @id @default(cuid())
+  assignmentId String
+  authorId     String
+  text         String
+  createdAt    DateTime @default(now())
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  author     User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([assignmentId, createdAt])
+}
+
 // ────────────────────────────────────────────────────────────
 // Attempts, command log, exam events
 // ────────────────────────────────────────────────────────────
@@ -266,6 +300,13 @@ model Attempt {
   setupAt          DateTime?
   /// How often the student reset the exercise folder
   resets           Int           @default(0)
+  /// Extra checks per step granted by a teacher (on top of maxChecks)
+  extraChecks      Int           @default(0)
+  /// Teacher's manual score; replaces the computed score while set
+  scoreOverride    Int?
+  /// Teacher's note to the student (shown on the exercise page)
+  feedback         String?
+  feedbackAt       DateTime?
   finishedAt       DateTime?
   updatedAt        DateTime      @default(now()) @updatedAt
 
@@ -317,7 +358,7 @@ model ExamEvent {
   id        BigInt   @id @default(autoincrement())
   attemptId String
   at        DateTime @default(now())
-  /// BLUR | HIDDEN | FULLSCREEN_EXIT | PASTE
+  /// BLUR | HIDDEN | FULLSCREEN_EXIT | PASTE (detail: JSON)
   type      String
   detail    String?
 

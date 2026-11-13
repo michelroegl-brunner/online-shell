@@ -26,6 +26,23 @@ export type AttachClaims = {
   pasteBlockFrom?: number;
 };
 
+/**
+ * Teacher → runner watch WebSocket: 60 s HS256 JWT (`aud: "oshell-watch"`,
+ * `sub` = the student). The web app checks that the teacher teaches the
+ * student before minting it.
+ */
+export async function verifyWatchToken(
+  token: string,
+): Promise<{ userId: string }> {
+  const { payload } = await jwtVerify(token, secretKey, {
+    audience: "oshell-watch",
+    issuer: "oshell-web",
+    algorithms: ["HS256"],
+  });
+  if (typeof payload.sub !== "string") throw new Error("bad claims");
+  return { userId: payload.sub };
+}
+
 const CWD_RE = /^\/home\/student(\/[A-Za-z0-9._-]+)*$/;
 
 /**

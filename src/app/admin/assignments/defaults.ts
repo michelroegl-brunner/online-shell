@@ -14,4 +14,6 @@ export const EMPTY_ASSIGNMENT: EditorInitial = {
   // Students should type commands themselves.
   allowPaste: false,
   published: false,
+  publishAt: null,
+  mode: "PRACTICE",
 };

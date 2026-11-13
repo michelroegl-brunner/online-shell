@@ -14,5 +14,5 @@ export default async function AssignmentReportPage({
     if (e instanceof TRPCError && e.code === "NOT_FOUND") notFound();
     throw e;
   });
-  return <AssignmentReport data={data} />;
+  return <AssignmentReport initial={data} />;
 }

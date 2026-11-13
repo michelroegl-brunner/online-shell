@@ -57,7 +57,10 @@ export const reportRouter = createTRPCRouter({
           opensAt: true,
           dueAt: true,
           published: true,
+          publishAt: true,
+          mode: true,
           maxChecks: true,
+          submissions: { select: { userId: true, submittedAt: true } },
           class: {
             select: {
               id: true,
@@ -100,6 +103,10 @@ export const reportRouter = createTRPCRouter({
                   slug: true,
                   points: true,
                   _count: { select: { steps: true } },
+                  steps: {
+                    orderBy: { order: "asc" },
+                    select: { id: true, title: true, points: true },
+                  },
                 },
               },
               // Students only: teachers' test runs are not results.
@@ -114,6 +121,9 @@ export const reportRouter = createTRPCRouter({
                     select: { stepId: true },
                   },
                   score: true,
+                  scoreOverride: true,
+                  feedback: true,
+                  extraChecks: true,
                   checks: true,
                   hintsUsed: true,
                   resets: true,
@@ -129,7 +139,7 @@ export const reportRouter = createTRPCRouter({
                     },
                   },
                   _count: { select: { commands: true } },
-                  events: pasteEventsSelect,
+                  events: { select: { type: true, detail: true } },
                 },
               },
             },
@@ -166,14 +176,22 @@ export const reportRouter = createTRPCRouter({
           .filter((g) => g.group.members.some((m) => m.userId === userId))
           .map((g) => g.group.name);
 
-      const items = a.items.map((i) => ({
-        id: i.id,
-        title: i.exercise.title,
-        slug: i.exercise.slug,
-        exerciseId: i.exercise.id,
-        points: itemPoints(i),
-        stepCount: i.exercise._count.steps,
-      }));
+      const items = a.items.map((i) => {
+        const stepTotal = i.exercise.steps.reduce((n, st) => n + st.points, 0);
+        return {
+          id: i.id,
+          title: i.exercise.title,
+          slug: i.exercise.slug,
+          exerciseId: i.exercise.id,
+          points: itemPoints(i),
+          stepCount: i.exercise._count.steps,
+          steps: i.exercise.steps.map((st) => ({
+            id: st.id,
+            title: st.title,
+            points: itemScore(st.points, stepTotal, i.points),
+          })),
+        };
+      });
       const maxPoints = items.reduce((s, i) => s + i.points, 0);
 
       const rows = [...students.values()]
@@ -187,11 +205,18 @@ export const reportRouter = createTRPCRouter({
               status: att.status,
               score: att.score,
               stepsPassed: att.steps.length,
+              passedStepIds: att.steps.map((st) => st.stepId),
+              scoreOverridden: att.scoreOverride !== null,
+              hasFeedback: !!att.feedback,
+              extraChecks: att.extraChecks,
               checks: att.checks,
               hintsUsed: att.hintsUsed,
               resets: att.resets,
               commands: att._count.commands,
-              pasteAttempts: pasteCount(att.events),
+              pasteAttempts: pasteCount(
+                att.events.filter((e) => e.type === "PASTE"),
+              ),
+              focusLost: att.events.filter((e) => e.type !== "PASTE").length,
               minutes: att.finishedAt
                 ? Math.round(minutesBetween(att.startedAt, att.finishedAt))
                 : null,
@@ -209,6 +234,8 @@ export const reportRouter = createTRPCRouter({
             targeted: s.targeted,
             groups: groupNamesOf(s.id),
             extraMinutes: ext ?? null,
+            submittedAt:
+              a.submissions.find((x) => x.userId === s.id)?.submittedAt ?? null,
             cells,
             total: cells.reduce((sum, c) => sum + (c?.score ?? 0), 0),
             solved: cells.filter((c) => c?.status === "PASSED").length,
@@ -282,6 +309,8 @@ export const reportRouter = createTRPCRouter({
           opensAt: a.opensAt,
           dueAt: a.dueAt,
           published: a.published,
+          publishAt: a.publishAt,
+          mode: a.mode,
           maxChecks: a.maxChecks,
           classId: a.class.id,
           className: a.class.name,
@@ -322,6 +351,10 @@ export const reportRouter = createTRPCRouter({
           checks: true,
           hintsUsed: true,
           resets: true,
+          extraChecks: true,
+          scoreOverride: true,
+          feedback: true,
+          feedbackAt: true,
           checkOutput: true,
           startedAt: true,
           setupAt: true,
@@ -354,8 +387,11 @@ export const reportRouter = createTRPCRouter({
                   id: true,
                   title: true,
                   dueAt: true,
+                  mode: true,
+                  maxChecks: true,
                   class: { select: { id: true, name: true } },
                   extensions: { select: { userId: true, extraMinutes: true } },
+                  submissions: { select: { userId: true, submittedAt: true } },
                 },
               },
             },
@@ -373,10 +409,9 @@ export const reportRouter = createTRPCRouter({
             take: 5000,
           },
           events: {
-            where: { type: "PASTE" },
             orderBy: [{ at: "asc" }, { id: "asc" }],
-            select: { id: true, at: true, detail: true },
-            take: 1000,
+            select: { id: true, at: true, type: true, detail: true },
+            take: 2000,
           },
         },
       });
@@ -394,6 +429,13 @@ export const reportRouter = createTRPCRouter({
           className: item.assignment.class.name,
           classId: item.assignment.class.id,
           dueAt: effectiveDueAt(item.assignment.dueAt, extra),
+          baseDueAt: item.assignment.dueAt,
+          extraMinutes: extra ?? 0,
+          mode: item.assignment.mode,
+          maxChecks: item.assignment.maxChecks,
+          submittedAt:
+            item.assignment.submissions.find((x) => x.userId === att.user.id)
+              ?.submittedAt ?? null,
         },
         exercise: {
           id: item.exercise.id,
@@ -426,6 +468,10 @@ export const reportRouter = createTRPCRouter({
         checks: att.checks,
         hintsUsed: att.hintsUsed,
         resets: att.resets,
+        extraChecks: att.extraChecks,
+        scoreOverride: att.scoreOverride,
+        feedback: att.feedback,
+        feedbackAt: att.feedbackAt,
         checkOutput: att.checkOutput,
         startedAt: att.startedAt,
         finishedAt: att.finishedAt,
@@ -446,17 +492,33 @@ export const reportRouter = createTRPCRouter({
           cwd: shortCwd(c.cwd),
           command: c.command,
         })),
-        pasteEvents: att.events.map((e) => {
-          const d = parsePasteDetail(e.detail);
-          return {
-            id: e.id.toString(),
-            at: e.at,
-            count: d?.count ?? 1,
-            bytes: d?.bytes ?? 0,
-            reasons: d?.reasons ?? {},
-            terminal: d?.terminal ?? "",
-          };
-        }),
+        focusEvents: att.events
+          .filter((e) => e.type !== "PASTE")
+          .map((e) => {
+            let seconds: number | null = null;
+            try {
+              const d = JSON.parse(e.detail ?? "null") as {
+                seconds?: unknown;
+              } | null;
+              if (typeof d?.seconds === "number") seconds = d.seconds;
+            } catch {
+              /* old / free-form detail */
+            }
+            return { id: e.id.toString(), at: e.at, type: e.type, seconds };
+          }),
+        pasteEvents: att.events
+          .filter((e) => e.type === "PASTE")
+          .map((e) => {
+            const d = parsePasteDetail(e.detail);
+            return {
+              id: e.id.toString(),
+              at: e.at,
+              count: d?.count ?? 1,
+              bytes: d?.bytes ?? 0,
+              reasons: d?.reasons ?? {},
+              terminal: d?.terminal ?? "",
+            };
+          }),
       };
     }),
 

@@ -4,7 +4,9 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { AppHeader } from "~/components/app-header";
+import { Announcements } from "~/components/learn/announcements";
 import { AttemptIcon, WindowBadge } from "~/components/learn/badges";
+import { HandInButton } from "~/components/learn/exam-guard";
 import { TestRunBanner } from "~/components/learn/test-run-banner";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent } from "~/components/ui/card";
@@ -55,15 +57,34 @@ export default async function AssignmentPage({
         <div className="mb-1 flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-semibold">{a.title}</h1>
           <WindowBadge state={a.state} opensAt={a.opensAt} dueAt={a.dueAt} />
+          {a.mode === "EXAM" && <Badge variant="destructive">exam</Badge>}
+          {a.mode === "EXAM" && a.state === "open" && !a.preview && (
+            <HandInButton assignmentId={a.id} size="sm" className="ml-auto" />
+          )}
         </div>
         <p className="text-muted-foreground mb-6 text-sm">
           {solved}/{a.items.length} solved · {points}/{maxPoints} points
           {a.dueAt && <> · due {formatDateTime(a.dueAt)}</>}
           {a.maxChecks !== null && <> · {a.maxChecks} checks per exercise</>}
           {a.state === "closed" && (
-            <> · closed, you can still look at your work</>
+            <>
+              {" "}
+              ·{" "}
+              {a.submittedAt
+                ? `handed in ${formatDateTime(a.submittedAt)}`
+                : "closed"}
+              , you can still look at your work
+            </>
           )}
         </p>
+        {a.mode === "EXAM" && a.state === "open" && !a.preview && (
+          <p className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
+            Exam: work in fullscreen; leaving the window is recorded. The
+            playground and other assignments are locked until you hand in.
+            Checks only tell you whether a step is solved.
+          </p>
+        )}
+        <Announcements assignmentId={a.id} className="mb-4" />
 
         <Card>
           <CardContent className="flex flex-col divide-y p-0">

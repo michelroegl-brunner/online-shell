@@ -5,6 +5,7 @@ import { AppHeader } from "~/components/app-header";
 import { ShellTerminal } from "~/components/terminal/shell-terminal";
 import { cn } from "~/lib/utils";
 import { getCurrentUser } from "~/server/auth/current-user";
+import { api } from "~/trpc/server";
 
 const SHELLS = [
   { key: "bash", value: "BASH", label: "Bash" },
@@ -20,6 +21,8 @@ export default async function PlaygroundPage({
   if (!user) redirect("/auth/signin");
   const { shell: shellParam } = await searchParams;
   const shell = SHELLS.find((s) => s.key === shellParam) ?? SHELLS[0];
+  // An exam is running: the playground is locked (same box).
+  const exam = await api.learn.examLock();
 
   return (
     <div className="flex h-dvh flex-col">
@@ -54,12 +57,27 @@ export default async function PlaygroundPage({
             ))}
           </div>
         </div>
-        {/* Remount on switch: the runner swaps the box to the other image. */}
-        <ShellTerminal
-          key={shell.key}
-          shell={shell.value}
-          className="min-h-[24rem] flex-1"
-        />
+        {exam ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-lg border p-8 text-center">
+            <p className="font-medium">
+              The playground is locked while your exam &ldquo;{exam.title}
+              &rdquo; is running.
+            </p>
+            <Link
+              href={`/learn/a/${exam.id}`}
+              className="text-primary text-sm underline"
+            >
+              Back to the exam
+            </Link>
+          </div>
+        ) : (
+          /* Remount on switch: the runner swaps the box to the other image. */
+          <ShellTerminal
+            key={shell.key}
+            shell={shell.value}
+            className="min-h-[24rem] flex-1"
+          />
+        )}
       </main>
     </div>
   );

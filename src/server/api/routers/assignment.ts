@@ -15,7 +15,7 @@ import { type db as Db } from "~/server/db";
  * Access: a teacher may only touch assignments of classes they teach
  * (ClassTeacher); admins may touch all. Exercises must be readable by the
  * caller (own or SHARED; admins all) — same rule as the exercise router.
- * Only PRACTICE mode for now; exam mode is a later step.
+ * Modes: PRACTICE, or EXAM (see src/server/assignments/exam.ts).
  */
 
 type Ctx = { db: typeof Db; user: { id: string; role: string } };
@@ -58,7 +58,9 @@ const assignmentInput = z
     allowHints: z.boolean().default(true),
     allowPaste: z.boolean().default(false),
     published: z.boolean().default(false),
-    mode: z.literal("PRACTICE").default("PRACTICE"),
+    /** Draft that goes live at this time (ignored once published). */
+    publishAt: z.date().nullable().optional(),
+    mode: z.enum(["PRACTICE", "EXAM"]).default("PRACTICE"),
   })
   .refine((v) => !v.opensAt || !v.dueAt || v.dueAt > v.opensAt, {
     message: "The due date must be after the opening date.",
@@ -103,13 +105,14 @@ async function validateRefs(ctx: Ctx, input: AssignmentInput) {
 
 const baseData = (input: AssignmentInput) => ({
   title: input.title,
-  mode: "PRACTICE" as const,
+  mode: input.mode,
   opensAt: input.opensAt ?? null,
   dueAt: input.dueAt ?? null,
   maxChecks: input.maxChecks ?? null,
   allowHints: input.allowHints,
   allowPaste: input.allowPaste,
   published: input.published,
+  publishAt: input.published ? null : (input.publishAt ?? null),
 });
 
 export const assignmentRouter = createTRPCRouter({
@@ -135,6 +138,7 @@ export const assignmentRouter = createTRPCRouter({
           opensAt: true,
           dueAt: true,
           published: true,
+          publishAt: true,
           updatedAt: true,
           class: {
             select: {
@@ -188,6 +192,7 @@ export const assignmentRouter = createTRPCRouter({
           opensAt: a.opensAt,
           dueAt: a.dueAt,
           published: a.published,
+          publishAt: a.publishAt,
           updatedAt: a.updatedAt,
           class: { id: a.class.id, name: a.class.name },
           groups: a.groups.map((g) => ({ id: g.group.id, name: g.group.name })),
@@ -369,7 +374,8 @@ export const assignmentRouter = createTRPCRouter({
       await loadAssignment(ctx, input.id);
       await ctx.db.assignment.update({
         where: { id: input.id },
-        data: { published: input.published },
+        // Publishing or going back to draft replaces any schedule.
+        data: { published: input.published, publishAt: null },
       });
     }),
 

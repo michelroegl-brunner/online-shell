@@ -11,12 +11,14 @@ import {
   type AttachClaims,
   isAuthorizedApiCall,
   verifyAttachToken,
+  verifyWatchToken,
 } from "./auth.js";
 import {
   docker,
   ensureBox,
   execIn,
   HttpError,
+  lastActivityOf,
   openPty,
   reap,
   removeBox,
@@ -24,6 +26,14 @@ import {
 } from "./boxes.js";
 import { config } from "./config.js";
 import { type PasteReason, pasteReporter } from "./paste-report.js";
+import {
+  addWatcher,
+  closeSession,
+  openSession,
+  openTerminals,
+  sessionOutput,
+  sessionResize,
+} from "./watch.js";
 
 // ── small HTTP helpers ──
 
@@ -106,6 +116,16 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
     return send(res, 200, result);
   }
 
+  // GET /sessions → students with open terminals (+ last input time)
+  if (req.method === "GET" && url.pathname === "/sessions") {
+    return send(res, 200, {
+      sessions: openTerminals().map((t) => ({
+        ...t,
+        lastActivity: lastActivityOf(t.userId),
+      })),
+    });
+  }
+
   // DELETE /boxes/:userId
   if (req.method === "DELETE" && parts.length === 2 && parts[0] === "boxes") {
     await removeBox(parts[1]!);
@@ -139,9 +159,24 @@ const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
 server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url ?? "/", "http://runner");
   const origin = req.headers.origin ?? "";
-  if (url.pathname !== "/attach" || !config.ALLOWED_ORIGINS.includes(origin)) {
+  const isWatch = url.pathname === "/watch";
+  if (
+    (url.pathname !== "/attach" && !isWatch) ||
+    !config.ALLOWED_ORIGINS.includes(origin)
+  ) {
     socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
     socket.destroy();
+    return;
+  }
+  if (isWatch) {
+    verifyWatchToken(url.searchParams.get("token") ?? "").then(
+      ({ userId }) =>
+        wss.handleUpgrade(req, socket, head, (ws) => addWatcher(userId, ws)),
+      () => {
+        socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+        socket.destroy();
+      },
+    );
     return;
   }
   verifyAttachToken(url.searchParams.get("token") ?? "").then(
@@ -229,6 +264,7 @@ async function attach(
     return;
   }
   const { stream, resize, release } = pty;
+  const session = openSession(userId, cwd ?? "/home/student", cols, rows, ws);
   ws.send(JSON.stringify({ type: "ready" }));
 
   // Tell the browser when the policy flips, so it blocks paste and shows
@@ -246,6 +282,7 @@ async function attach(
   }
 
   stream.on("data", (chunk: Buffer) => {
+    sessionOutput(session, chunk);
     if (ws.readyState === ws.OPEN) ws.send(chunk, { binary: true });
   });
   stream.on("end", () => {
@@ -277,8 +314,10 @@ async function attach(
     }
     try {
       const msg = controlMsg.parse(JSON.parse(buf.toString("utf8")));
-      if (msg.type === "resize") void resize(msg.cols, msg.rows);
-      else if (pasteBlocked()) report.add(msg.reason, msg.bytes);
+      if (msg.type === "resize") {
+        void resize(msg.cols, msg.rows);
+        sessionResize(session, msg.cols, msg.rows);
+      } else if (pasteBlocked()) report.add(msg.reason, msg.bytes);
     } catch {
       /* ignore unknown control messages */
     }
@@ -295,6 +334,7 @@ async function attach(
 
   ws.on("close", () => {
     clearInterval(ping);
+    closeSession(session);
     if (blockTimer) clearTimeout(blockTimer);
     report.flush();
     stream.end();

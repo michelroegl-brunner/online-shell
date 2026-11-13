@@ -1,7 +1,9 @@
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { SLUG_RE } from "~/lib/exercise";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { openExamsFor } from "~/server/assignments/exam";
 import { pastePolicyFor } from "~/server/assignments/paste";
 import { exerciseDir } from "~/server/exercises/run";
 import { runner } from "~/server/runner";
@@ -22,6 +24,20 @@ export const boxRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      // Exam running: only terminals in that exam's exercise folders (no
+      // playground, no other assignments: it's all the same box).
+      const exams = await openExamsFor(ctx.db, ctx.user);
+      if (
+        exams.length > 0 &&
+        !(
+          input.exercise && exams.some((e) => e.slugs.includes(input.exercise!))
+        )
+      ) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: `The exam "${exams[0]!.title}" is running — only its exercises are available.`,
+        });
+      }
       const paste = await pastePolicyFor(ctx.db, ctx.user);
       const info = await runner.attachInfo(
         ctx.user.id,

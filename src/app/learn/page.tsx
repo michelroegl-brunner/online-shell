@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { AppHeader } from "~/components/app-header";
 import { WindowBadge } from "~/components/learn/badges";
+import { Badge } from "~/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -65,6 +66,11 @@ export default async function LearnPage() {
                                 opensAt={a.opensAt}
                                 dueAt={a.dueAt}
                               />
+                              {a.mode === "EXAM" && (
+                                <Badge variant="destructive">
+                                  {a.submitted ? "exam · handed in" : "exam"}
+                                </Badge>
+                              )}
                             </div>
                             <div className="mt-2 flex items-center gap-3">
                               <div className="bg-muted h-1.5 w-40 overflow-hidden rounded-full">
