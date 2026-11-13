@@ -9,17 +9,17 @@ ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 TERM=xterm-256color
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       bash bash-completion coreutils findutils grep sed gawk diffutils \
-      less nano vim-tiny tree jq file procps psmisc bc zip unzip tar gzip \
+      less nano vim tree jq file procps psmisc bc zip unzip tar gzip \
       man-db manpages ca-certificates git \
       wget curl iputils-ping dnsutils netcat-openbsd \
  && rm -rf /var/lib/apt/lists/*
 
-# Git defaults for the lessons: `main` as first branch, nano instead of vi
-# for commit/merge messages, merge on pull (no "divergent branches" error).
+# Git defaults for the lessons: `main` as first branch, vim for commit/merge
+# messages, merge on pull (no "divergent branches" error).
 # No global safe.directory: root check scripts use oshell-git (below) for
 # student-owned repos, never plain git.
 RUN git config --system init.defaultBranch main \
- && git config --system core.editor nano \
+ && git config --system core.editor vim \
  && git config --system pull.rebase false
 
 COPY --chmod=755 oshell-git /usr/local/bin/oshell-git

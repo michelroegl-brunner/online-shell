@@ -1,5 +1,6 @@
 import { commandRules } from "./commands";
 import { functionRules } from "./functions";
+import { gitRules, gitTypoRule } from "./git";
 import { pwshRules } from "./pwsh";
 import { syntaxRules } from "./syntax";
 import type { Ctx, ExplainInput, Explanation, Rule } from "./types";
@@ -20,7 +21,9 @@ export { functionDefs } from "./util";
 export const RULES: Rule[] = [
   ...syntaxRules,
   ...functionRules,
+  gitTypoRule,
   ...commandRules,
+  ...gitRules,
   ...pwshRules,
 ];
 

@@ -100,6 +100,15 @@ geheim.txt
 
 Schon committete Datei nachträglich ignorieren: `git rm --cached datei`.
 
-## Editor (nano)
+## Commit-Editor (vim)
 
-Speichern **Strg+O, Enter** · Beenden **Strg+X** · Zeile löschen **Strg+K**
+`git commit` ohne `-m`, `git merge`, `git pull` öffnen **vim**:
+
+| Taste | Bedeutung |
+|---|---|
+| `i` | schreiben (Einfügemodus) |
+| `Esc` | Einfügemodus verlassen |
+| `:wq` + Enter | speichern und beenden → Git macht weiter |
+| `:q!` + Enter | ohne Speichern beenden → Commit abgebrochen |
+
+Ohne Editor: `git commit -m "…"`, `git merge --no-edit …`, `git pull --no-edit`.

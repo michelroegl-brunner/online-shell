@@ -131,7 +131,7 @@
         },
         {
           "title": "Der erste Commit",
-          "description": "Ein **Commit** speichert alles, was in der Staging-Area liegt, dauerhaft im\nVerlauf – mit einer **Nachricht**, die beschreibt, *was* und *warum*:\n\n```bash\ngit commit -m \"README angelegt\"\n```\n\nGute Commit-Nachrichten sind kurz und konkret: `Login-Formular prüft leere\nFelder` statt `update` oder `asdf`.\n\nOhne `-m` öffnet Git einen Editor (hier **nano**) für die Nachricht –\nspeichern mit **Strg+O, Enter**, beenden mit **Strg+X**.\n\n**Probier es aus:** Mach deinen ersten Commit.",
+          "description": "Ein **Commit** speichert alles, was in der Staging-Area liegt, dauerhaft im\nVerlauf – mit einer **Nachricht**, die beschreibt, *was* und *warum*:\n\n```bash\ngit commit -m \"README angelegt\"\n```\n\nGute Commit-Nachrichten sind kurz und konkret: `Login-Formular prüft leere\nFelder` statt `update` oder `asdf`.\n\nOhne `-m` öffnet Git den Editor **vim** für die Nachricht: Taste **i**\ndrücken und tippen, dann **Esc** und `:wq` + **Enter** (speichern und\nbeenden). Abbrechen ohne Commit: **Esc**, `:q!` + **Enter**.\n\n**Probier es aus:** Mach deinen ersten Commit.",
           "checkScript": "# Geprüft wird mit den fertigen Checks.",
           "checks": [
             {
@@ -366,7 +366,7 @@
         },
         {
           "title": "Echter Merge: wenn beide Seiten weiterarbeiten",
-          "description": "Meistens geht auf `main` die Arbeit weiter, während du auf deinem Branch\narbeitest. Dann reicht Fast-Forward nicht – Git erzeugt einen **Merge-Commit**\nmit **zwei** Vorgängern:\n\n```text\nmain:             B---E-----M\n                   \\       /\nfeature/dessert:    C-------\n```\n\nSpiel das nach:\n\n```bash\ngit switch -c feature/dessert\nprintf 'Tiramisu\\n--------\\n500 g Mascarpone\\n' > tiramisu.txt\ngit add tiramisu.txt && git commit -m \"Tiramisu hinzugefügt\"\ngit switch main\necho \"Neu: jetzt auch mit Desserts!\" >> README.md\ngit commit -am \"README ergänzt\"\ngit merge feature/dessert\n```\n\nBeim Merge öffnet sich **nano** mit einer fertigen Nachricht\n(„Merge branch …“) – einfach mit **Strg+O, Enter, Strg+X** übernehmen.\nOder gleich `git merge --no-edit feature/dessert`.\n\nDanach: `git log --oneline --graph` zeigt die Verzweigung.\n\n**Probier es aus:** Erzeuge einen echten Merge-Commit auf `main`.",
+          "description": "Meistens geht auf `main` die Arbeit weiter, während du auf deinem Branch\narbeitest. Dann reicht Fast-Forward nicht – Git erzeugt einen **Merge-Commit**\nmit **zwei** Vorgängern:\n\n```text\nmain:             B---E-----M\n                   \\       /\nfeature/dessert:    C-------\n```\n\nSpiel das nach:\n\n```bash\ngit switch -c feature/dessert\nprintf 'Tiramisu\\n--------\\n500 g Mascarpone\\n' > tiramisu.txt\ngit add tiramisu.txt && git commit -m \"Tiramisu hinzugefügt\"\ngit switch main\necho \"Neu: jetzt auch mit Desserts!\" >> README.md\ngit commit -am \"README ergänzt\"\ngit merge feature/dessert\n```\n\nBeim Merge öffnet sich **vim** mit einer fertigen Nachricht\n(„Merge branch …“) – einfach `:wq` + **Enter** tippen, dann ist sie übernommen.\nOder gleich `git merge --no-edit feature/dessert`.\n\nDanach: `git log --oneline --graph` zeigt die Verzweigung.\n\n**Probier es aus:** Erzeuge einen echten Merge-Commit auf `main`.",
           "checkScript": "# Geprüft wird mit den fertigen Checks.",
           "checks": [
             {
@@ -481,7 +481,7 @@
         },
         {
           "title": "Den Merge abschließen",
-          "description": "Git weiß nicht von selbst, dass du fertig bist. Du meldest die gelöste Datei mit\n`git add` und schließt den Merge mit einem Commit ab:\n\n```bash\ngit add speisekarte.txt\ngit status\ngit commit --no-edit\n```\n\n(`--no-edit` übernimmt die vorbereitete Nachricht „Merge branch 'feature/preis'“.\nOhne die Option öffnet sich nano.)\n\n```bash\ngit log --oneline --graph\n```\n\n**Probier es aus:** Schließ den Merge ab.",
+          "description": "Git weiß nicht von selbst, dass du fertig bist. Du meldest die gelöste Datei mit\n`git add` und schließt den Merge mit einem Commit ab:\n\n```bash\ngit add speisekarte.txt\ngit status\ngit commit --no-edit\n```\n\n(`--no-edit` übernimmt die vorbereitete Nachricht „Merge branch 'feature/preis'“.\nOhne die Option öffnet sich vim – dort `:wq` + Enter.)\n\n```bash\ngit log --oneline --graph\n```\n\n**Probier es aus:** Schließ den Merge ab.",
           "checkScript": "# Geprüft wird mit den fertigen Checks.",
           "checks": [
             {
@@ -677,7 +677,7 @@
             }
           ],
           "hints": [
-            "Ohne ´--no-edit´ öffnet ´git pull´ nano für die Merge-Nachricht: **Strg+O, Enter, Strg+X**.",
+            "Ohne ´--no-edit´ öffnet ´git pull´ vim für die Merge-Nachricht: ´:wq´ + **Enter** übernimmt sie.",
             "´git log --oneline --graph --all´ im Ordner ´ich´ zeigt, wie sich die Linien wieder treffen."
           ],
           "points": 0,
@@ -794,7 +794,7 @@
             }
           ],
           "hints": [
-            "Ohne ´--no-edit´ öffnet sich nano für die Nachricht: **Strg+O, Enter, Strg+X**.",
+            "Ohne ´--no-edit´ öffnet sich vim für die Nachricht: ´:wq´ + **Enter** übernimmt sie.",
             "Die spitzen Klammern bei ´<ID>´ gehören nicht dazu: ´git revert --no-edit 3f9a2c1´."
           ],
           "points": 0,

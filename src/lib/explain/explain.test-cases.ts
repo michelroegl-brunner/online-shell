@@ -23,6 +23,112 @@ const p = (
 ): ExplainInput => ({ command, exitCode, shell: "PWSH", ...extra });
 
 export const explainCases: ExplainCase[] = [
+  // ── git (exit codes from real git) ─────────────────────────────────────
+  {
+    input: b("gut status", 127),
+    expectId: "git-typo",
+    expectFix: "git status",
+  },
+  {
+    input: b("Git commit -m x", 127),
+    expectId: "git-typo",
+    expectFix: "git commit -m x",
+  },
+  { input: b("gti add .", 127), expectId: "git-typo", expectFix: "git add ." },
+  { input: b("gut", 127), expectId: null },
+  {
+    input: b('git comit -m "x"', 1),
+    expectId: "git-unknown-subcommand",
+    expectFix: 'git commit -m "x"',
+  },
+  {
+    input: b("git stauts", 1),
+    expectId: "git-unknown-subcommand",
+    expectFix: "git status",
+  },
+  {
+    input: b("git -C ich pussh", 1),
+    expectId: "git-unknown-subcommand",
+    expectFix: "git -C ich push",
+  },
+  { input: b("git frobnicate", 1), expectId: "git-unknown-subcommand" },
+  {
+    input: b("git commit -m Mein erster Commit", 1),
+    expectId: "git-commit-message-quotes",
+    expectFix: 'git commit -m "Mein erster Commit"',
+  },
+  {
+    input: b("git commit -am README ergänzt", 1),
+    expectId: "git-commit-message-quotes",
+    expectFix: 'git commit -am "README ergänzt"',
+  },
+  { input: b('git commit -m "x"', 128), expectId: "git-commit-identity" },
+  {
+    input: b('git commit -m "x"', 128, {
+      history: ['git config --global user.email "a@b.c"'],
+    }),
+    expectId: "git-not-a-repo",
+  },
+  {
+    input: b('git commit -m "README angelegt"', 1),
+    expectId: "git-commit-nothing",
+  },
+  { input: b("git commit", 1), expectId: "git-commit-nothing" },
+  { input: b("git status", 128), expectId: "git-not-a-repo" },
+  { input: b("git diff", 128), expectId: "git-not-a-repo" },
+  { input: b("git log --oneline", 128), expectId: "git-log-empty" },
+  { input: b("git add Readme.md", 128), expectId: "git-add-pathspec" },
+  {
+    input: b("git add Readme.md", 128, {
+      history: ['echo "# Mein Projekt" > README.md'],
+    }),
+    expectId: "git-add-pathspec",
+    expectFix: "git add README.md",
+  },
+  { input: b("git add .", 128), expectId: "git-add-pathspec" },
+  { input: b("git revert --no-edit <ID>", 1), expectId: null },
+  {
+    input: b("git revert --no-edit abc123", 128),
+    expectId: "git-unknown-revision",
+  },
+  {
+    input: b("git reset --hard HEAD@{5}", 128),
+    expectId: "git-unknown-revision",
+  },
+  {
+    input: b("git switch feature/salat", 128),
+    expectId: "git-switch-missing",
+    expectFix: "git switch -c feature/salat",
+  },
+  { input: b("git switch main", 1), expectId: "git-switch-missing" },
+  { input: b("git checkout nope", 1), expectId: "git-switch-missing" },
+  { input: b("git checkout -- datei.txt", 1), expectId: null },
+  { input: b("git switch -c neu", 128), expectId: null },
+  { input: b("git merge feature/preis", 1), expectId: "git-merge-failed" },
+  { input: b("git merge --abort", 128), expectId: null },
+  {
+    input: b("git push origin master", 1),
+    expectId: "git-push-master",
+    expectFix: "git push origin main",
+  },
+  {
+    input: b("git push", 1),
+    expectId: "git-push-rejected",
+    expectFix: "git pull && git push",
+  },
+  { input: b("git push --force", 1), expectId: null },
+  { input: b("git push", 128), expectId: "git-push-no-remote" },
+  { input: b("git pull", 1), expectId: "git-pull-failed" },
+  { input: b("git branch -d feature/salat", 1), expectId: "git-branch-delete" },
+  { input: b("git restore anleitung.txt", 1), expectId: "git-restore-unknown" },
+  {
+    input: b("git clone server/projekt.git ich", 128),
+    expectId: "git-clone-failed",
+  },
+  { input: b("git status", 0), expectId: null },
+  { input: b('git commit -m "ok"', 0), expectId: null },
+  { input: b("git log --oneline --graph --all", 0), expectId: null },
+
   // ── functions ──────────────────────────────────────────────────────────
   {
     input: b("greet(){echo hi;}", 2),
@@ -252,7 +358,7 @@ export const explainCases: ExplainCase[] = [
   },
   { input: b("Get-Service", 127), expectId: "cmd-pwsh-cmdlet" },
   { input: b("sudo apt install tree", 127), expectId: "cmd-not-installed" },
-  { input: b("vim notes.txt", 127), expectId: "cmd-not-installed" },
+  { input: b("emacs notes.txt", 127), expectId: "cmd-not-installed" },
   {
     input: b("script.sh", 127),
     expectId: "cmd-script-no-dot",

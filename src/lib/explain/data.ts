@@ -105,6 +105,7 @@ export const BASH_COMMANDS = [
   "fold",
   "free",
   "gawk",
+  "git",
   "grep",
   "groups",
   "gunzip",
@@ -179,6 +180,7 @@ export const BASH_COMMANDS = [
   "users",
   "vdir",
   "vi",
+  "vim",
   "w",
   "watch",
   "wc",
@@ -200,7 +202,6 @@ export const NOT_INSTALLED: Record<string, string> = {
   apt: "Programme installieren geht hier nicht (keine Admin-Rechte, kein Netzwerk). Alles, was du für die Übungen brauchst, ist schon da.",
   "apt-get":
     "Programme installieren geht hier nicht (keine Admin-Rechte, kein Netzwerk). Alles, was du für die Übungen brauchst, ist schon da.",
-  vim: "`vim` ist hier nicht installiert. Nimm `vi` (dieselbe Bedienung) oder den einfacheren Editor `nano`.",
   python:
     "Python ist in dieser Umgebung nicht installiert – hier geht es um die Shell selbst.",
   python3:
@@ -209,9 +210,8 @@ export const NOT_INSTALLED: Record<string, string> = {
   curl: "Die Übungsumgebung hat kein Netzwerk; `curl` gibt es hier nicht.",
   wget: "Die Übungsumgebung hat kein Netzwerk; `wget` gibt es hier nicht.",
   ping: "Die Übungsumgebung hat kein Netzwerk; `ping` gibt es hier nicht.",
-  git: "`git` ist in dieser Umgebung nicht installiert.",
-  code: "Einen grafischen Editor gibt es hier nicht – nimm `nano` oder `vi`.",
-  emacs: "`emacs` ist hier nicht installiert – nimm `nano` oder `vi`.",
+  code: "Einen grafischen Editor gibt es hier nicht – nimm `nano` oder `vim`.",
+  emacs: "`emacs` ist hier nicht installiert – nimm `nano` oder `vim`.",
 };
 
 /** Windows cmd / PowerShell habits typed into bash → bash equivalent. */
