@@ -14,5 +14,11 @@ exec git \
   -c core.hooksPath=/dev/null \
   -c core.pager=cat \
   -c core.sshCommand=false \
+  -c core.alternateRefsCommand=false \
+  -c core.untrackedCache=false \
+  -c log.showSignature=false \
+  -c gpg.program=false \
+  -c gpg.ssh.program=false \
+  -c gpg.x509.program=false \
   -c protocol.allow=never \
   --no-pager "$@"
