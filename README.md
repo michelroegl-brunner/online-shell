@@ -420,9 +420,11 @@ on the server. tRPC has `protectedProcedure`, `teacherProcedure`, `adminProcedur
 > Without P1, assign the Teacher/Admin roles to individual users.
 
 On every sign-in the app:
-- creates or updates the `User` (key: Entra `oid`), with the role taken from the `roles` claim
-- reads the user's groups via Graph (`/me/transitiveMemberOf`) and syncs
-  `ClassMembership` for every group that has been imported as a `Class`
+- reads the user's groups via Graph (`/me/transitiveMemberOf`)
+- creates or updates the `User` (key: Entra `oid`), with the role taken from the `roles` claim;
+  members of a group listed in `ENTRA_ADMIN_GROUP_IDS` (comma-separated group object ids;
+  in production the "Lehrer" + "LEHRER" groups) become `ADMIN` regardless — no P1 needed
+- syncs `ClassMembership` for every group that has been imported as a `Class`
 
 ## Scripts
 

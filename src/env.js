@@ -14,6 +14,17 @@ export const env = createEnv({
     AUTH_MICROSOFT_ENTRA_ID_ID: z.string().optional(),
     AUTH_MICROSOFT_ENTRA_ID_SECRET: z.string().optional(),
     AUTH_MICROSOFT_ENTRA_ID_TENANT_ID: z.string().optional(),
+    // Comma-separated Entra group object ids whose (transitive) members get
+    // ADMIN on sign-in, in addition to the "Admin" app role.
+    ENTRA_ADMIN_GROUP_IDS: z
+      .string()
+      .default("")
+      .transform((v) =>
+        v
+          .split(",")
+          .map((s) => s.trim().toLowerCase())
+          .filter(Boolean),
+      ),
     // Dev-only login: pick a role without Entra. Never active in production.
     AUTH_DEV_LOGIN: z
       .enum(["true", "false"])
@@ -37,6 +48,7 @@ export const env = createEnv({
     AUTH_MICROSOFT_ENTRA_ID_SECRET: process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET,
     AUTH_MICROSOFT_ENTRA_ID_TENANT_ID:
       process.env.AUTH_MICROSOFT_ENTRA_ID_TENANT_ID,
+    ENTRA_ADMIN_GROUP_IDS: process.env.ENTRA_ADMIN_GROUP_IDS,
     AUTH_DEV_LOGIN: process.env.AUTH_DEV_LOGIN,
     RUNNER_URL: process.env.RUNNER_URL,
     RUNNER_PUBLIC_URL: process.env.RUNNER_PUBLIC_URL,

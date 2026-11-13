@@ -8,7 +8,7 @@ import { z } from "zod";
 import { env } from "~/env";
 import { authConfigEdge } from "./config.edge";
 import { type EntraProfile, fetchMyGroupIds, roleFromEntra } from "./entra";
-import { syncClassMemberships, upsertUser } from "./provision";
+import { currentRole, syncClassMemberships, upsertUser } from "./provision";
 
 export const entraEnabled = Boolean(
   env.AUTH_MICROSOFT_ENTRA_ID_ID &&
@@ -81,19 +81,25 @@ export const authConfig = {
     jwt: async ({ token, user, account, profile }) => {
       if (account?.provider === "microsoft-entra-id" && profile) {
         const p = profile as unknown as EntraProfile;
+        const groupIds = account.access_token
+          ? await fetchMyGroupIds(account.access_token)
+          : null;
+        const adminGroups = env.ENTRA_ADMIN_GROUP_IDS;
+        // Graph failed → can't tell group membership; keep an existing
+        // ADMIN rather than demoting a teacher for one bad sign-in.
+        const inAdminGroup = groupIds
+          ? groupIds.some((id) => adminGroups.includes(id.toLowerCase()))
+          : adminGroups.length > 0 && (await currentRole(p.oid)) === "ADMIN";
         const dbUser = await upsertUser({
           entraOid: p.oid,
           email: p.email ?? p.preferred_username ?? `${p.oid}@unknown`,
           name: p.name ?? p.preferred_username ?? p.oid,
-          role: roleFromEntra(p.roles),
+          role: roleFromEntra(p.roles, inAdminGroup),
         });
         token.id = dbUser.id;
         token.role = dbUser.role;
 
-        if (account.access_token) {
-          const groupIds = await fetchMyGroupIds(account.access_token);
-          if (groupIds) await syncClassMemberships(dbUser.id, groupIds);
-        }
+        if (groupIds) await syncClassMemberships(dbUser.id, groupIds);
       } else if (account?.provider === "dev-login" && user) {
         const u = user as { id: string; role: string };
         token.id = u.id;

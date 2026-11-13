@@ -14,12 +14,16 @@ export type EntraProfile = {
 };
 
 /**
- * App Role values defined in the Entra app registration.
- * Highest wins; no role = STUDENT.
+ * App Role values defined in the Entra app registration, plus membership in
+ * one of the admin groups (ENTRA_ADMIN_GROUP_IDS). Highest wins; no role =
+ * STUDENT.
  */
-export function roleFromEntra(roles: string[] | undefined): Role {
+export function roleFromEntra(
+  roles: string[] | undefined,
+  inAdminGroup = false,
+): Role {
   const r = new Set((roles ?? []).map((x) => x.toLowerCase()));
-  if (r.has("admin")) return "ADMIN";
+  if (r.has("admin") || inAdminGroup) return "ADMIN";
   if (r.has("teacher")) return "TEACHER";
   return "STUDENT";
 }

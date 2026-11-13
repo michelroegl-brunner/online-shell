@@ -44,6 +44,8 @@ services:
       AUTH_MICROSOFT_ENTRA_ID_ID: ${AUTH_MICROSOFT_ENTRA_ID_ID:?set Entra client id}
       AUTH_MICROSOFT_ENTRA_ID_SECRET: ${AUTH_MICROSOFT_ENTRA_ID_SECRET:?set Entra secret}
       AUTH_MICROSOFT_ENTRA_ID_TENANT_ID: ${AUTH_MICROSOFT_ENTRA_ID_TENANT_ID:?set Entra tenant}
+      # Entra groups "Lehrer" + "LEHRER" → ADMIN on sign-in
+      ENTRA_ADMIN_GROUP_IDS: ${ENTRA_ADMIN_GROUP_IDS:-7292fc57-b3fb-42d6-8d51-6ef380e15c33,d29423d6-3093-4fc4-ac83-445ea3374858}
       AUTH_DEV_LOGIN: "false"
       RUNNER_URL: http://runner:4100
       RUNNER_PUBLIC_URL: wss://${DOMAIN}
