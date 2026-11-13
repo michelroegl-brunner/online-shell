@@ -1,0 +1,870 @@
+{
+  "format": "online-shell-exercises",
+  "version": 1,
+  "exercises": [
+    {
+      "title": "Git 1: Das erste Repository",
+      "slug": "git-1-erstes-repository",
+      "kind": "LESSON",
+      "description": "In dieser **Lektion** lernst du, was **Git** ist, und legst dein erstes\nRepository an: Dateien hinzufügen, Commits machen, Änderungen und den Verlauf\nansehen.\n\nSo funktioniert's:\n\n- Jeder Schritt erklärt kurz eine Idee und zeigt ein Beispiel.\n- Mit **Try it** landet ein Beispiel im Terminal – **Enter** drückst du selbst.\n- Sobald du die Aufgabe erledigt hast, wird der Schritt **automatisch**\n  abgehakt und der nächste geht auf.\n\nEs gibt keine Punkte – probier ruhig herum. Das Terminal startet in deinem\nÜbungsordner `~/exercises/git-1-erstes-repository`.",
+      "shell": "BASH",
+      "difficulty": 1,
+      "setupScript": "# Der Ordner ist anfangs leer – das Repository legen die Lernenden selbst an.\ntrue",
+      "tags": [
+        "git",
+        "versionskontrolle",
+        "init",
+        "add",
+        "commit",
+        "status",
+        "log",
+        "diff",
+        "gitignore"
+      ],
+      "visibility": "PRIVATE",
+      "steps": [
+        {
+          "title": "Was ist Git?",
+          "description": "**Git** ist ein **Versionskontrollsystem**: Es merkt sich jeden gespeicherten\nStand deines Projekts. Damit kannst du\n\n- jederzeit zu einem älteren Stand zurück,\n- sehen, **wer was wann warum** geändert hat,\n- mit anderen gleichzeitig am selben Projekt arbeiten, ohne Dateien\n  hin- und herzumailen (`projekt_final_v2_WIRKLICH_final.zip` 👋).\n\nEin paar Begriffe, die du gleich brauchst:\n\n| Begriff | Bedeutung |\n|---|---|\n| **Repository** (Repo) | Projektordner, dessen Verlauf Git verwaltet (steckt im versteckten Ordner `.git`) |\n| **Commit** | ein gespeicherter Stand – ein „Foto“ aller Dateien, mit Nachricht |\n| **Branch** | eine Entwicklungslinie (kommt in Lektion 2) |\n| **Remote** | eine Kopie des Repos auf einem Server, z. B. GitHub (Lektion 4) |\n\nGit ist ein Kommandozeilenprogramm. Alle Befehle beginnen mit `git`:\n\n```bash\ngit --version\n```\n\n**Probier es aus:** Zeig die installierte Git-Version an.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "^git\\s+(--version|version)\\b",
+              "successOnly": true,
+              "message": "Gib git --version ein."
+            }
+          ],
+          "hints": [
+            "´git help´ zeigt die wichtigsten Befehle, ´git help commit´ die Hilfe zu einem Befehl."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Wer bist du? git config",
+          "description": "Jeder Commit speichert, **wer** ihn gemacht hat. Deshalb musst du Git einmal\ndeinen Namen und deine E-Mail sagen:\n\n```bash\ngit config --global user.name \"Vorname Nachname\"\ngit config --global user.email \"du@example.com\"\n```\n\n`--global` heißt: gilt für **alle** deine Repositories (gespeichert in\n`~/.gitconfig`). Kontrollieren kannst du das mit:\n\n```bash\ngit config --global --list\n```\n\n**Probier es aus:** Setz `user.name` und `user.email`.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_output",
+              "command": "oshell-git config -f /home/student/.gitconfig --get user.name 2>/dev/null",
+              "match": "regex",
+              "value": "[^[:space:]]",
+              "message": "Setz deinen Namen mit git config --global user.name \"…\""
+            },
+            {
+              "type": "command_output",
+              "command": "oshell-git config -f /home/student/.gitconfig --get user.email 2>/dev/null",
+              "match": "regex",
+              "value": "@",
+              "message": "Setz deine E-Mail mit git config --global user.email \"…\""
+            }
+          ],
+          "hints": [
+            "Namen mit Leerzeichen gehören in Anführungszeichen.",
+            "Vertippt? Einfach denselben Befehl noch einmal mit dem richtigen Wert ausführen."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Ein Repository anlegen: git init",
+          "description": "Aus einem normalen Ordner wird ein Git-Repository mit:\n\n```bash\ngit init\n```\n\nGit legt dabei den versteckten Ordner **`.git`** an. Darin steckt der gesamte\nVerlauf – **lösch ihn nie von Hand**, sonst ist die ganze Versionsgeschichte weg.\n\n```bash\nls -a\n```\n\n**Probier es aus:** Mach deinen Übungsordner mit `git init` zu einem\nRepository und schau dir mit `ls -a` den neuen Ordner an.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "file_exists",
+              "path": ".git",
+              "kind": "dir",
+              "message": "Führe git init in deinem Übungsordner aus."
+            }
+          ],
+          "hints": [
+            "Bist du im richtigen Ordner? ´pwd´ sollte auf ´…/exercises/git-1-erstes-repository´ enden."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Der Status: git status",
+          "description": "**`git status`** ist dein wichtigster Befehl: Er zeigt, was sich seit dem letzten\nCommit geändert hat. Leg eine Datei an und frag Git danach:\n\n```bash\necho \"# Mein Projekt\" > README.md\ngit status\n```\n\nGit meldet `README.md` unter **Untracked files** – die Datei ist neu und Git\nbeobachtet sie noch nicht.\n\n**Probier es aus:** Leg `README.md` an und schau dir `git status` an.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "file_exists",
+              "path": "README.md",
+              "kind": "file",
+              "message": "Leg die Datei README.md an."
+            },
+            {
+              "type": "command_used",
+              "pattern": "^git\\s+status\\b",
+              "successOnly": false,
+              "message": "Schau dir den Stand mit git status an."
+            }
+          ],
+          "hints": [
+            "Im Zweifel immer zuerst ´git status´ – er sagt dir oft sogar, welcher Befehl als Nächstes passt."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Die Staging-Area: git add",
+          "description": "Ein Commit entsteht in **zwei** Schritten:\n\n```text\nArbeitsverzeichnis  --git add-->  Staging-Area  --git commit-->  Repository\n (deine Dateien)                  („vorgemerkt“)                  (Verlauf)\n```\n\nMit **`git add`** legst du fest, **welche** Änderungen in den nächsten Commit\nkommen. So kannst du z. B. von fünf geänderten Dateien nur zwei committen.\n\n```bash\ngit add README.md\ngit status\n```\n\nJetzt steht `README.md` unter **Changes to be committed**.\n(`git add .` merkt **alle** Änderungen im aktuellen Ordner vor.)\n\n**Probier es aus:** Merk `README.md` mit `git add` vor.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_output",
+              "command": "oshell-git ls-files",
+              "match": "contains",
+              "value": "README.md",
+              "message": "Merk README.md mit git add README.md vor."
+            }
+          ],
+          "hints": [
+            "´git restore --staged README.md´ nimmt eine Datei wieder aus der Staging-Area."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Der erste Commit",
+          "description": "Ein **Commit** speichert alles, was in der Staging-Area liegt, dauerhaft im\nVerlauf – mit einer **Nachricht**, die beschreibt, *was* und *warum*:\n\n```bash\ngit commit -m \"README angelegt\"\n```\n\nGute Commit-Nachrichten sind kurz und konkret: `Login-Formular prüft leere\nFelder` statt `update` oder `asdf`.\n\nOhne `-m` öffnet Git einen Editor (hier **nano**) für die Nachricht –\nspeichern mit **Strg+O, Enter**, beenden mit **Strg+X**.\n\n**Probier es aus:** Mach deinen ersten Commit.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_output",
+              "command": "oshell-git rev-list --count HEAD 2>/dev/null",
+              "match": "regex",
+              "value": "^[1-9][0-9]*$",
+              "message": "Mach einen Commit mit git commit -m \"…\""
+            }
+          ],
+          "hints": [
+            "Fehler „Please tell me who you are“? Dann fehlt noch ´git config --global user.name/user.email´ (Schritt 2).",
+            "„nothing to commit“? Dann hast du die Datei noch nicht mit ´git add´ vorgemerkt."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Änderungen ansehen: git diff",
+          "description": "Ändere jetzt eine Datei, die Git schon kennt:\n\n```bash\necho \"Dieses Projekt lernt Git.\" >> README.md\ngit diff\n```\n\n**`git diff`** zeigt Zeile für Zeile, was sich geändert hat: `+` = neu,\n`-` = entfernt. (Mit **q** verlässt du die Anzeige, falls sie länger ist.)\n\n| Befehl | zeigt Änderungen … |\n|---|---|\n| `git diff` | … die noch **nicht** vorgemerkt sind |\n| `git diff --staged` | … die schon mit `git add` vorgemerkt sind |\n\nDanach wie gehabt vormerken und committen:\n\n```bash\ngit add README.md\ngit commit -m \"Beschreibung ergänzt\"\n```\n\n**Probier es aus:** Ändere `README.md`, sieh dir die Änderung mit `git diff`\nan und mach einen zweiten Commit.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "^git\\s+diff\\b",
+              "successOnly": false,
+              "message": "Sieh dir die Änderung mit git diff an."
+            },
+            {
+              "type": "command_output",
+              "command": "oshell-git rev-list --count HEAD 2>/dev/null",
+              "match": "regex",
+              "value": "^([2-9]|[1-9][0-9]+)$",
+              "message": "Committe die Änderung – du brauchst mindestens zwei Commits."
+            }
+          ],
+          "hints": [
+            "Abkürzung für bekannte Dateien: ´git commit -am \"…\"´ macht ´add´ + ´commit´ in einem (gilt **nicht** für neue Dateien)."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Der Verlauf: git log",
+          "description": "**`git log`** zeigt alle Commits – den neuesten oben. Jeder Commit hat eine\neindeutige **ID** (Hash), z. B. `3f9a2c1…`.\n\n```bash\ngit log\ngit log --oneline\n```\n\n`--oneline` zeigt eine Zeile pro Commit mit verkürzter ID. Einen einzelnen\nCommit mit allen Änderungen siehst du mit `git show`:\n\n```bash\ngit show HEAD\n```\n\n**`HEAD`** bedeutet „der Commit, auf dem ich gerade stehe“ – meist der neueste.\n`HEAD~1` ist der davor.\n\n**Probier es aus:** Zeig den Verlauf mit `git log --oneline` an.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "^git\\s+(log|show)\\b",
+              "successOnly": false,
+              "message": "Zeig den Verlauf mit git log --oneline an."
+            }
+          ],
+          "hints": [
+            "Lange Ausgabe? Mit Leertaste blättern, mit **q** beenden."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Dateien ignorieren: .gitignore",
+          "description": "Manche Dateien gehören **nicht** ins Repository: Logdateien, Passwörter,\nBuild-Ergebnisse, `node_modules/` … Trag sie in die Datei **`.gitignore`** ein –\neine Zeile pro Muster:\n\n```bash\necho \"*.log\" > .gitignore\necho \"Fehler\" > debug.log\ngit status\n```\n\n`debug.log` taucht in `git status` nicht mehr auf. Die `.gitignore` selbst wird\ncommittet, damit sie für alle im Team gilt:\n\n```bash\ngit add .gitignore\ngit commit -m \".gitignore für Logdateien\"\n```\n\n**Probier es aus:** Lass Git alle `*.log`-Dateien ignorieren und committe die\n`.gitignore`.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_output",
+              "command": "oshell-git check-ignore -q irgendwas.log && echo ja || echo nein",
+              "match": "exact",
+              "value": "ja",
+              "message": "Trag *.log in die Datei .gitignore ein."
+            },
+            {
+              "type": "command_output",
+              "command": "oshell-git ls-files",
+              "match": "regex",
+              "value": "^\\.gitignore$",
+              "message": "Committe die .gitignore (git add + git commit)."
+            }
+          ],
+          "hints": [
+            "´git check-ignore -v debug.log´ verrät, welche Regel eine Datei ignoriert.",
+            "Schon committete Dateien ignoriert Git nicht nachträglich – die musst du erst mit ´git rm --cached datei´ entfernen."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        }
+      ]
+    },
+    {
+      "title": "Git 2: Branches und Merge",
+      "slug": "git-2-branches-merge",
+      "kind": "LESSON",
+      "description": "In dieser **Lektion** arbeitest du mit **Branches**: Du entwickelst ein neues\nRezept auf einem eigenen Branch, wechselst zwischen Branches und führst sie mit\n**merge** wieder zusammen.\n\nIm Übungsordner liegt schon ein kleines Repository (ein Rezeptbuch) mit zwei\nCommits. Dein Name und deine E-Mail aus Lektion 1 (`git config --global`)\nwerden auch hier verwendet.\n\nSo funktioniert's:\n\n- Jeder Schritt erklärt kurz eine Idee und zeigt ein Beispiel.\n- Mit **Try it** landet ein Beispiel im Terminal – **Enter** drückst du selbst.\n- Sobald du die Aufgabe erledigt hast, wird der Schritt **automatisch**\n  abgehakt und der nächste geht auf.\n\nEs gibt keine Punkte – probier ruhig herum. Das Terminal startet in deinem\nÜbungsordner `~/exercises/git-2-branches-merge`.",
+      "shell": "BASH",
+      "difficulty": 2,
+      "setupScript": "export GIT_AUTHOR_NAME=\"Lehrkraft\" GIT_AUTHOR_EMAIL=\"lehrkraft@schule.example\"\nexport GIT_COMMITTER_NAME=\"$GIT_AUTHOR_NAME\" GIT_COMMITTER_EMAIL=\"$GIT_AUTHOR_EMAIL\"\n\ngit init -q -b main\nprintf '# Rezeptbuch\\n\\nUnsere Lieblingsrezepte.\\n' > README.md\ngit add README.md && git commit -qm \"Rezeptbuch angelegt\"\nprintf 'Pizza\\n-----\\n500 g Mehl\\n1 Würfel Hefe\\n1 TL Salz\\n' > pizza.txt\ngit add pizza.txt && git commit -qm \"Pizzarezept hinzugefügt\"\n",
+      "tags": [
+        "git",
+        "versionskontrolle",
+        "branch",
+        "switch",
+        "merge"
+      ],
+      "visibility": "PRIVATE",
+      "steps": [
+        {
+          "title": "Wo bin ich? git branch",
+          "description": "Ein **Branch** ist eine eigene Entwicklungslinie. So kannst du an einer neuen\nFunktion arbeiten, ohne den funktionierenden Stand auf `main` zu stören. Erst\nwenn alles passt, kommt die Arbeit zurück nach `main`.\n\n```text\nmain:          A---B\n                    \\\nfeature/salat:       C---D\n```\n\nTechnisch ist ein Branch nur ein **Zeiger auf einen Commit** – deshalb sind\nBranches in Git billig und schnell.\n\n```bash\ngit branch\ngit log --oneline --graph --all\n```\n\n`git branch` listet alle Branches, der aktuelle ist mit `*` markiert.\n\n**Probier es aus:** Lass dir die Branches anzeigen.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "^git\\s+(branch|status|log)\\b",
+              "successOnly": false,
+              "message": "Zeig die Branches mit git branch an."
+            }
+          ],
+          "hints": [
+            "Am Anfang gibt es nur ´main´ (früher hieß der Standard-Branch oft ´master´)."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Einen Branch anlegen: git switch -c",
+          "description": "Neuen Branch anlegen **und** gleich hinwechseln:\n\n```bash\ngit switch -c feature/salat\ngit branch\n```\n\n(Ältere Anleitungen verwenden `git checkout -b feature/salat` – macht dasselbe.)\n\nBranch-Namen beschreiben die Arbeit: `feature/login`, `fix/tippfehler` …\n\n**Probier es aus:** Leg den Branch `feature/salat` an und wechsle hin.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_output",
+              "command": "oshell-git branch --show-current",
+              "match": "exact",
+              "value": "feature/salat",
+              "message": "Leg den Branch feature/salat an und wechsle hin: git switch -c feature/salat"
+            }
+          ],
+          "hints": [
+            "´git branch feature/salat´ legt den Branch nur an – ohne ´-c´ bei ´switch´ wechselst du zu einem bestehenden."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Auf dem Branch arbeiten",
+          "description": "Commits landen immer auf dem Branch, auf dem du gerade stehst:\n\n```bash\nprintf 'Salat\\n-----\\n1 Kopf Salat\\n2 Tomaten\\nEssig und Öl\\n' > salat.txt\ngit add salat.txt\ngit commit -m \"Salatrezept hinzugefügt\"\ngit log --oneline --graph --all\n```\n\nIm Graph siehst du: `feature/salat` ist jetzt einen Commit **vor** `main`.\n\n**Probier es aus:** Leg `salat.txt` an und committe sie auf `feature/salat`.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_output",
+              "command": "oshell-git rev-list --count main..feature/salat 2>/dev/null",
+              "match": "regex",
+              "value": "^[1-9][0-9]*$",
+              "message": "Committe salat.txt auf dem Branch feature/salat."
+            },
+            {
+              "type": "command_output",
+              "command": "oshell-git ls-tree -r --name-only feature/salat 2>/dev/null",
+              "match": "regex",
+              "value": "^salat\\.txt$",
+              "message": "salat.txt muss im Commit sein."
+            }
+          ],
+          "hints": [
+            "Prüf mit ´git branch´, dass du wirklich auf ´feature/salat´ stehst."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Zwischen Branches wechseln",
+          "description": "Wechsle zurück auf `main` und schau dir die Dateien an:\n\n```bash\ngit switch main\nls\n```\n\n`salat.txt` ist **weg**! Keine Sorge: Sie existiert nur auf `feature/salat`.\nGit tauscht beim Wechseln die Dateien im Ordner aus. Zurück geht's mit\n`git switch feature/salat`.\n\nTipp: Wechsle nur mit „sauberem“ Arbeitsverzeichnis (alles committet) – sonst\nverweigert Git den Wechsel, wenn Änderungen verloren gehen könnten.\n\n**Probier es aus:** Wechsle auf `main` und kontrolliere mit `ls`, welche\nDateien da sind.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_output",
+              "command": "oshell-git branch --show-current",
+              "match": "exact",
+              "value": "main",
+              "message": "Wechsle mit git switch main zurück auf main."
+            },
+            {
+              "type": "command_used",
+              "pattern": "^ls\\b",
+              "successOnly": false,
+              "message": "Schau dir mit ls an, welche Dateien es auf main gibt."
+            }
+          ],
+          "hints": [
+            "´git switch -´ wechselt zum vorherigen Branch (wie ´cd -´)."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Zusammenführen: git merge (Fast-Forward)",
+          "description": "Jetzt soll das Salatrezept nach `main`. Dazu stehst du auf dem **Ziel**-Branch\n(`main`) und holst den anderen Branch herein:\n\n```bash\ngit merge feature/salat\n```\n\nGit meldet **Fast-forward**: Auf `main` ist seit dem Abzweigen nichts passiert,\nalso schiebt Git den Zeiger `main` einfach nach vorne – ganz ohne neuen Commit.\n\n```text\nvorher:  main → B       feature/salat → D\nnachher: main → D       feature/salat → D\n```\n\n**Probier es aus:** Merge `feature/salat` in `main`.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_output",
+              "command": "oshell-git merge-base --is-ancestor feature/salat main 2>/dev/null && echo ja || echo nein",
+              "match": "exact",
+              "value": "ja",
+              "message": "Merge feature/salat in main: git switch main, dann git merge feature/salat"
+            }
+          ],
+          "hints": [
+            "Die Merge-Richtung merkst du dir so: „Ich stehe auf main und **hole** den Branch herein.“"
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Aufräumen: Branch löschen",
+          "description": "Der Branch ist fertig und gemergt – er kann weg:\n\n```bash\ngit branch -d feature/salat\n```\n\nDie Commits bleiben erhalten, nur der **Zeiger** wird gelöscht. `-d` weigert\nsich, wenn der Branch noch **nicht** gemergt ist (Schutz vor Datenverlust).\n`-D` würde trotzdem löschen – damit vorsichtig sein.\n\n**Probier es aus:** Lösch `feature/salat`.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_output",
+              "command": "oshell-git branch --list feature/salat | wc -l",
+              "match": "exact",
+              "value": "0",
+              "message": "Lösch den Branch mit git branch -d feature/salat"
+            }
+          ],
+          "hints": [
+            "Du kannst den Branch nicht löschen, auf dem du gerade stehst – erst auf ´main´ wechseln."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Echter Merge: wenn beide Seiten weiterarbeiten",
+          "description": "Meistens geht auf `main` die Arbeit weiter, während du auf deinem Branch\narbeitest. Dann reicht Fast-Forward nicht – Git erzeugt einen **Merge-Commit**\nmit **zwei** Vorgängern:\n\n```text\nmain:             B---E-----M\n                   \\       /\nfeature/dessert:    C-------\n```\n\nSpiel das nach:\n\n```bash\ngit switch -c feature/dessert\nprintf 'Tiramisu\\n--------\\n500 g Mascarpone\\n' > tiramisu.txt\ngit add tiramisu.txt && git commit -m \"Tiramisu hinzugefügt\"\ngit switch main\necho \"Neu: jetzt auch mit Desserts!\" >> README.md\ngit commit -am \"README ergänzt\"\ngit merge feature/dessert\n```\n\nBeim Merge öffnet sich **nano** mit einer fertigen Nachricht\n(„Merge branch …“) – einfach mit **Strg+O, Enter, Strg+X** übernehmen.\nOder gleich `git merge --no-edit feature/dessert`.\n\nDanach: `git log --oneline --graph` zeigt die Verzweigung.\n\n**Probier es aus:** Erzeuge einen echten Merge-Commit auf `main`.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_output",
+              "command": "oshell-git rev-list --merges --count main 2>/dev/null",
+              "match": "regex",
+              "value": "^[1-9][0-9]*$",
+              "message": "Auf main fehlt noch ein Merge-Commit – auf beiden Branches committen, dann mergen."
+            }
+          ],
+          "hints": [
+            "Kam wieder „Fast-forward“? Dann gab es auf ´main´ keinen eigenen Commit nach dem Abzweigen.",
+            "´git log --oneline --graph --all´ zeigt dir, wie die Branches gerade aussehen."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        }
+      ]
+    },
+    {
+      "title": "Git 3: Merge-Konflikte lösen",
+      "slug": "git-3-merge-konflikte",
+      "kind": "LESSON",
+      "description": "In dieser **Lektion** lernst du, was ein **Merge-Konflikt** ist, wie du ihn\nliest und von Hand löst – und wie du einen Merge abbrichst.\n\nIm Übungsordner liegt ein Repository mit einer Speisekarte. Auf `main` und auf\ndem Branch `feature/preis` wurde **dieselbe Zeile** unterschiedlich geändert.\n\nSo funktioniert's:\n\n- Jeder Schritt erklärt kurz eine Idee und zeigt ein Beispiel.\n- Mit **Try it** landet ein Beispiel im Terminal – **Enter** drückst du selbst.\n- Sobald du die Aufgabe erledigt hast, wird der Schritt **automatisch**\n  abgehakt und der nächste geht auf.\n\nEs gibt keine Punkte – probier ruhig herum. Das Terminal startet in deinem\nÜbungsordner `~/exercises/git-3-merge-konflikte`.",
+      "shell": "BASH",
+      "difficulty": 3,
+      "setupScript": "export GIT_AUTHOR_NAME=\"Lehrkraft\" GIT_AUTHOR_EMAIL=\"lehrkraft@schule.example\"\nexport GIT_COMMITTER_NAME=\"$GIT_AUTHOR_NAME\" GIT_COMMITTER_EMAIL=\"$GIT_AUTHOR_EMAIL\"\n\ngit init -q -b main\nprintf 'Speisekarte\\n===========\\n\\nPizza Margherita - 8,50 EUR\\nPizza Salami - 9,50 EUR\\nPizza Funghi - 9,00 EUR\\nPizza Tonno - 9,80 EUR\\nSpaghetti Carbonara - 10,50 EUR\\nTiramisu - 4,50 EUR\\n' > speisekarte.txt\ngit add . && git commit -qm \"Speisekarte angelegt\"\ngit switch -qc feature/preis\nprintf 'Speisekarte\\n===========\\n\\nPizza Margherita - 8,90 EUR\\nPizza Salami - 9,50 EUR\\nPizza Funghi - 9,00 EUR\\nPizza Tonno - 9,80 EUR\\nSpaghetti Carbonara - 10,50 EUR\\nTiramisu - 4,50 EUR\\n' > speisekarte.txt\ngit commit -qam \"Margherita: neuer Preis 8,90\"\ngit switch -q main\ngit switch -qc feature/dessertpreis\nprintf 'Speisekarte\\n===========\\n\\nPizza Margherita - 8,50 EUR\\nPizza Salami - 9,50 EUR\\nPizza Funghi - 9,00 EUR\\nPizza Tonno - 9,80 EUR\\nSpaghetti Carbonara - 10,50 EUR\\nTiramisu - 5,50 EUR\\n' > speisekarte.txt\ngit commit -qam \"Tiramisu: neuer Preis 5,50\"\ngit switch -q main\nprintf 'Speisekarte\\n===========\\n\\nPizza Margherita - 9,20 EUR\\nPizza Salami - 9,50 EUR\\nPizza Funghi - 9,00 EUR\\nPizza Tonno - 9,80 EUR\\nSpaghetti Carbonara - 10,50 EUR\\nTiramisu - 4,90 EUR\\n' > speisekarte.txt\ngit commit -qam \"Preise erhöht: Margherita 9,20, Tiramisu 4,90\"\n",
+      "tags": [
+        "git",
+        "versionskontrolle",
+        "merge",
+        "konflikt",
+        "conflict"
+      ],
+      "visibility": "PRIVATE",
+      "steps": [
+        {
+          "title": "Einen Konflikt auslösen",
+          "description": "Git merged automatisch, solange die beiden Seiten **verschiedene** Stellen\ngeändert haben. Haben aber beide **dieselbe Zeile** unterschiedlich geändert,\nkann Git nicht wissen, welche Version richtig ist – das ist ein\n**Merge-Konflikt**. Den löst ein Mensch.\n\nSchau dir zuerst die Branches an und starte dann den Merge:\n\n```bash\ngit log --oneline --graph --all\ngit merge feature/preis\n```\n\nGit meldet: `CONFLICT (content): Merge conflict in speisekarte.txt` und\n**hält mitten im Merge an**. Keine Panik – nichts ist kaputt.\n\n**Probier es aus:** Merge `feature/preis` in `main`.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "^git\\s+merge\\s+.*feature/preis",
+              "successOnly": false,
+              "message": "Starte den Merge mit git merge feature/preis."
+            }
+          ],
+          "hints": [
+            "Du musst auf ´main´ stehen – prüf das mit ´git branch´."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Den Konflikt lesen",
+          "description": "`git status` zeigt die betroffenen Dateien unter **Unmerged paths**\n(„both modified“). In der Datei selbst markiert Git die Stelle:\n\n```text\n<<<<<<< HEAD\nPizza Margherita - 9,20 EUR\n=======\nPizza Margherita - 8,90 EUR\n>>>>>>> feature/preis\n```\n\n| Teil | Bedeutung |\n|---|---|\n| zwischen `<<<<<<< HEAD` und `=======` | **deine** Version (der Branch, auf dem du stehst: `main`) |\n| zwischen `=======` und `>>>>>>>` | die Version vom **anderen** Branch |\n\n```bash\ngit status\ncat speisekarte.txt\n```\n\n**Probier es aus:** Sieh dir den Status und die Datei mit den Konfliktmarkern an.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "^git\\s+status\\b",
+              "successOnly": false,
+              "message": "Sieh dir den Stand mit git status an."
+            },
+            {
+              "type": "command_used",
+              "pattern": "\\b(cat|less|nano|vi|vim|git\\s+diff)\\b.*",
+              "successOnly": false,
+              "message": "Sieh dir speisekarte.txt an, z. B. mit cat speisekarte.txt."
+            }
+          ],
+          "hints": [
+            "Beachte: Die Tiramisu-Zeile hat **keinen** Konflikt – die hat nur ´main´ geändert, das hat Git selbst gelöst."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Den Konflikt auflösen",
+          "description": "Lösen heißt: Die Datei so bearbeiten, wie sie **am Ende** aussehen soll – und\n**alle Markerzeilen** (`<<<<<<<`, `=======`, `>>>>>>>`) entfernen.\nDu kannst eine Seite nehmen, die andere oder etwas ganz Neues.\n\n```bash\nnano speisekarte.txt\n```\n\nHier entscheidet ihr euch für **9,20 EUR**. Am Ende soll nur noch eine Zeile\nstehen:\n\n```text\nPizza Margherita - 9,20 EUR\n```\n\n(In nano: **Strg+K** löscht die ganze Zeile, **Strg+O, Enter** speichert,\n**Strg+X** beendet.)\n\n**Probier es aus:** Entferne die Konfliktmarker, sodass nur die 9,20-Zeile\nübrig bleibt.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_output",
+              "command": "grep -cE '^(<<<<<<<( |$)|=======$|>>>>>>>( |$))' speisekarte.txt",
+              "match": "exact",
+              "value": "0",
+              "message": "In speisekarte.txt sind noch Konfliktmarker (<<<<<<<, =======, >>>>>>>)."
+            },
+            {
+              "type": "file_content",
+              "path": "speisekarte.txt",
+              "match": "regex",
+              "value": "^Pizza Margherita - 9,20 EUR$",
+              "message": "Die Margherita-Zeile soll 9,20 EUR haben."
+            },
+            {
+              "type": "command_output",
+              "command": "grep -c 'Margherita' speisekarte.txt",
+              "match": "exact",
+              "value": "1",
+              "message": "Es soll genau eine Margherita-Zeile übrig bleiben."
+            }
+          ],
+          "hints": [
+            "´grep -n '<<<<<<<\\|=======\\|>>>>>>>' speisekarte.txt´ zeigt dir, wo noch Marker stehen.",
+            "Vertan? ´git checkout --merge speisekarte.txt´ stellt die Datei mit den Konfliktmarkern wieder her."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Den Merge abschließen",
+          "description": "Git weiß nicht von selbst, dass du fertig bist. Du meldest die gelöste Datei mit\n`git add` und schließt den Merge mit einem Commit ab:\n\n```bash\ngit add speisekarte.txt\ngit status\ngit commit --no-edit\n```\n\n(`--no-edit` übernimmt die vorbereitete Nachricht „Merge branch 'feature/preis'“.\nOhne die Option öffnet sich nano.)\n\n```bash\ngit log --oneline --graph\n```\n\n**Probier es aus:** Schließ den Merge ab.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_output",
+              "command": "test -f .git/MERGE_HEAD && echo offen || echo fertig",
+              "match": "exact",
+              "value": "fertig",
+              "message": "Der Merge ist noch offen: git add speisekarte.txt, dann git commit."
+            },
+            {
+              "type": "command_output",
+              "command": "oshell-git merge-base --is-ancestor feature/preis HEAD 2>/dev/null && echo ja || echo nein",
+              "match": "exact",
+              "value": "ja",
+              "message": "feature/preis ist noch nicht in main gemergt."
+            }
+          ],
+          "hints": [
+            "Vergessen, die Marker zu entfernen? Git committet sie trotzdem – deshalb vorher immer kontrollieren!"
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Notausgang: git merge --abort",
+          "description": "Manchmal merkst du mitten im Konflikt: „Das will ich jetzt nicht lösen.“ Mit\n\n```bash\ngit merge --abort\n```\n\nkehrst du zum Stand **vor** dem Merge zurück – als wäre nichts passiert.\n\nProbier das mit dem zweiten Branch: Auch `feature/dessertpreis` hat eine Zeile\ngeändert, die `main` geändert hat (Tiramisu).\n\n```bash\ngit merge feature/dessertpreis\ngit status\ngit merge --abort\ngit status\n```\n\n**Probier es aus:** Starte den Merge von `feature/dessertpreis` und brich ihn\nmit `git merge --abort` ab.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "^git\\s+merge\\s+.*feature/dessertpreis",
+              "successOnly": false,
+              "message": "Starte den Merge mit git merge feature/dessertpreis."
+            },
+            {
+              "type": "command_used",
+              "pattern": "^git\\s+merge\\s+--abort\\b",
+              "successOnly": true,
+              "message": "Brich den Merge mit git merge --abort ab."
+            },
+            {
+              "type": "command_output",
+              "command": "test -f .git/MERGE_HEAD && echo offen || echo fertig",
+              "match": "exact",
+              "value": "fertig",
+              "message": "Der Merge ist noch offen – brich ihn mit git merge --abort ab."
+            }
+          ],
+          "hints": [
+            "Konflikte vermeiden: kleine Branches, oft mergen, und im Team absprechen, wer welche Datei bearbeitet."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        }
+      ]
+    },
+    {
+      "title": "Git 4: Remotes – clone, push, pull",
+      "slug": "git-4-remotes",
+      "kind": "LESSON",
+      "description": "In dieser **Lektion** arbeitest du mit einem **Remote** – einer Kopie des\nRepositories auf einem Server, wie bei GitHub oder GitLab. Du klonst, pushst und\npullst und spielst dabei auch deine eigene Teamkollegin.\n\nDas Terminal hat kein Internet. Statt GitHub dient deshalb der Ordner\n`server/projekt.git` als „Server“ – Git behandelt ihn genauso wie eine\nGitHub-Adresse. Dein Name und deine E-Mail aus Lektion 1 (`git config --global`)\nmüssen gesetzt sein.\n\nSo funktioniert's:\n\n- Jeder Schritt erklärt kurz eine Idee und zeigt ein Beispiel.\n- Mit **Try it** landet ein Beispiel im Terminal – **Enter** drückst du selbst.\n- Sobald du die Aufgabe erledigt hast, wird der Schritt **automatisch**\n  abgehakt und der nächste geht auf.\n\nEs gibt keine Punkte – probier ruhig herum. Das Terminal startet in deinem\nÜbungsordner `~/exercises/git-4-remotes`.",
+      "shell": "BASH",
+      "difficulty": 3,
+      "setupScript": "export GIT_AUTHOR_NAME=\"Lehrkraft\" GIT_AUTHOR_EMAIL=\"lehrkraft@schule.example\"\nexport GIT_COMMITTER_NAME=\"$GIT_AUTHOR_NAME\" GIT_COMMITTER_EMAIL=\"$GIT_AUTHOR_EMAIL\"\n\ngit init -q --bare -b main server/projekt.git\ntmp=$(mktemp -d)\ngit init -q -b main \"$tmp\"\nprintf '# Klassenprojekt\\n\\nTeam-Mitglieder:\\n' > \"$tmp/README.md\"\ngit -C \"$tmp\" add README.md\ngit -C \"$tmp\" commit -qm \"Projekt angelegt\"\ngit -C \"$tmp\" push -q \"$PWD/server/projekt.git\" main\nrm -rf \"$tmp\"\n",
+      "tags": [
+        "git",
+        "versionskontrolle",
+        "remote",
+        "clone",
+        "push",
+        "pull",
+        "fetch",
+        "github"
+      ],
+      "visibility": "PRIVATE",
+      "steps": [
+        {
+          "title": "Ein Repository klonen: git clone",
+          "description": "Bisher lag dein Repository nur auf deinem Rechner. Im Team gibt es zusätzlich\nein **zentrales** Repository auf einem Server (GitHub, GitLab, …). Jede Person\nhat eine vollständige **Kopie** (mit dem ganzen Verlauf) und gleicht sie mit dem\nServer ab:\n\n```text\n             push →         ← push\n   ich/  ───────────  server  ───────────  kollegin/\n             ← pull         pull →\n```\n\n**`git clone`** holt eine Kopie vom Server:\n\n```bash\ngit clone server/projekt.git ich\ncd ich\nls\n```\n\nBei GitHub sähe das so aus: `git clone https://github.com/schule/projekt.git`\noder `git clone git@github.com:schule/projekt.git` (SSH).\n\n**Probier es aus:** Klone `server/projekt.git` in den Ordner `ich`.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "file_exists",
+              "path": "ich/.git",
+              "kind": "dir",
+              "message": "Klone das Repository mit git clone server/projekt.git ich"
+            }
+          ],
+          "hints": [
+            "Führ ´git clone´ in deinem Übungsordner aus, nicht in ´server/´."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Remotes anzeigen: git remote",
+          "description": "Beim Klonen merkt sich Git, woher das Repository kommt – unter dem Namen\n**`origin`**:\n\n```bash\ncd ~/exercises/git-4-remotes/ich\ngit remote -v\ngit branch -a\n```\n\n`git branch -a` zeigt neben deinem `main` auch **`origin/main`** – das ist\nGits Erinnerung daran, wo `main` auf dem Server zuletzt stand.\n\nEin Repository, das du mit `git init` angelegt hast, hat noch kein Remote.\nDas verbindest du so mit GitHub:\n\n```bash\ngit remote add origin https://github.com/du/projekt.git\n```\n\n**Probier es aus:** Zeig im Ordner `ich` die Remotes mit `git remote -v` an.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "^git\\s+remote\\s+(-v|--verbose|show)\\b",
+              "successOnly": false,
+              "message": "Zeig die Remotes mit git remote -v an."
+            }
+          ],
+          "hints": [
+            "Das ´fetch´/´push´ hinter der Adresse heißt: Von dort wird geholt bzw. dorthin gesendet."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Hochladen: git push",
+          "description": "Ein Commit landet erst einmal nur in **deinem** Repository. Auf den Server\nkommt er mit **`git push`**.\n\n```bash\necho \"- $(git config user.name)\" >> README.md\ngit commit -am \"Mich ins Team eingetragen\"\ngit status\ngit push\n```\n\nVor dem Push meldet `git status`: *Your branch is ahead of 'origin/main' by\n1 commit* – du hast etwas, das der Server noch nicht hat.\n\nBei einem **neuen** Branch braucht der erste Push einmal `-u`:\n`git push -u origin feature/xyz`. Danach reicht `git push`.\n\n**Probier es aus:** Trag dich in `README.md` ein, committe und pushe.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_output",
+              "command": "oshell-git -C server/projekt.git rev-list --count main",
+              "match": "regex",
+              "value": "^([2-9]|[1-9][0-9]+)$",
+              "message": "Auf dem Server ist noch kein neuer Commit – committe im Ordner ich und führe git push aus."
+            }
+          ],
+          "hints": [
+            "Arbeite im Ordner ´ich´ (´cd ~/exercises/git-4-remotes/ich´)."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Die Kollegin: zweiter Klon und Push",
+          "description": "Jetzt spielst du deine Teamkollegin. Sie klont das Projekt in einen **eigenen**\nOrdner, bekommt einen eigenen Namen (`git config` **ohne** `--global` gilt nur\nfür dieses eine Repository) und pusht eine neue Datei:\n\n```bash\ncd ~/exercises/git-4-remotes\ngit clone server/projekt.git kollegin\ncd kollegin\ngit config user.name \"Kollegin Kim\"\necho \"Präsentation am Freitag\" > todo.txt\ngit add todo.txt\ngit commit -m \"TODO-Liste angelegt\"\ngit push\n```\n\n**Probier es aus:** Klone als Kollegin, committe `todo.txt` und pushe.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "file_exists",
+              "path": "kollegin/.git",
+              "kind": "dir",
+              "message": "Klone das Repository in den Ordner kollegin."
+            },
+            {
+              "type": "command_output",
+              "command": "oshell-git -C server/projekt.git ls-tree -r --name-only main",
+              "match": "regex",
+              "value": "^todo\\.txt$",
+              "message": "todo.txt ist noch nicht auf dem Server – committe sie im Ordner kollegin und pushe."
+            }
+          ],
+          "hints": [
+            "Achte darauf, in welchem Ordner du gerade bist: ´pwd´."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Herunterladen: git fetch und git pull",
+          "description": "Zurück zu dir: Dein Ordner `ich` weiß noch nichts von `todo.txt`.\n\n```bash\ncd ~/exercises/git-4-remotes/ich\ngit fetch\ngit status\n```\n\n**`git fetch`** holt die neuen Commits vom Server, **ändert aber deine Dateien\nnicht** – es aktualisiert nur `origin/main`. `git status` meldet jetzt:\n*Your branch is behind 'origin/main' by 1 commit*.\n\n**`git pull`** = `git fetch` + `git merge origin/main` – holt **und** übernimmt:\n\n```bash\ngit pull\nls\n```\n\n**Probier es aus:** Hol im Ordner `ich` die Änderung der Kollegin mit `git pull`.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_output",
+              "command": "oshell-git -C ich merge-base --is-ancestor $(oshell-git -C server/projekt.git rev-parse main) HEAD && echo ja || echo nein",
+              "match": "exact",
+              "value": "ja",
+              "message": "Dein Ordner ich ist noch nicht auf dem Stand des Servers – führe dort git pull aus."
+            }
+          ],
+          "hints": [
+            "Gewohnheit für Teamarbeit: **vor** dem Arbeiten ´git pull´, **nach** dem Committen ´git push´."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Push abgelehnt – was nun?",
+          "description": "Der Klassiker im Team: Beide haben committet, die Kollegin pusht zuerst.\nDann lehnt der Server **deinen** Push ab:\n\n```text\n ! [rejected]        main -> main (fetch first)\n```\n\nDer Server hat Commits, die du nicht hast – Git überschreibt sie nicht.\nLösung: erst **pullen** (zusammenführen), dann **pushen**. Spiel es nach:\n\n```bash\ncd ~/exercises/git-4-remotes/kollegin\necho \"Plakat drucken\" >> todo.txt\ngit commit -am \"TODO ergänzt\"\ngit push\n\ncd ../ich\necho \"Projekt für den Informatikunterricht.\" >> README.md\ngit commit -am \"Beschreibung ergänzt\"\ngit push              # wird abgelehnt!\ngit pull --no-edit    # Änderungen der Kollegin hereinholen (Merge)\ngit push              # jetzt klappt's\n```\n\nÄndern beide dieselbe Zeile, gibt es beim `pull` einen Merge-Konflikt – den\nlöst du genau wie in Lektion 3.\n\n**Achtung:** `git push --force` würde die Commits der Kollegin auf dem Server\n**überschreiben**. Im Team: niemals ohne Absprache!\n\n**Probier es aus:** Lass deinen Push ablehnen, pull und pushe erneut.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "^git\\s+pull\\b",
+              "successOnly": false,
+              "message": "Hol die Änderungen mit git pull, bevor du pushst."
+            },
+            {
+              "type": "command_output",
+              "command": "oshell-git -C server/projekt.git rev-list --merges --count main",
+              "match": "regex",
+              "value": "^[1-9][0-9]*$",
+              "message": "Auf dem Server fehlt noch der Merge: in kollegin committen + pushen, dann in ich committen, pullen und pushen."
+            }
+          ],
+          "hints": [
+            "Ohne ´--no-edit´ öffnet ´git pull´ nano für die Merge-Nachricht: **Strg+O, Enter, Strg+X**.",
+            "´git log --oneline --graph --all´ im Ordner ´ich´ zeigt, wie sich die Linien wieder treffen."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        }
+      ]
+    },
+    {
+      "title": "Git 5: Fehler rückgängig machen",
+      "slug": "git-5-rueckgaengig",
+      "kind": "LESSON",
+      "description": "In dieser **Lektion** lernst du, Fehler in Git rückgängig zu machen – vom\nverpfuschten Dateiinhalt bis zum falschen Commit: `restore`, `commit --amend`,\n`revert`, `reset` und deine Rettungsleine `reflog`.\n\nIm Übungsordner liegt ein Repository mit einem Brotrezept. Leider ist dort\neiniges schiefgegangen …\n\nSo funktioniert's:\n\n- Jeder Schritt erklärt kurz eine Idee und zeigt ein Beispiel.\n- Mit **Try it** landet ein Beispiel im Terminal – **Enter** drückst du selbst.\n- Sobald du die Aufgabe erledigt hast, wird der Schritt **automatisch**\n  abgehakt und der nächste geht auf.\n\nEs gibt keine Punkte – probier ruhig herum. Das Terminal startet in deinem\nÜbungsordner `~/exercises/git-5-rueckgaengig`.",
+      "shell": "BASH",
+      "difficulty": 3,
+      "setupScript": "export GIT_AUTHOR_NAME=\"Lehrkraft\" GIT_AUTHOR_EMAIL=\"lehrkraft@schule.example\"\nexport GIT_COMMITTER_NAME=\"$GIT_AUTHOR_NAME\" GIT_COMMITTER_EMAIL=\"$GIT_AUTHOR_EMAIL\"\n\ngit init -q -b main\nprintf '# Brotrezept\\n' > README.md\ngit add . && git commit -qm \"Projekt angelegt\"\nprintf '500 g Mehl\\n1 Würfel Hefe\\n1 TL Salz\\n300 ml Wasser\\n' > zutaten.txt\ngit add . && git commit -qm \"Zutaten hinzugefügt\"\nsed -i 's/1 TL Salz/1 TL Zucker/' zutaten.txt\ngit commit -qam \"Zucker statt Salz\"\nprintf '1. Alles verkneten\\n2. 1 Stunde gehen lassen\\n3. 40 Minuten backen\\n' > anleitung.txt\ngit add . && git commit -qm \"Anleitung hinzugefügt\"\nprintf '# Brotrezept\\n\\nEin einfaches Brot.\\n' > README.md\ngit commit -qam \"Tippfeler in README behobne\"\n# Unsaved mess + an accidentally staged secret.\nprintf 'KAPUTT KAPUTT KAPUTT\\n' > anleitung.txt\necho \"passwort=hunter2\" > geheim.txt\ngit add geheim.txt\n",
+      "tags": [
+        "git",
+        "versionskontrolle",
+        "restore",
+        "reset",
+        "revert",
+        "amend",
+        "reflog"
+      ],
+      "visibility": "PRIVATE",
+      "steps": [
+        {
+          "title": "Änderungen verwerfen: git restore",
+          "description": "Schau dir den Stand an:\n\n```bash\ngit status\ngit diff\n```\n\n`anleitung.txt` wurde verpfuscht und **noch nicht** committet. Mit\n**`git restore`** holst du den Stand des letzten Commits zurück:\n\n```bash\ngit restore anleitung.txt\ncat anleitung.txt\n```\n\n**Achtung:** Die verworfenen Änderungen sind danach **endgültig weg** – Git\nhatte sie nie gespeichert.\n\n**Probier es aus:** Stell `anleitung.txt` wieder her.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_output",
+              "command": "oshell-git cat-file blob HEAD:anleitung.txt | cmp -s - anleitung.txt && echo ja || echo nein",
+              "match": "exact",
+              "value": "ja",
+              "message": "anleitung.txt ist noch verändert – stell sie mit git restore anleitung.txt wieder her."
+            }
+          ],
+          "hints": [
+            "Ältere Anleitungen verwenden dafür ´git checkout -- datei´."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Aus der Staging-Area nehmen: git restore --staged",
+          "description": "`git status` zeigt: `geheim.txt` ist **vorgemerkt** (Changes to be committed) –\nein Passwort, das niemals in einen Commit gehört!\n\n```bash\ngit restore --staged geheim.txt\ngit status\n```\n\n`--staged` nimmt die Datei nur aus der Staging-Area. Die Datei selbst bleibt\nunverändert liegen (jetzt als „untracked“). Damit das nicht wieder passiert,\nkommt sie in die `.gitignore`:\n\n```bash\necho \"geheim.txt\" >> .gitignore\n```\n\n**Probier es aus:** Nimm `geheim.txt` aus der Staging-Area.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_output",
+              "command": "oshell-git diff --cached --no-ext-diff --name-only | grep -c geheim",
+              "match": "exact",
+              "value": "0",
+              "message": "geheim.txt ist noch vorgemerkt – git restore --staged geheim.txt"
+            },
+            {
+              "type": "file_exists",
+              "path": "geheim.txt",
+              "kind": "file",
+              "message": "geheim.txt soll nur aus der Staging-Area, nicht gelöscht werden."
+            }
+          ],
+          "hints": [
+            "Wurde ein Passwort schon **gepusht**, hilft nur noch: Passwort sofort ändern. Was auf dem Server war, gilt als bekannt."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Letzten Commit korrigieren: git commit --amend",
+          "description": "`git log --oneline` zeigt eine peinliche Nachricht: *Tippfeler in README\nbehobne*. Den **letzten** Commit kannst du mit `--amend` ersetzen:\n\n```bash\ngit commit --amend -m \"Tippfehler in README behoben\"\ngit log --oneline\n```\n\n`--amend` nimmt auch vorgemerkte Änderungen mit – praktisch, wenn du eine Datei\nvergessen hast (`git add vergessen.txt`, dann `git commit --amend --no-edit`).\n\n**Wichtig:** `--amend` erzeugt einen **neuen** Commit mit neuer ID. Nur für\nCommits verwenden, die du noch **nicht gepusht** hast!\n\n**Probier es aus:** Korrigier die Nachricht des letzten Commits.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "^git\\s+commit\\b.*--amend\\b",
+              "successOnly": true,
+              "message": "Korrigier die Nachricht mit git commit --amend -m \"…\""
+            },
+            {
+              "type": "command_output",
+              "command": "oshell-git log -1 --format=%s | grep -c 'behobne'",
+              "match": "exact",
+              "value": "0",
+              "message": "Die letzte Commit-Nachricht enthält noch den Tippfehler."
+            }
+          ],
+          "hints": [
+            "Ältere Commits ändert man mit ´git rebase -i´ – das ist ein Thema für später."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Einen Commit zurücknehmen: git revert",
+          "description": "Im Verlauf steht der Commit *Zucker statt Salz* – Brot mit Zucker statt Salz?\nDer muss weg. Er ist aber **nicht** der letzte Commit, und vielleicht ist er\nschon gepusht.\n\n**`git revert`** löscht nichts, sondern macht einen **neuen** Commit, der die\nÄnderungen des alten genau umkehrt. Der Verlauf bleibt ehrlich – deshalb ist\n`revert` der sichere Weg für Commits, die andere schon haben.\n\n```bash\ngit log --oneline\ngit revert --no-edit <ID>\ncat zutaten.txt\n```\n\nErsetze `<ID>` durch die ID des Commits *Zucker statt Salz* (die 7 Zeichen am\nAnfang der Zeile in `git log --oneline`).\n\n**Probier es aus:** Nimm den Commit *Zucker statt Salz* mit `git revert` zurück.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_output",
+              "command": "oshell-git log --format=%s | grep -c '^Revert \"Zucker statt Salz\"'",
+              "match": "regex",
+              "value": "^[1-9][0-9]*$",
+              "message": "Nimm den Commit Zucker statt Salz mit git revert <ID> zurück."
+            },
+            {
+              "type": "file_content",
+              "path": "zutaten.txt",
+              "match": "regex",
+              "value": "^1 TL Salz$",
+              "message": "In zutaten.txt soll wieder 1 TL Salz stehen."
+            }
+          ],
+          "hints": [
+            "Ohne ´--no-edit´ öffnet sich nano für die Nachricht: **Strg+O, Enter, Strg+X**.",
+            "Die spitzen Klammern bei ´<ID>´ gehören nicht dazu: ´git revert --no-edit 3f9a2c1´."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Commits zurücksetzen: git reset --soft",
+          "description": "**`git reset`** verschiebt den aktuellen Branch auf einen **früheren** Commit.\nDie Commits danach verschwinden aus dem Verlauf. Die Variante entscheidet, was\nmit ihren **Änderungen** passiert:\n\n| Befehl | Commits weg | Änderungen … |\n|---|---|---|\n| `git reset --soft HEAD~1` | ja | bleiben **vorgemerkt** (staged) |\n| `git reset HEAD~1` (= `--mixed`) | ja | bleiben in den Dateien, nicht vorgemerkt |\n| `git reset --hard HEAD~1` | ja | werden **verworfen** ⚠️ |\n\n`HEAD~1` heißt „ein Commit vor dem aktuellen“.\n\nMit `--soft` kannst du z. B. den letzten Commit „aufmachen“ und neu committen:\n\n```bash\ngit reset --soft HEAD~1\ngit status\ngit commit -m \"Wieder Salz statt Zucker\"\ngit log --oneline\n```\n\n**Probier es aus:** Setz den Revert-Commit mit `--soft` zurück und committe die\nÄnderung mit einer eigenen Nachricht neu.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "^git\\s+reset\\s+--soft\\b",
+              "successOnly": true,
+              "message": "Setz den letzten Commit mit git reset --soft HEAD~1 zurück."
+            },
+            {
+              "type": "command_output",
+              "command": "oshell-git diff --cached --no-ext-diff --quiet && echo ja || echo nein",
+              "match": "exact",
+              "value": "ja",
+              "message": "Die Änderung ist noch vorgemerkt – committe sie mit git commit -m \"…\""
+            },
+            {
+              "type": "file_content",
+              "path": "zutaten.txt",
+              "match": "regex",
+              "value": "^1 TL Salz$",
+              "message": "In zutaten.txt soll weiterhin 1 TL Salz stehen."
+            }
+          ],
+          "hints": [
+            "Genau wie ´--amend´: ´reset´ nur für Commits verwenden, die noch **nicht gepusht** sind."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Die Rettungsleine: git reflog",
+          "description": "Jetzt der Ernstfall. Du setzt versehentlich hart zurück:\n\n```bash\ngit reset --hard HEAD~1\ncat zutaten.txt\n```\n\nDer Commit ist aus `git log` verschwunden, im Rezept steht wieder Zucker. 😱\nAber Git vergisst (fast) nichts: **`git reflog`** listet jede Position, auf der\n`HEAD` in letzter Zeit stand – auch „verlorene“ Commits:\n\n```bash\ngit reflog\ngit reset --hard HEAD@{1}\ncat zutaten.txt\n```\n\n`HEAD@{1}` heißt „wo HEAD vor der letzten Bewegung stand“. Du kannst auch die\nID aus dem Reflog nehmen.\n\nMerke: Was **committet** war, lässt sich fast immer retten. Was nie committet\nwurde (`git restore`, `reset --hard` auf ungespeicherte Änderungen), ist weg.\n\n**Probier es aus:** Setz mit `--hard` zurück und hol den Commit mit `git reflog`\nwieder.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks.",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "^git\\s+reset\\s+--hard\\b",
+              "successOnly": true,
+              "message": "Setz zuerst mit git reset --hard HEAD~1 zurück."
+            },
+            {
+              "type": "command_used",
+              "pattern": "^git\\s+reflog\\b",
+              "successOnly": false,
+              "message": "Sieh dir mit git reflog an, wo HEAD vorher stand."
+            },
+            {
+              "type": "file_content",
+              "path": "zutaten.txt",
+              "match": "regex",
+              "value": "^1 TL Salz$",
+              "message": "Im Rezept steht noch Zucker – hol den Commit mit git reset --hard HEAD@{1} zurück."
+            }
+          ],
+          "hints": [
+            "Spickzettel: ´restore´ = Dateien, ´revert´ = sicher (neuer Commit), ´reset´ = Verlauf umschreiben, ´reflog´ = Rettung.",
+            "Zu weit zurückgegangen? Im ´git reflog´ steht jeder Zwischenstand – einfach die passende ID nehmen."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        }
+      ]
+    }
+  ]
+}

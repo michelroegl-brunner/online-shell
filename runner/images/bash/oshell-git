@@ -1,0 +1,18 @@
+#!/bin/sh
+# git for ROOT check scripts that read a student-owned repository.
+#
+# Plain git as root refuses such repos ("dubious ownership"), and rightly so:
+# .git/config belongs to the student and can make git run programs. This
+# wrapper allows the one call (command-line safe.directory) and switches off
+# the repo settings that execute something on read-only commands. Checks
+# should still stick to plumbing that doesn't touch the worktree (rev-list,
+# ls-files, ls-tree, cat-file, merge-base, diff --cached …): worktree diffs
+# can run .gitattributes filter drivers, which can't be disabled generically.
+exec git \
+  -c safe.directory='*' \
+  -c core.fsmonitor=false \
+  -c core.hooksPath=/dev/null \
+  -c core.pager=cat \
+  -c core.sshCommand=false \
+  -c protocol.allow=never \
+  --no-pager "$@"
