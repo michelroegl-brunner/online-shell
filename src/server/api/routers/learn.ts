@@ -409,6 +409,9 @@ export const learnRouter = createTRPCRouter({
         submitted,
         maxChecks,
       } = await loadItem(ctx.db, ctx.user, input.itemId);
+      // During an exam, other assignments' tasks and revealed hints stay
+      // hidden too (not just their actions).
+      await assertNotLockedByExam(ctx.db, ctx.user, item.assignment.id);
       // Task text stays hidden until the assignment opens (enforced here,
       // not only by the page).
       if (state === "upcoming") {
@@ -647,6 +650,7 @@ export const learnRouter = createTRPCRouter({
       const loaded = await loadItem(ctx.db, ctx.user, input.itemId);
       const { item, attempt, state } = loaded;
       assertOpen(state);
+      await assertNotLockedByExam(ctx.db, ctx.user, item.assignment.id);
       if (!item.assignment.allowHints) {
         throw new TRPCError({
           code: "FORBIDDEN",

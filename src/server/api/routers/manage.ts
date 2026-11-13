@@ -215,6 +215,7 @@ export const manageRouter = createTRPCRouter({
     .input(z.object({ assignmentId: z.string(), userId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const a = await loadAssignment(ctx, input.assignmentId);
+      await assertMyStudent(ctx, input.userId, a.classId);
       await ctx.db.assignmentSubmission.deleteMany({
         where: { assignmentId: a.id, userId: input.userId },
       });
