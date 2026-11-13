@@ -8,6 +8,17 @@ import { env } from "~/env";
 
 export type ShellKind = "BASH" | "PWSH";
 
+export type ExtrasStatus = {
+  status: "idle" | "building" | "failed";
+  packages: string[];
+  /** Tail of the last build's output. */
+  log: string;
+  startedAt: number | null;
+  finishedAt: number | null;
+  error: string | null;
+  images: { shell: ShellKind; image: string; fresh: boolean }[];
+};
+
 const secret = new TextEncoder().encode(env.RUNNER_SECRET);
 
 async function call<T>(method: string, path: string, body?: unknown) {
@@ -72,6 +83,20 @@ export const runner = {
       `/boxes/${encodeURIComponent(userId)}/internet`,
       { online },
     ),
+
+  /** Executables + apt packages that new boxes of this shell get. */
+  tools: (shell: ShellKind) =>
+    call<{ image: string; binaries: string[]; packages: string[] }>(
+      "GET",
+      `/images/${shell}/tools`,
+    ),
+
+  /** Admin's extra apt packages and the image build status. */
+  extras: () => call<ExtrasStatus>("GET", "/images/extras"),
+
+  /** Save the extra package list; the runner rebuilds in the background. */
+  setExtras: (packages: string[]) =>
+    call<ExtrasStatus>("PUT", "/images/extras", { packages }),
 
   removeBox: (userId: string) =>
     call<{ ok: true }>("DELETE", `/boxes/${encodeURIComponent(userId)}`),

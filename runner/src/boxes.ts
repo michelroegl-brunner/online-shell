@@ -3,6 +3,7 @@ import { PassThrough, type Duplex } from "node:stream";
 import Docker from "dockerode";
 
 import { config } from "./config.js";
+import { imageForBox } from "./images.js";
 
 /**
  * A "box" is one container per student. Only one live box per student:
@@ -32,9 +33,6 @@ export class HttpError extends Error {
     super(message);
   }
 }
-
-const imageFor = (shell: ShellKind) =>
-  shell === "PWSH" ? config.PWSH_IMAGE : config.BASH_IMAGE;
 
 // bash: our rcfile sources ~/.bashrc first and the Online Shell hooks last.
 // The start dir may not exist yet (no setup run) → fall back to ~ quietly.
@@ -100,7 +98,7 @@ export function ensureBox(userId: string, wanted?: ShellKind): Promise<string> {
   return withLock(userId, async () => {
     const name = boxName(userId);
     const shell = wanted ?? "BASH";
-    const image = imageFor(shell);
+    const image = await imageForBox(shell);
     const imageId = (await docker.getImage(image).inspect()).Id;
     const existing = docker.getContainer(name);
     try {
@@ -454,7 +452,7 @@ export function runOnline(
         if (!isNotFound(err)) throw err;
       });
     const container = await docker.createContainer(
-      containerSpec(userId, imageFor(shell), {
+      containerSpec(userId, await imageForBox(shell), {
         name,
         network: config.INTERNET_NETWORK,
         labels: { "oshell.role": "setup" },

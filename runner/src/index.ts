@@ -29,6 +29,14 @@ import {
   touch,
 } from "./boxes.js";
 import { config } from "./config.js";
+import {
+  ensureExtras,
+  extrasStatus,
+  isPackageName,
+  MAX_PACKAGES,
+  setPackages,
+  toolsFor,
+} from "./images.js";
 import { type PasteReason, pasteReporter } from "./paste-report.js";
 import { commandSniffer } from "./commands.js";
 import {
@@ -87,6 +95,13 @@ const execBody = z.object({
   shell: shellSchema.default("BASH"),
 });
 const internetBody = z.object({ online: z.boolean() });
+const extrasBody = z.object({
+  packages: z
+    .array(
+      z.string().refine(isPackageName, "invalid package name (apt naming)"),
+    )
+    .max(MAX_PACKAGES),
+});
 
 /** Normalized absolute path inside /home/student (no `..`). */
 function homePath(raw: string | null) {
@@ -206,6 +221,30 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
     );
     res.end();
     return;
+  }
+
+  // GET /images/:shell/tools → executables + apt packages new boxes get
+  if (
+    req.method === "GET" &&
+    parts.length === 3 &&
+    parts[0] === "images" &&
+    parts[2] === "tools"
+  ) {
+    const shell = shellSchema.parse(parts[1]);
+    return send(res, 200, await toolsFor(shell));
+  }
+
+  // GET /images/extras → admin's extra packages + build status
+  // PUT /images/extras { packages } → save the list and (re)build
+  if (url.pathname === "/images/extras") {
+    if (req.method === "PUT") {
+      const body = extrasBody.parse(await readJson(req));
+      void setPackages(body.packages).catch((e: unknown) =>
+        console.error("[images] build failed", e),
+      );
+      return send(res, 202, await extrasStatus());
+    }
+    if (req.method === "GET") return send(res, 200, await extrasStatus());
   }
 
   // GET /sessions → students with open terminals (+ last input time)
@@ -469,6 +508,9 @@ async function attach(
 server.listen(config.PORT, () => {
   console.log(`[runner] listening on :${config.PORT}`);
 });
+
+// Extra packages: rebuild if a deploy replaced the base images.
+ensureExtras().catch((e: unknown) => console.error("[images] startup", e));
 
 setInterval(() => {
   reap().catch((e: unknown) => console.error("[reaper]", e));

@@ -20,6 +20,9 @@ const schema = z.object({
     .transform((u) => u.replace(/\/+$/, "")),
   BASH_IMAGE: z.string().default("oshell-bash:latest"),
   PWSH_IMAGE: z.string().default("oshell-pwsh:latest"),
+  /** Built by the runner: base image + the admin's extra apt packages. */
+  BASH_EXTRA_IMAGE: z.string().default("oshell-bash-extra:latest"),
+  PWSH_EXTRA_IMAGE: z.string().default("oshell-pwsh-extra:latest"),
   IDLE_MINUTES: z.coerce.number().positive().default(15),
   MAX_LIFETIME_MINUTES: z.coerce.number().positive().default(120),
   BOX_MEMORY_MB: z.coerce.number().int().positive().default(256),

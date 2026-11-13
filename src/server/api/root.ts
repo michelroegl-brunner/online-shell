@@ -10,6 +10,7 @@ import { learnRouter } from "~/server/api/routers/learn";
 import { manageRouter } from "~/server/api/routers/manage";
 import { meRouter } from "~/server/api/routers/me";
 import { reportRouter } from "~/server/api/routers/report";
+import { toolsRouter } from "~/server/api/routers/tools";
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 
 export const appRouter = createTRPCRouter({
@@ -25,6 +26,7 @@ export const appRouter = createTRPCRouter({
   files: filesRouter,
   cheatsheet: cheatsheetRouter,
   explain: explainRouter,
+  tools: toolsRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -11,6 +11,7 @@ const NAV = [
   { href: "/admin/classes", label: "Classes" },
   { href: "/admin/assignments", label: "Assignments" },
   { href: "/admin/reports", label: "Reports" },
+  { href: "/admin/tools", label: "Tools" },
 ];
 
 export default async function AdminLayout({

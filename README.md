@@ -70,6 +70,13 @@ pnpm runner:dev                                  # :4100
   for Win32_OperatingSystem/ComputerSystem/Processor/LogicalDisk/BIOS incl.
   `-ComputerName`, `Get-ComputerInfo`). A student's box switches image when
   they switch between Bash and PowerShell exercises (same home volume).
+- **Extra packages** (`/admin/tools`, `runner/src/images.ts`): admins list
+  Debian packages; the runner builds `oshell-bash-extra` / `oshell-pwsh-extra`
+  (`FROM` the base image + `apt-get install`) and new boxes use them. The
+  package list is stored as a label on those images; when a deploy rebuilt
+  the base images, boxes fall back to the base and the extras are rebuilt in
+  the background. The same page (and the exercise editor) shows the commands
+  and packages installed in each image, read live from it.
 - **Command log**: bash (`runner/images/bash/oshell-hooks.sh`) and pwsh
   (`runner/images/pwsh/profile.ps1`) append `epoch⇥exit⇥cwd⇥command` to
   `/run/oshell/cmd.log`; the web app ingests it per attempt.
@@ -84,6 +91,8 @@ pnpm runner:dev                                  # :4100
 | `POST /boxes/:userId/exec` `{script, interpreter, user, timeoutMs, internet?, shell?}` | run setup/check scripts (`internet`: in a helper container with internet access) |
 | `PUT /boxes/:userId/internet` `{online}` / `GET` | connect the box to the internet network or take it offline |
 | `GET /boxes/:userId/download?path=` | stream a file (≤ 50 MB) or a folder as `.tar.gz` (≤ 100 MB), read as the student |
+| `GET /images/:shell/tools` | executables on the PATH + apt packages of the image new boxes get |
+| `GET` / `PUT /images/extras` `{packages}` | extra apt packages and build status / save the list and rebuild |
 | `GET /sessions` | students with an open terminal (+ last input) for the live view |
 | `DELETE /boxes/:userId` | remove the box (volume stays) |
 | `WS /attach?token=…&cols=…&rows=…` | interactive shell |

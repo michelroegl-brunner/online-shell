@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Markdown } from "~/components/markdown";
+import { InstalledTools } from "~/components/tools/installed-tools";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -360,9 +361,16 @@ export function ExerciseEditor({
             value={form.setupScript}
             onChange={(v) => set("setupScript", v)}
           />
+          <InstalledTools shell={form.shell} />
         </TabsContent>
 
-        <TabsContent value="steps">
+        <TabsContent value="steps" className="flex flex-col gap-3">
+          <details className="group">
+            <summary className="text-muted-foreground cursor-pointer text-sm">
+              Which commands are installed in the box?
+            </summary>
+            <InstalledTools shell={form.shell} className="mt-2" />
+          </details>
           <StepsEditor
             steps={form.steps}
             onChange={(steps) => set("steps", steps)}
