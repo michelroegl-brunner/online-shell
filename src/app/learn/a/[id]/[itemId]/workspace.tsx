@@ -18,7 +18,10 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Announcements } from "~/components/learn/announcements";
-import { CheatSheetPanel } from "~/components/learn/cheat-sheet-panel";
+import {
+  CheatSheetButton,
+  CheatSheetPanel,
+} from "~/components/learn/cheat-sheet-panel";
 import { ErrorExplainer } from "~/components/learn/error-explainer";
 import { LessonBadge, WindowBadge } from "~/components/learn/badges";
 import { ExamGuard, HandInButton } from "~/components/learn/exam-guard";
@@ -309,13 +312,6 @@ export function Workspace({ initial }: { initial: Item }) {
           {multi && " — all steps work in this folder"}.
         </p>
 
-        {assignment.allowCheatSheet && (
-          <CheatSheetPanel
-            itemId={item.itemId}
-            onInsert={open && ready ? tryIt : undefined}
-          />
-        )}
-
         <ol className="flex flex-col gap-3">
           {steps.map((s) => (
             <StepCard
@@ -415,6 +411,9 @@ export function Workspace({ initial }: { initial: Item }) {
               )}
               {confirmReset ? "Click again: wipe folder & start over" : "Reset"}
             </Button>
+            {assignment.allowCheatSheet && ready && (
+              <CheatSheetButton itemId={item.itemId} />
+            )}
             {autoCheckOn && (
               <span className="text-muted-foreground ml-auto flex items-center gap-1.5 text-xs">
                 {autoCheck.isPending && (
@@ -426,29 +425,40 @@ export function Workspace({ initial }: { initial: Item }) {
           </div>
         )}
 
-        {!open ? (
-          <div className="text-muted-foreground flex flex-1 items-center justify-center rounded-lg border text-sm">
-            This assignment is closed. You can still read the task and your last
-            results.
-          </div>
-        ) : prepError ? (
-          <div className="text-destructive flex flex-1 items-center justify-center rounded-lg border p-6 text-center text-sm">
-            {prepError}
-          </div>
-        ) : !ready ? (
-          <div className="text-muted-foreground flex flex-1 items-center justify-center gap-2 rounded-lg border text-sm">
-            <Loader2 className="size-4 animate-spin" /> Preparing your exercise…
-          </div>
-        ) : (
-          <ShellTerminal
-            key={termKey}
-            ref={terminal}
-            shell={exercise.shell}
-            exercise={exercise.slug}
-            className="min-h-[20rem] flex-1"
-            onCommand={onCommand}
-          />
-        )}
+        {/* Terminal, with the cheat sheet beside it (below on small screens). */}
+        <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row">
+          {!open ? (
+            <div className="text-muted-foreground flex flex-1 items-center justify-center rounded-lg border text-sm">
+              This assignment is closed. You can still read the task and your
+              last results.
+            </div>
+          ) : prepError ? (
+            <div className="text-destructive flex flex-1 items-center justify-center rounded-lg border p-6 text-center text-sm">
+              {prepError}
+            </div>
+          ) : !ready ? (
+            <div className="text-muted-foreground flex flex-1 items-center justify-center gap-2 rounded-lg border text-sm">
+              <Loader2 className="size-4 animate-spin" /> Preparing your
+              exercise…
+            </div>
+          ) : (
+            <ShellTerminal
+              key={termKey}
+              ref={terminal}
+              shell={exercise.shell}
+              exercise={exercise.slug}
+              className="min-h-[20rem] flex-1"
+              onCommand={onCommand}
+            />
+          )}
+          {open && ready && assignment.allowCheatSheet && (
+            <CheatSheetPanel
+              itemId={item.itemId}
+              onInsert={tryIt}
+              className="h-96 shrink-0 lg:h-auto lg:w-80 xl:w-96"
+            />
+          )}
+        </div>
         {open && ready && (
           <ErrorExplainer itemId={item.itemId} trigger={commandTick} />
         )}

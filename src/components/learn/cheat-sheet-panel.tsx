@@ -32,11 +32,52 @@ import {
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
+const useSheets = (itemId: string) =>
+  api.cheatsheet.forItem.useQuery(
+    { itemId },
+    { staleTime: 5 * 60_000, retry: false, refetchOnWindowFocus: false },
+  ).data;
+
+/**
+ * Toolbar toggle for the cheat sheet panel. Shares the open state with
+ * `CheatSheetPanel` (persisted), and renders nothing when no sheet matches.
+ */
+export function CheatSheetButton({
+  itemId,
+  className,
+}: {
+  itemId: string;
+  className?: string;
+}) {
+  const sheets = useSheets(itemId);
+  const [openRaw, setOpenRaw] = usePersisted(OPEN_KEY);
+  if (!sheets || sheets.length === 0) return null;
+  const open = openRaw === "1";
+  return (
+    <Button
+      type="button"
+      variant={open ? "secondary" : "ghost"}
+      className={className}
+      onClick={() => setOpenRaw(open ? "0" : "1")}
+      aria-pressed={open}
+      title={open ? "Hide the cheat sheet" : "Show the cheat sheet"}
+    >
+      <BookOpen /> Cheat sheet
+      {sheets.length > 1 && (
+        <Badge variant="outline" className="px-1.5 text-[10px]">
+          {sheets.length}
+        </Badge>
+      )}
+    </Button>
+  );
+}
+
 /**
  * Topic cheat sheets next to the terminal (exercise workspace). Shows the
  * sheets matching the exercise (same shell, overlapping tags; see
- * `cheatsheet.forItem`) and renders nothing when there are none or the
- * assignment turned them off.
+ * `cheatsheet.forItem`) while opened with `CheatSheetButton`, and renders
+ * nothing when closed, when none match or the assignment turned them off.
+ * The caller sizes it (it fills the height it is given and scrolls).
  */
 export function CheatSheetPanel({
   itemId,
@@ -48,10 +89,7 @@ export function CheatSheetPanel({
   onInsert?: (text: string) => void;
   className?: string;
 }) {
-  const { data: sheets } = api.cheatsheet.forItem.useQuery(
-    { itemId },
-    { staleTime: 5 * 60_000, retry: false, refetchOnWindowFocus: false },
-  );
+  const sheets = useSheets(itemId);
   const [openRaw, setOpenRaw] = usePersisted(OPEN_KEY);
   const [storedSlug, setStoredSlug] = usePersisted(SHEET_KEY);
   const [q, setQ] = useState("");
@@ -81,31 +119,13 @@ export function CheatSheetPanel({
   if (!sheets || sheets.length === 0 || !sheet) return null;
   const open = openRaw === "1";
 
-  if (!open) {
-    return (
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className={cn("self-start", className)}
-        onClick={() => setOpenRaw("1")}
-        aria-expanded={false}
-      >
-        <BookOpen /> Cheat sheet
-        {sheets.length > 1 && (
-          <Badge variant="secondary" className="px-1.5 text-[10px]">
-            {sheets.length}
-          </Badge>
-        )}
-      </Button>
-    );
-  }
+  if (!open) return null;
 
   return (
     <section
       aria-label="Cheat sheet"
       className={cn(
-        "bg-card text-card-foreground flex max-h-[min(80vh,48rem)] min-h-0 w-full min-w-0 flex-col rounded-lg border",
+        "bg-card text-card-foreground flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border",
         className,
       )}
     >
