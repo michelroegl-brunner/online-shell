@@ -33,7 +33,15 @@ export async function pastePolicyFor(
 ): Promise<PastePolicy> {
   if (user.role !== "STUDENT") return { allowed: true, blockFrom: null };
   const noPaste = await db.assignment.findMany({
-    where: { AND: [assignmentWhereVisibleTo(user.id), { allowPaste: false }] },
+    where: {
+      AND: [
+        assignmentWhereVisibleTo(user.id),
+        { allowPaste: false },
+        // Handed in = closed for me (an exam without due date would
+        // otherwise block pasting forever).
+        { submissions: { none: { userId: user.id } } },
+      ],
+    },
     select: {
       opensAt: true,
       dueAt: true,

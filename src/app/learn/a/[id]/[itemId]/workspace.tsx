@@ -184,6 +184,12 @@ export function Workspace({ initial }: { initial: Item }) {
     const res = terminal.current?.sendText(code) ?? "offline";
     if (res === "offline") {
       toast.info("The terminal isn't connected yet — try again in a moment.");
+    } else if (res === "blocked") {
+      // Pasting is off for all terminals while a no-paste assignment
+      // (e.g. an exam) is open — Try it inserts text like a paste.
+      toast.info(
+        "Pasting is turned off right now (an assignment without pasting is open), so Try it can't insert the example. Type it yourself.",
+      );
     }
   }
 

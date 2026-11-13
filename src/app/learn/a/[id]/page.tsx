@@ -90,15 +90,29 @@ export default async function AssignmentPage({
             Checks only tell you whether a step is solved.
           </p>
         )}
+        {a.lockedByExam && (
+          <p className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
+            The exam “{a.lockedByExam.title}” is running. Until you hand it in,
+            only its exercises are available.{" "}
+            <Link
+              href={`/learn/a/${a.lockedByExam.id}`}
+              className="font-medium underline underline-offset-2"
+            >
+              Go to the exam
+            </Link>
+          </p>
+        )}
         <Announcements assignmentId={a.id} className="mb-4" />
 
         <Card>
           <CardContent className="flex flex-col divide-y p-0">
             {a.items.map((item, i) => {
               const lesson = item.kind === "LESSON";
+              // Gate or a running exam elsewhere (the banner says which).
+              const locked = item.lockedBy !== null || a.lockedByExam !== null;
               const inner = (
                 <>
-                  {item.lockedBy ? (
+                  {locked ? (
                     <Lock
                       className="text-muted-foreground size-5"
                       aria-label="Locked"
@@ -151,14 +165,14 @@ export default async function AssignmentPage({
                       </div>
                     )}
                   </div>
-                  {!item.lockedBy && (
+                  {!locked && (
                     <ChevronRight className="text-muted-foreground size-4" />
                   )}
                 </>
               );
               const row = "flex items-center gap-4 px-4 py-3";
-              // Locked behind a gate: not a link (the server refuses it too).
-              return item.lockedBy ? (
+              // Locked: not a link (the server refuses it too).
+              return locked ? (
                 <div key={item.id} className={cn(row, "opacity-60")}>
                   {inner}
                 </div>

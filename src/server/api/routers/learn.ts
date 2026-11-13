@@ -551,8 +551,15 @@ export const learnRouter = createTRPCRouter({
           passed: i.attempts[0]?.status === "PASSED",
         })),
       );
+      // Another exam running for me: its items are the only ones I may open
+      // (learn.item refuses the rest), so the page shows why instead.
+      const exam = (await openExamsFor(ctx.db, ctx.user)).find(
+        (e) => e.id !== a.id,
+      );
       return {
         id: a.id,
+        /** Exam running elsewhere: every item here is locked until it's handed in. */
+        lockedByExam: exam ? { id: exam.id, title: exam.title } : null,
         title: a.title,
         className: a.class.name,
         opensAt: a.opensAt,
