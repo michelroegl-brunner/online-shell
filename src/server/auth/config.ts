@@ -8,7 +8,7 @@ import { z } from "zod";
 import { env } from "~/env";
 import { authConfigEdge } from "./config.edge";
 import { type EntraProfile, fetchMyGroupIds, roleFromEntra } from "./entra";
-import { currentRole, syncClassMemberships, upsertUser } from "./provision";
+import { syncClassMemberships, upsertUser } from "./provision";
 
 export const entraEnabled = Boolean(
   env.AUTH_MICROSOFT_ENTRA_ID_ID &&
@@ -85,11 +85,11 @@ export const authConfig = {
           ? await fetchMyGroupIds(account.access_token)
           : null;
         const adminGroups = env.ENTRA_ADMIN_GROUP_IDS;
-        // Graph failed → can't tell group membership; keep an existing
-        // ADMIN rather than demoting a teacher for one bad sign-in.
-        const inAdminGroup = groupIds
-          ? groupIds.some((id) => adminGroups.includes(id.toLowerCase()))
-          : adminGroups.length > 0 && (await currentRole(p.oid)) === "ADMIN";
+        // Fail closed: if Graph failed, only the ID-token app roles count.
+        // Never derive ADMIN from the stored role.
+        const inAdminGroup =
+          groupIds?.some((id) => adminGroups.includes(id.toLowerCase())) ??
+          false;
         const dbUser = await upsertUser({
           entraOid: p.oid,
           email: p.email ?? p.preferred_username ?? `${p.oid}@unknown`,

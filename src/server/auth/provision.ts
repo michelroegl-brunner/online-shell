@@ -3,15 +3,6 @@ import "server-only";
 import { db } from "~/server/db";
 import type { Role } from "../../../generated/prisma";
 
-/** The stored role of an Entra user, or null if they never signed in. */
-export async function currentRole(entraOid: string): Promise<Role | null> {
-  const u = await db.user.findUnique({
-    where: { entraOid },
-    select: { role: true },
-  });
-  return u?.role ?? null;
-}
-
 /** Create or update the local user on every sign-in. */
 export async function upsertUser(input: {
   entraOid: string;
