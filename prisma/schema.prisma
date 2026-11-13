@@ -171,6 +171,9 @@ model ExerciseStep {
   /// Markdown
   description      String   @default("")
   checkScript      String   @default("")
+  /// Ready-made checks (see src/lib/checks.ts); all must pass, plus the
+  /// check script if it isn't empty.
+  checks           Json     @default("[]")
   hints            String[]
   points           Int      @default(10)
   /// Locked until the previous step is solved (set by the author per step)

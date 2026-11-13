@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { stepChecks } from "./checks";
+
 // Shared (client + server) exercise validation.
 
 export const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -25,6 +27,8 @@ export const stepInput = z.object({
   /** Markdown */
   description: z.string().max(50_000),
   checkScript: z.string().max(100_000),
+  /** Ready-made checks (src/lib/checks.ts); all must pass. */
+  checks: stepChecks.default([]),
   hints: z.array(z.string().trim().min(1).max(1000)).max(20),
   points: z.number().int().min(0).max(1000),
   /** Locked until the previous step is solved. Ignored for the first step. */
@@ -61,6 +65,7 @@ export const EMPTY_STEP: StepInput = {
   title: "New step",
   description: "",
   checkScript: "# Exit 0 = passed. Print feedback for the student.\n",
+  checks: [],
   hints: [],
   points: 10,
   requiresPrevious: true,
@@ -96,6 +101,7 @@ if [ "$(tr -d '[:space:]' < count.txt)" != "$expected" ]; then
   exit 1
 fi
 echo "Correct: $expected log files."`,
+      checks: [],
       hints: ["`ls logs/*.log` lists them", "`wc -l` counts lines"],
       points: 5,
       requiresPrevious: true,
@@ -111,6 +117,7 @@ if [ "$(cat big.txt)" != "$expected" ]; then
   exit 1
 fi
 echo "Well done!"`,
+      checks: [],
       hints: ["Look at `find -size`", "`sort -n` sorts numerically"],
       points: 10,
       requiresPrevious: true,
@@ -127,6 +134,7 @@ if [ "$got" != "$want" ]; then
   exit 1
 fi
 echo "Archive looks good!"`,
+      checks: [],
       hints: [
         "`tar -czf archive.tar.gz files…`",
         "`$(cat big.txt)` gives you the names; they are in `logs/`",

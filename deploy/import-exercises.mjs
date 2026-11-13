@@ -55,6 +55,7 @@ try {
     title: s.title,
     description: s.description ?? "",
     checkScript: s.checkScript,
+    checks: Array.isArray(s.checks) ? s.checks : [],
     hints: s.hints ?? [],
     points: s.points,
     requiresPrevious: s.requiresPrevious ?? true,

@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { CheckCircle2, ChevronLeft, CircleDot } from "lucide-react";
+import { CheckCircle2, ChevronLeft, CircleDot, FolderOpen } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -52,6 +52,12 @@ export default async function StudentReportPage({
               ? `last sign-in ${formatDateTime(r.student.lastLoginAt)}`
               : "never signed in"}
           </span>
+          <Link
+            href={`/admin/files/${r.student.id}`}
+            className="text-foreground hover:text-primary inline-flex items-center gap-1"
+          >
+            · <FolderOpen className="size-3.5" /> Files
+          </Link>
         </p>
         <p className="mt-2 text-sm">
           Total: <b className="tabular-nums">{r.total}</b>

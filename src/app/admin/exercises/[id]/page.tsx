@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { notFound } from "next/navigation";
 
+import { parseChecks } from "~/lib/checks";
 import { api } from "~/trpc/server";
 import { ExerciseEditor } from "../exercise-editor";
 import { ExerciseStats } from "./exercise-stats";
@@ -41,6 +42,7 @@ export default async function EditExercisePage({
             title: s.title,
             description: s.description,
             checkScript: s.checkScript,
+            checks: parseChecks(s.checks),
             hints: s.hints,
             points: s.points,
             requiresPrevious: s.requiresPrevious,

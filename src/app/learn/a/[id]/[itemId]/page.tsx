@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { notFound, redirect } from "next/navigation";
 
 import { AppHeader } from "~/components/app-header";
+import { LEARN_NAV } from "~/lib/nav";
 import { TestRunBanner } from "~/components/learn/test-run-banner";
 import { getCurrentUser } from "~/server/auth/current-user";
 import { api } from "~/trpc/server";
@@ -28,7 +29,7 @@ export default async function ExercisePage({
       <AppHeader
         user={user}
         home={data.preview ? "/admin" : "/learn"}
-        nav={[{ href: "/learn/playground", label: "Playground" }]}
+        nav={LEARN_NAV}
       />
       {data.preview && (
         <TestRunBanner

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { AppHeader } from "~/components/app-header";
+import { LEARN_NAV } from "~/lib/nav";
 import { Announcements } from "~/components/learn/announcements";
 import { AttemptIcon, WindowBadge } from "~/components/learn/badges";
 import { HandInButton } from "~/components/learn/exam-guard";
@@ -38,7 +39,7 @@ export default async function AssignmentPage({
       <AppHeader
         user={user}
         home={a.preview ? "/admin" : "/learn"}
-        nav={[{ href: "/learn/playground", label: "Playground" }]}
+        nav={LEARN_NAV}
       />
       <main className="mx-auto max-w-4xl p-4 sm:p-6">
         {a.preview && (

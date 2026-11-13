@@ -19,6 +19,7 @@ import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 import { EMPTY_STEP, type StepInput } from "~/lib/exercise";
 import { cn } from "~/lib/utils";
+import { ChecksEditor } from "./checks-editor";
 import { Field, Script, ScriptHelp } from "./form-parts";
 
 /** Step as edited in the form: hints as text, plus a stable React key. */
@@ -292,7 +293,21 @@ export function StepsEditor({
                   </div>
                 </div>
 
-                <Field label="Check script (bash, exit 0 = solved)">
+                <Field label="Ready-made checks">
+                  <ChecksEditor
+                    checks={s.checks}
+                    readOnly={readOnly}
+                    onChange={(checks) => patch(i, { checks })}
+                  />
+                </Field>
+
+                <Field
+                  label={
+                    s.checks.length
+                      ? "Check script (optional; bash, exit 0 = solved)"
+                      : "Check script (bash, exit 0 = solved)"
+                  }
+                >
                   <Script
                     readOnly={readOnly}
                     className="min-h-56"

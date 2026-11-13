@@ -2,6 +2,7 @@ import { assignmentRouter } from "~/server/api/routers/assignment";
 import { boxRouter } from "~/server/api/routers/box";
 import { classRouter } from "~/server/api/routers/class";
 import { exerciseRouter } from "~/server/api/routers/exercise";
+import { filesRouter } from "~/server/api/routers/files";
 import { insightsRouter } from "~/server/api/routers/insights";
 import { learnRouter } from "~/server/api/routers/learn";
 import { manageRouter } from "~/server/api/routers/manage";
@@ -19,6 +20,7 @@ export const appRouter = createTRPCRouter({
   report: reportRouter,
   manage: manageRouter,
   insights: insightsRouter,
+  files: filesRouter,
 });
 
 export type AppRouter = typeof appRouter;

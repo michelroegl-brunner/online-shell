@@ -137,6 +137,7 @@ export function toBundle(
         title: s.title,
         description: s.description,
         checkScript: s.checkScript,
+        checks: s.checks,
         hints: s.hints,
         points: s.points,
         requiresPrevious: s.requiresPrevious,

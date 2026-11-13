@@ -90,11 +90,16 @@ const isNotFound = (err: unknown) =>
 
 // ── lifecycle ──
 
-/** Make sure the student's box is running with the right shell image. */
-export function ensureBox(userId: string, shell: ShellKind): Promise<string> {
+/**
+ * Make sure the student's box is running with the right shell image.
+ * Without `shell` any running box is reused as it is (file browser: never
+ * swap the image under an open terminal); a new one gets the bash image.
+ */
+export function ensureBox(userId: string, wanted?: ShellKind): Promise<string> {
   assertUserId(userId);
   return withLock(userId, async () => {
     const name = boxName(userId);
+    const shell = wanted ?? "BASH";
     const image = imageFor(shell);
     const imageId = (await docker.getImage(image).inspect()).Id;
     const existing = docker.getContainer(name);
@@ -104,8 +109,9 @@ export function ensureBox(userId: string, shell: ShellKind): Promise<string> {
       // replace it (the home volume survives).
       if (
         info.State.Running &&
-        info.Config.Labels["oshell.shell"] === shell &&
-        info.Image === imageId
+        (wanted === undefined ||
+          (info.Config.Labels["oshell.shell"] === shell &&
+            info.Image === imageId))
       ) {
         touch(userId);
         return name;
@@ -268,6 +274,45 @@ export async function execIn(
     stderr: stderr(),
     timedOut,
   };
+}
+
+/**
+ * Run a command and pipe its stdout into `sink` (no size cap here; the
+ * command limits itself). Resolves with the exit code.
+ */
+export async function execStream(
+  userId: string,
+  opts: { cmd: string[]; user?: "root" | "student"; timeoutMs?: number },
+  sink: NodeJS.WritableStream,
+): Promise<number> {
+  assertUserId(userId);
+  const exec = await docker.getContainer(boxName(userId)).exec({
+    Cmd: opts.cmd,
+    User: opts.user ?? "student",
+    WorkingDir: "/home/student",
+    AttachStdout: true,
+    AttachStderr: true,
+    Tty: false,
+  });
+  const stream = await exec.start({ hijack: true, stdin: false });
+  const err = new PassThrough();
+  err.resume(); // stderr is dropped
+  docker.modem.demuxStream(stream, sink, err);
+  await new Promise<void>((resolve) => {
+    const t = setTimeout(() => {
+      stream.destroy();
+      resolve();
+    }, opts.timeoutMs ?? 120_000);
+    const done = () => {
+      clearTimeout(t);
+      resolve();
+    };
+    stream.on("end", done);
+    stream.on("close", done);
+    stream.on("error", done);
+  });
+  const info = await exec.inspect();
+  return info.ExitCode ?? -1;
 }
 
 // ── interactive PTY ──

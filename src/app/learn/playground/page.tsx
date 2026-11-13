@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { AppHeader } from "~/components/app-header";
+import { LEARN_NAV } from "~/lib/nav";
 import { ShellTerminal } from "~/components/terminal/shell-terminal";
 import { cn } from "~/lib/utils";
 import { getCurrentUser } from "~/server/auth/current-user";
@@ -26,11 +27,7 @@ export default async function PlaygroundPage({
 
   return (
     <div className="flex h-dvh flex-col">
-      <AppHeader
-        user={user}
-        home="/learn"
-        nav={[{ href: "/learn/playground", label: "Playground" }]}
-      />
+      <AppHeader user={user} home="/learn" nav={LEARN_NAV} />
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-3 p-4 sm:p-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>

@@ -69,8 +69,9 @@ pnpm runner:dev                                  # :4100
 | Runner API | |
 |---|---|
 | `GET /health` | Docker reachable? |
-| `POST /boxes` `{userId, shell}` | ensure the box is running |
+| `POST /boxes` `{userId, shell?}` | ensure the box is running (no `shell`: reuse any running box, else start bash) |
 | `POST /boxes/:userId/exec` `{script, interpreter, user, timeoutMs}` | run setup/check scripts |
+| `GET /boxes/:userId/download?path=` | stream a file (≤ 50 MB) or a folder as `.tar.gz` (≤ 100 MB), read as the student |
 | `GET /sessions` | students with an open terminal (+ last input) for the live view |
 | `DELETE /boxes/:userId` | remove the box (volume stays) |
 | `WS /attach?token=…&cols=…&rows=…` | interactive shell |
@@ -102,6 +103,29 @@ Scripts run with **bash** unless their first line is a pwsh shebang
 `$ErrorActionPreference = 'Stop'`). They are copied into a root-only temp
 file in the box, run with stdin from `/dev/null`, and deleted afterwards, so
 students can't read the check logic. Logic: `src/server/exercises/run.ts`.
+
+**Ready-made checks** (`ExerciseStep.checks`, `src/lib/checks.ts`): instead
+of (or in addition to) a check script, a step can have typed checks that
+are edited as small forms. All of them **and** the script (if it has real
+content) must pass.
+
+| Check | Passes when |
+|---|---|
+| File exists | a file / folder exists (path relative to the exercise folder) |
+| File content | a file is exactly / contains a text, or a line matches a regex (`grep -E`) |
+| Command output | a command run as root in the folder (10 s; `pwsh` for PowerShell exercises) prints exactly / contains / matches |
+| Command used | the student's command log for this attempt has a command matching a JavaScript regex (optionally exit 0 only) |
+
+File and output checks become one generated bash script (values passed
+base64-encoded) that runs like a check script; "command used" is decided by
+the web app against `CommandLog` and is skipped in teacher test runs.
+Every check can have its own failure message. Logic:
+`src/server/exercises/checks.ts`.
+
+**Shared library** (`/admin/library`): every SHARED, non-archived exercise
+of all teachers, with tag filter, search and "most used". Teachers can use
+them in assignments directly or **Copy** one into a private exercise of
+their own.
 
 **Import / export**: exercises can be exchanged as JSON bundles
 (Exercises → Import / Export, or `deploy/import-exercises.mjs` on the
@@ -274,8 +298,12 @@ as reports (classes you teach, admins all).
 | `/learn/a/[id]` | students | one assignment: exercises + my status |
 | `/learn/a/[id]/[itemId]` | students | task, hints, terminal, check, reset |
 | `/learn/playground` | everyone | free Bash shell in your own box |
+| `/learn/progress` | everyone | my points over time, solved per tag, weak topics with open exercises to practise |
+| `/learn/files` | everyone | browse / preview / download my home folder |
 | `/admin` | TEACHER, ADMIN | exercises, classes, assignments, reports |
 | `/admin/exercises` | TEACHER, ADMIN | exercise library, editor, test run |
+| `/admin/library` | TEACHER, ADMIN | shared exercises of all teachers: browse, filter by tag, copy |
+| `/admin/files/[userId]` | TEACHER, ADMIN | a student's home folder (teachers of one of the student's classes), linked from student and attempt reports |
 | `/admin/classes` | TEACHER, ADMIN | import M365 groups, members, teachers, groups |
 | `/admin/assignments` | TEACHER, ADMIN | create / edit / publish assignments |
 | `/admin/reports` | TEACHER, ADMIN | results per assignment (matrix, CSV, per-exercise stats), per student, per attempt (command history, teacher actions) |

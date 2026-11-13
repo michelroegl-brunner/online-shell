@@ -5,6 +5,7 @@ import {
   CircleDot,
   ClipboardX,
   EyeOff,
+  FolderOpen,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -76,7 +77,13 @@ export default async function AttemptPage({
           >
             {a.student.name}
           </Link>{" "}
-          · {a.student.email} · {a.assignment.className}
+          · {a.student.email} · {a.assignment.className} ·{" "}
+          <Link
+            href={`/admin/files/${a.student.id}?path=${encodeURIComponent(`exercises/${a.exercise.slug}`)}`}
+            className="text-foreground hover:text-primary inline-flex items-center gap-1"
+          >
+            <FolderOpen className="size-3.5" /> Files
+          </Link>
         </p>
       </div>
 

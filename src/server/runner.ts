@@ -29,8 +29,20 @@ async function call<T>(method: string, path: string, body?: unknown) {
 }
 
 export const runner = {
-  ensureBox: (userId: string, shell: ShellKind) =>
+  /** Without `shell`, any running box is reused as it is. */
+  ensureBox: (userId: string, shell?: ShellKind) =>
     call<{ box: string }>("POST", "/boxes", { userId, shell }),
+
+  /** Raw response: a file's bytes, or a .tar.gz of a folder (x-oshell-kind). */
+  download: (userId: string, path: string, signal?: AbortSignal) =>
+    fetch(
+      `${env.RUNNER_URL}/boxes/${encodeURIComponent(userId)}/download?path=${encodeURIComponent(path)}`,
+      {
+        headers: { authorization: `Bearer ${env.RUNNER_SECRET}` },
+        cache: "no-store",
+        signal,
+      },
+    ),
 
   exec: (
     userId: string,

@@ -6,6 +6,7 @@ import { getCurrentUser } from "~/server/auth/current-user";
 
 const NAV = [
   { href: "/admin/exercises", label: "Exercises" },
+  { href: "/admin/library", label: "Library" },
   { href: "/admin/classes", label: "Classes" },
   { href: "/admin/assignments", label: "Assignments" },
   { href: "/admin/reports", label: "Reports" },

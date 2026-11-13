@@ -17,6 +17,7 @@ import {
   docker,
   ensureBox,
   execIn,
+  execStream,
   HttpError,
   lastActivityOf,
   openPty,
@@ -62,7 +63,11 @@ async function readJson(req: IncomingMessage, limit = 256 * 1024) {
 }
 
 const shellSchema = z.enum(["BASH", "PWSH"]);
-const createBoxBody = z.object({ userId: z.string(), shell: shellSchema });
+/** No shell: reuse whatever box runs (or start a bash one). */
+const createBoxBody = z.object({
+  userId: z.string(),
+  shell: shellSchema.optional(),
+});
 const execBody = z.object({
   /** Script source, run via `bash -c` or `pwsh -Command`. */
   script: z.string().max(100_000),
@@ -71,6 +76,18 @@ const execBody = z.object({
   timeoutMs: z.number().int().min(100).max(120_000).default(30_000),
   workdir: z.string().startsWith("/").optional(),
 });
+
+/** Normalized absolute path inside /home/student (no `..`). */
+function homePath(raw: string | null) {
+  const HOME = "/home/student";
+  if (!raw?.startsWith(HOME)) throw new HttpError(400, "invalid path");
+  const rest = raw.slice(HOME.length);
+  if (rest && !rest.startsWith("/")) throw new HttpError(400, "invalid path");
+  const segs = rest.split("/").filter(Boolean);
+  if (segs.some((s) => s === "." || s === ".." || s.includes("\0")))
+    throw new HttpError(400, "invalid path");
+  return [HOME, ...segs].join("/");
+}
 
 // ── internal REST API (web app only, bearer RUNNER_SECRET) ──
 
@@ -117,6 +134,48 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
       workdir: body.workdir,
     });
     return send(res, 200, result);
+  }
+
+  // GET /boxes/:userId/download?path=/home/student/… → the file's bytes, or
+  // a .tar.gz of a folder. Runs as the student, so only what they can read.
+  if (
+    req.method === "GET" &&
+    parts.length === 3 &&
+    parts[0] === "boxes" &&
+    parts[2] === "download"
+  ) {
+    const userId = parts[1]!;
+    const path = homePath(url.searchParams.get("path"));
+    await ensureBox(userId);
+    const kind = await execIn(userId, {
+      cmd: [
+        "bash",
+        "-c",
+        'if [ -d "$1" ]; then echo dir; elif [ -f "$1" ]; then echo file; fi',
+        "oshell",
+        path,
+      ],
+    });
+    const k = kind.stdout.trim();
+    if (k !== "dir" && k !== "file") throw new HttpError(404, "not found");
+    res.writeHead(200, {
+      "content-type":
+        k === "dir" ? "application/gzip" : "application/octet-stream",
+      "x-oshell-kind": k,
+    });
+    // Size caps: files 50 MB, folders 100 MB compressed.
+    const script =
+      k === "dir"
+        ? 'cd -- "$(dirname -- "$1")" && tar -czf - -- "$(basename -- "$1")" 2>/dev/null | head -c 104857600'
+        : 'head -c 52428800 -- "$1"';
+    touch(userId);
+    await execStream(
+      userId,
+      { cmd: ["bash", "-c", script, "oshell", path] },
+      res,
+    );
+    res.end();
+    return;
   }
 
   // GET /sessions → students with open terminals (+ last input time)

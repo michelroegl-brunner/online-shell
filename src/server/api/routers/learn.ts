@@ -1,9 +1,11 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
+import { parseChecks } from "~/lib/checks";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { ingestCommandLog } from "~/server/assignments/command-log";
 import { EXAM_EVENT_TYPES, openExamsFor } from "~/server/assignments/exam";
+import { studentProgress } from "~/server/assignments/progress";
 import { recomputeAttempt } from "~/server/assignments/recompute";
 import {
   itemMaxPoints,
@@ -18,7 +20,8 @@ import {
   type WindowState,
 } from "~/server/assignments/window";
 import { type db as dbType } from "~/server/db";
-import { runCheck, runSetup } from "~/server/exercises/run";
+import { runStepChecks } from "~/server/exercises/checks";
+import { runSetup } from "~/server/exercises/run";
 import type { Prisma } from "../../../../generated/prisma";
 
 /**
@@ -82,6 +85,7 @@ async function loadItem(db: Db, user: Viewer, itemId: string) {
               title: true,
               description: true,
               checkScript: true,
+              checks: true,
               hints: true,
               points: true,
               requiresPrevious: true,
@@ -590,12 +594,20 @@ export const learnRouter = createTRPCRouter({
       await ingestCommandLog(userId);
       let res;
       try {
+        const checks = parseChecks(step.checks);
+        const commands = checks.some((c) => c.type === "command_used")
+          ? await ctx.db.commandLog.findMany({
+              where: { attemptId: attempt.id },
+              select: { command: true, exitCode: true },
+            })
+          : [];
         res = await guardRunner(() =>
-          runCheck(userId, {
-            slug: item.exercise.slug,
-            shell: item.exercise.shell,
-            checkScript: step.checkScript,
-          }),
+          runStepChecks(
+            userId,
+            { slug: item.exercise.slug, shell: item.exercise.shell },
+            { checkScript: step.checkScript, checks },
+            commands,
+          ),
         );
       } catch (e) {
         // The check never ran: give the claimed check back.
@@ -823,6 +835,11 @@ export const learnRouter = createTRPCRouter({
         author: n.author.name,
       }));
     }),
+
+  /** My points over time, results per tag and weak topics to practise. */
+  progress: protectedProcedure.query(({ ctx }) =>
+    studentProgress(ctx.db, ctx.user.id),
+  ),
 
   /** Is an exam running for me (locks the playground and other work)? */
   examLock: protectedProcedure.query(async ({ ctx }) => {
