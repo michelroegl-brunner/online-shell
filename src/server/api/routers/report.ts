@@ -4,7 +4,11 @@ import { z } from "zod";
 import { assignmentWhere, classWhere } from "~/server/access";
 import { createTRPCRouter, teacherProcedure } from "~/server/api/trpc";
 import { parsePasteDetail } from "~/server/assignments/paste-events";
-import { itemScore } from "~/server/assignments/scoring";
+import {
+  type ExerciseKind,
+  itemMaxPoints,
+  itemScore,
+} from "~/server/assignments/scoring";
 import { effectiveDueAt } from "~/server/assignments/window";
 import { HOME } from "~/server/exercises/run";
 
@@ -13,10 +17,11 @@ import { HOME } from "~/server/exercises/run";
  * caller teaches (admins: all). Read-only.
  */
 
+/** Max points of an item (lessons: always 0, see scoring.ts). */
 const itemPoints = (i: {
   points: number | null;
-  exercise: { points: number };
-}) => i.points ?? i.exercise.points;
+  exercise: { points: number; kind: ExerciseKind };
+}) => itemMaxPoints(i.points, i.exercise.points, i.exercise.kind);
 
 /** Blocked paste attempts of an attempt (ExamEvent rows of type PASTE). */
 const pasteEventsSelect = {
@@ -101,6 +106,7 @@ export const reportRouter = createTRPCRouter({
                   id: true,
                   title: true,
                   slug: true,
+                  kind: true,
                   points: true,
                   _count: { select: { steps: true } },
                   steps: {
@@ -183,12 +189,13 @@ export const reportRouter = createTRPCRouter({
           title: i.exercise.title,
           slug: i.exercise.slug,
           exerciseId: i.exercise.id,
+          kind: i.exercise.kind,
           points: itemPoints(i),
           stepCount: i.exercise._count.steps,
           steps: i.exercise.steps.map((st) => ({
             id: st.id,
             title: st.title,
-            points: itemScore(st.points, stepTotal, i.points),
+            points: itemScore(st.points, stepTotal, i.points, i.exercise.kind),
           })),
         };
       });
@@ -237,7 +244,12 @@ export const reportRouter = createTRPCRouter({
             submittedAt:
               a.submissions.find((x) => x.userId === s.id)?.submittedAt ?? null,
             cells,
-            total: cells.reduce((sum, c) => sum + (c?.score ?? 0), 0),
+            // Lessons never add points (even with a manual score).
+            total: cells.reduce(
+              (sum, c, idx) =>
+                sum + (items[idx]!.kind === "LESSON" ? 0 : (c?.score ?? 0)),
+              0,
+            ),
             solved: cells.filter((c) => c?.status === "PASSED").length,
           };
         });
@@ -370,6 +382,7 @@ export const reportRouter = createTRPCRouter({
                   id: true,
                   title: true,
                   slug: true,
+                  kind: true,
                   points: true,
                   steps: {
                     orderBy: { order: "asc" },
@@ -454,7 +467,12 @@ export const reportRouter = createTRPCRouter({
             id: st.id,
             index,
             title: st.title,
-            points: itemScore(st.points, total, item.points),
+            points: itemScore(
+              st.points,
+              total,
+              item.points,
+              item.exercise.kind,
+            ),
             status: p?.status ?? null,
             checks: p?.checks ?? 0,
             hintsUsed: p?.hintsUsed ?? 0,
@@ -578,7 +596,9 @@ export const reportRouter = createTRPCRouter({
             select: {
               id: true,
               points: true,
-              exercise: { select: { title: true, points: true } },
+              exercise: {
+                select: { title: true, points: true, kind: true },
+              },
               attempts: {
                 where: { userId: user.id },
                 select: {
@@ -609,6 +629,7 @@ export const reportRouter = createTRPCRouter({
             return {
               itemId: i.id,
               title: i.exercise.title,
+              kind: i.exercise.kind,
               points: itemPoints(i),
               attempt: t
                 ? {
@@ -634,7 +655,11 @@ export const reportRouter = createTRPCRouter({
             published: a.published,
             targeted,
             items,
-            total: items.reduce((s, i) => s + (i.attempt?.score ?? 0), 0),
+            // Lessons never add points (even with a manual score).
+            total: items.reduce(
+              (s, i) => s + (i.kind === "LESSON" ? 0 : (i.attempt?.score ?? 0)),
+              0,
+            ),
             maxPoints: items.reduce((s, i) => s + i.points, 0),
           };
         })

@@ -43,7 +43,7 @@ async function loadAttempt(ctx: Ctx, id: string) {
       assignmentItem: {
         select: {
           points: true,
-          exercise: { select: { points: true } },
+          exercise: { select: { points: true, kind: true } },
         },
       },
     },
@@ -190,6 +190,7 @@ export const manageRouter = createTRPCRouter({
       const max = itemMaxPoints(
         att.assignmentItem.points,
         att.assignmentItem.exercise.points,
+        att.assignmentItem.exercise.kind,
       );
       if (input.score !== null && input.score > max) {
         throw new TRPCError({
@@ -356,6 +357,7 @@ export const manageRouter = createTRPCRouter({
                   title: true,
                   slug: true,
                   points: true,
+                  kind: true,
                   steps: {
                     orderBy: { order: "asc" },
                     select: { id: true, title: true },
@@ -579,10 +581,11 @@ export const manageRouter = createTRPCRouter({
         items: a.items.map((i) => ({
           id: i.id,
           title: i.exercise.title,
-          points: itemMaxPoints(i.points, i.exercise.points),
+          points: itemMaxPoints(i.points, i.exercise.points, i.exercise.kind),
         })),
         maxPoints: a.items.reduce(
-          (n, i) => n + itemMaxPoints(i.points, i.exercise.points),
+          (n, i) =>
+            n + itemMaxPoints(i.points, i.exercise.points, i.exercise.kind),
           0,
         ),
         rows,

@@ -1,4 +1,11 @@
-import { CheckCircle2, Circle, CircleDot, Clock, Lock } from "lucide-react";
+import {
+  BookOpen,
+  CheckCircle2,
+  Circle,
+  CircleDot,
+  Clock,
+  Lock,
+} from "lucide-react";
 
 import { Badge } from "~/components/ui/badge";
 import { formatDateTime, isWithin, relativeTime } from "~/lib/format";
@@ -75,5 +82,18 @@ export function AttemptIcon({
       className={cn("text-muted-foreground size-5", className)}
       aria-label="Not started"
     />
+  );
+}
+
+/** Marks a lesson (guided, ungraded walkthrough) in lists. */
+export function LessonBadge({ className }: { className?: string }) {
+  return (
+    <Badge
+      variant="outline"
+      className={cn("border-sky-400/40 text-sky-300", className)}
+      title="Guided lesson: no points, checks itself as you go"
+    >
+      <BookOpen /> lesson
+    </Badge>
   );
 }

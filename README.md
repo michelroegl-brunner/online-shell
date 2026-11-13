@@ -134,6 +134,63 @@ server). Bundles live in `content/exercises/`; see `content/README.md`.
 **Test run** (exercise page): runs setup in the teacher's *own* box, opens a
 terminal in the exercise folder, then runs a chosen step's check.
 
+### Lessons
+
+An exercise can be a **lesson** (`Exercise.kind = LESSON`, "Kind" in the
+editor, "Lessons" filter in the list): a guided, ungraded walkthrough. Each
+step explains one idea in Markdown, shows an example and asks the student to
+try it. Differences to a normal exercise:
+
+- **No points**: a lesson is worth 0 in assignments, reports, grades and the
+  progress page, whatever its steps or an item override say
+  (`src/server/assignments/scoring.ts`). Completion is still tracked
+  (attempt `PASSED`), and there is no check limit.
+- **Checks itself**: after the student presses Enter in the terminal, the
+  page waits ~1 s and calls `learn.autoCheck` (lessons only, one at a time
+  per student). A failed auto-check shows nothing and isn't stored; a passed
+  one marks the step solved ("✓ Done!") and opens the next. The manual
+  **Check** button stays as a fallback.
+- **Try it**: fenced code blocks in a lesson's text get a button that types
+  the code at the prompt *without* pressing Enter (not while pasting is
+  blocked for the student).
+- Checks must work on their own: functions or variables the student defines
+  interactively don't exist in the check's root shell. Use **command used**
+  (regex on the command log, which has the first line of each command) or
+  have the student write a file the check runs (`bash -c 'source funcs.sh;
+  …'`).
+
+**Gates**: in an assignment, any item can be marked **"Must be done before
+the next ones"** (`AssignmentItem.gate`, on by default for lessons). For
+students, every later item stays locked until that item is solved: the
+assignment page shows a lock and "Finish “…” first", and `learn.item/start/
+check/autoCheck/hint/reset` refuse. Teachers' test runs ignore gates.
+
+Lessons live in `content/lessons/` (same bundle format, `"kind": "LESSON"`).
+
+## Cheat sheets
+
+Short topic references (Markdown, German) shown to students in a
+collapsible panel next to the terminal (`src/components/learn/cheat-sheet-panel.tsx`).
+A sheet appears on an exercise when it has the **same shell** and **at least
+one tag** in common with the exercise; several matches are ordered by
+`order`, then title. Students can switch sheets, search by section heading
+and, where the workspace allows it, insert a code line into the terminal
+(without running it).
+
+- **Manage** under `/admin/cheatsheets` (router `cheatsheet`): title, slug,
+  shell, tags, order, visibility, Markdown body with live preview; archive
+  or delete. SHARED sheets are shown in every class; PRIVATE ones only in
+  classes their author teaches (and in the author's own preview).
+- **Per assignment**: `Assignment.allowCheatSheet` (on by default) turns
+  the panel off, e.g. for exams. Before an assignment opens, or while
+  another exam is running for the student, no sheets are returned.
+- **Built-in sheets** live in `content/cheatsheets/*.md` with a small
+  frontmatter (`slug`, `title`, `shell: BASH|PWSH`, `tags: [a, b]`,
+  `order`). Cheat sheets → **Import built-in** reads them at runtime
+  (the Docker image copies `content/`) and creates missing slugs as SHARED
+  sheets; **Overwrite existing** replaces sheets you may edit with the
+  shipped version.
+
 ## Classes
 
 A class is an M365 group. Teachers import groups under `/admin/classes`
@@ -226,6 +283,32 @@ Caddy doesn't forward `/api/runner/*`). They become `ExamEvent`s of type
 the student's most recently active attempt in an open no-paste assignment
 (`src/server/assignments/paste-events.ts`); with no attempt yet they are
 dropped. Reports show a count per cell and a list on the attempt page.
+
+## Command explanations
+
+Under the terminal, students get a short German "what probably went wrong"
+for their latest failed (or classic-mistake) commands
+(`ErrorExplainer`, router `explain.recent`). Off in exam mode, when the
+assignment has hints off, before the attempt exists, and while any exam is
+open for the student.
+
+- **Rules** (`src/lib/explain/`, pure, no server imports): only the command
+  text and exit code are known (stderr isn't logged), so each rule fires
+  only on an unambiguous pattern — bash functions (`{echo`, missing `;`
+  before `}`, `greet()` / `greet(Max)` calls, `return "text"`, `local`
+  outside a function, functions lost in a new shell or not `source`d),
+  syntax (`x = 5`, `$x=5`, `[ $x -eq 1]`, `] then`, missing `fi`/`done`,
+  open quotes, `>` inside `[ ]`), commands (typos via edit distance incl.
+  the student's own functions, Windows/PowerShell commands in bash, not
+  installed tools, `./` and `chmod +x`, `cd`) and PowerShell (`==`, `=`/`>`
+  in `if (…)`, `f(1,2)` / `f 1,2`, bash syntax, `export`, `source`). First
+  matching rule wins. Test cases: `src/lib/explain/explain.test-cases.ts`.
+- **Flow**: the page bumps `trigger` after each command; ~1.2 s later the
+  query ingests the command log, explains the attempt's last 15 commands
+  (functions defined earlier count as known) and returns at most 5,
+  newest first. Bash exercises also get `bash -n` (syntax check, never
+  run) for `*.sh` files in the exercise folder changed in the last
+  10 minutes. Dismissed items stay hidden (sessionStorage).
 
 ## Teacher tools
 

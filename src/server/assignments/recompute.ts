@@ -7,7 +7,8 @@ type Db = typeof dbType;
 
 /**
  * Recompute an attempt's totals from its step rows. A teacher's
- * `scoreOverride` wins over the computed score while it is set.
+ * `scoreOverride` wins over the computed score while it is set. Lessons
+ * score 0 (see scoring.ts) but still become PASSED when all steps are.
  */
 export async function recomputeAttempt(
   db: Db,
@@ -28,9 +29,14 @@ export async function recomputeAttempt(
   const anyPassed = earned > 0 || rows.some((r) => r.status === "PASSED");
   const current = await db.attempt.findUniqueOrThrow({
     where: { id: attemptId },
-    select: { finishedAt: true, scoreOverride: true },
+    select: {
+      finishedAt: true,
+      scoreOverride: true,
+      assignmentItem: { select: { exercise: { select: { kind: true } } } },
+    },
   });
-  const computed = anyPassed ? itemScore(earned, total, override) : null;
+  const kind = current.assignmentItem.exercise.kind;
+  const computed = anyPassed ? itemScore(earned, total, override, kind) : null;
   return db.attempt.update({
     where: { id: attemptId },
     data: {

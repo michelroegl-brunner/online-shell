@@ -5,7 +5,14 @@ import "@xterm/xterm/css/xterm.css";
 import type { FitAddon } from "@xterm/addon-fit";
 import type { Terminal } from "@xterm/xterm";
 import { Eye, Hand, Keyboard, Loader2, RotateCw } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type Ref,
+} from "react";
 import { toast } from "sonner";
 
 import { Button } from "~/components/ui/button";
@@ -13,6 +20,16 @@ import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 type Status = "connecting" | "ready" | "closed" | "error";
+
+/** Imperative access for the page (via the `ref` prop). */
+export type ShellTerminalHandle = {
+  /**
+   * Put text at the prompt WITHOUT running it (no Enter is added), e.g. a
+   * lesson's example. "blocked": pasting is off for the student (the usual
+   * notice was shown); "offline": the shell isn't connected.
+   */
+  sendText: (text: string) => "sent" | "blocked" | "offline";
+};
 
 /**
  * Browser terminal attached to the student's box via the runner WebSocket.
@@ -22,11 +39,19 @@ export function ShellTerminal({
   shell = "BASH",
   exercise,
   className,
+  onCommand,
+  ref,
 }: {
   shell?: "BASH" | "PWSH";
   /** Exercise slug: start the shell in ~/exercises/<slug>. */
   exercise?: string;
   className?: string;
+  /**
+   * Called when the student presses Enter (a command was probably run).
+   * Not debounced; the command itself isn't known here (see the command log).
+   */
+  onCommand?: () => void;
+  ref?: Ref<ShellTerminalHandle>;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -45,6 +70,11 @@ export function ShellTerminal({
   const [controlRequest, setControlRequest] = useState<string | null>(null);
   const [controlledBy, setControlledBy] = useState<string | null>(null);
   const [errorText, setErrorText] = useState<string | null>(null);
+  // Latest callback without re-running the connect effect.
+  const onCommandRef = useRef(onCommand);
+  useEffect(() => {
+    onCommandRef.current = onCommand;
+  }, [onCommand]);
 
   const notifyPasteBlocked = useCallback(() => {
     const now = Date.now();
@@ -225,6 +255,7 @@ export function ShellTerminal({
         disposables.push(
           term.onData((d) => {
             if (ws?.readyState === WebSocket.OPEN) ws.send(enc.encode(d));
+            if (d.includes("\r")) onCommandRef.current?.();
           }),
           term.onResize(({ cols, rows }) => {
             if (ws?.readyState === WebSocket.OPEN) {
@@ -250,6 +281,30 @@ export function ShellTerminal({
     const ws = wsRef.current;
     if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
   };
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      sendText: (text) => {
+        const term = termRef.current;
+        const ws = wsRef.current;
+        if (!term || ws?.readyState !== WebSocket.OPEN) return "offline";
+        // Inserting text is pasting: same rule as Ctrl+V (the runner would
+        // drop it anyway).
+        if (pasteBlockedRef.current) {
+          notifyPasteBlocked();
+          return "blocked";
+        }
+        // xterm's paste() uses bracketed paste when the shell enabled it
+        // (bash does), so multi-line code is inserted, not run. Trailing
+        // newlines are dropped: the student presses Enter themselves.
+        term.paste(text.replace(/\s+$/, ""));
+        term.focus();
+        return "sent";
+      },
+    }),
+    [notifyPasteBlocked],
+  );
 
   const reconnect = useCallback(() => {
     termRef.current?.reset();

@@ -34,6 +34,13 @@ enum AssignmentMode {
   EXAM
 }
 
+/// EXERCISE = graded task. LESSON = guided, ungraded walkthrough (steps
+/// explain a concept and check themselves after each command).
+enum ExerciseKind {
+  EXERCISE
+  LESSON
+}
+
 enum AttemptStatus {
   IN_PROGRESS
   PASSED
@@ -60,6 +67,7 @@ model User {
   memberships          ClassMembership[]
   teachingClasses      ClassTeacher[]
   authoredExercises    Exercise[]
+  cheatSheets          CheatSheet[]
   attempts             Attempt[]
   assignmentExtensions AssignmentExtension[]
   classGroups          ClassGroupMember[]
@@ -143,6 +151,7 @@ model Exercise {
   /// Markdown intro shown above the steps
   description String
   shell       ShellKind
+  kind        ExerciseKind @default(EXERCISE)
   difficulty  Int        @default(1)
   /// Total of all step points (kept in sync when the steps are saved)
   points      Int        @default(10)
@@ -198,6 +207,8 @@ model Assignment {
   dueAt      DateTime?
   /// null = unlimited (practice)
   maxChecks  Int?
+  /// Topic cheat sheets are shown next to the terminal
+  allowCheatSheet Boolean @default(true)
   allowHints Boolean        @default(true)
   allowPaste Boolean        @default(true)
   published  Boolean        @default(false)
@@ -235,6 +246,9 @@ model AssignmentItem {
   order        Int
   /// Overrides Exercise.points when set
   points       Int?
+  /// The items after this one stay locked until this one is solved
+  /// (e.g. a lesson that has to be done before the exercises).
+  gate         Boolean @default(false)
 
   assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   exercise   Exercise   @relation(fields: [exerciseId], references: [id])
@@ -342,6 +356,30 @@ model AttemptStep {
 
   @@id([attemptId, stepId])
   @@index([stepId])
+}
+
+/// Short reference for a topic, shown beside the terminal on exercises
+/// that share one of its tags.
+model CheatSheet {
+  id         String     @id @default(cuid())
+  slug       String     @unique
+  title      String
+  shell      ShellKind
+  /// Shown on exercises/lessons that have at least one of these tags
+  tags       String[]
+  /// Markdown
+  body       String     @default("")
+  /// Lower first
+  order      Int        @default(0)
+  visibility Visibility @default(SHARED)
+  archived   Boolean    @default(false)
+  authorId   String
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  author User @relation(fields: [authorId], references: [id])
+
+  @@index([authorId])
 }
 
 model CommandLog {

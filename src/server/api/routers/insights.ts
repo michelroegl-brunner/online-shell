@@ -364,6 +364,7 @@ export const insightsRouter = createTRPCRouter({
         select: {
           id: true,
           points: true,
+          kind: true,
           steps: {
             orderBy: { order: "asc" },
             select: { id: true, title: true, points: true, hints: true },
@@ -469,18 +470,20 @@ export const insightsRouter = createTRPCRouter({
         attempts: attempts.length,
         solved: attempts.filter((t) => t.status === "PASSED").length,
         medianMinutes: median(solvedTimes),
-        avgScorePct: attempts.length
-          ? attempts.reduce(
-              (n, t) =>
-                n +
-                (t.score ?? 0) /
-                  Math.max(
-                    1,
-                    itemMaxPoints(t.assignmentItem.points, ex.points),
-                  ),
-              0,
-            ) / attempts.length
-          : null,
+        // Lessons have no points: a score percentage means nothing there.
+        avgScorePct:
+          attempts.length && ex.kind !== "LESSON"
+            ? attempts.reduce(
+                (n, t) =>
+                  n +
+                  (t.score ?? 0) /
+                    Math.max(
+                      1,
+                      itemMaxPoints(t.assignmentItem.points, ex.points),
+                    ),
+                0,
+              ) / attempts.length
+            : null,
         avgResets: attempts.length
           ? attempts.reduce((n, t) => n + t.resets, 0) / attempts.length
           : null,

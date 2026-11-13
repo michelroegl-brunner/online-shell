@@ -1,0 +1,226 @@
+{
+  "format": "online-shell-exercises",
+  "version": 1,
+  "exercises": [
+    {
+      "title": "Lektion: Funktionen in der Bash",
+      "slug": "bash-funktionen-lektion",
+      "kind": "LESSON",
+      "description": "In dieser **Lektion** lernst du Schritt für Schritt, wie du in der Bash\neigene **Funktionen** schreibst – von der ersten Funktion bis zu einer kleinen\n`backup`-Funktion in einer eigenen Datei.\n\nSo funktioniert's:\n\n- Jeder Schritt erklärt kurz eine Idee und zeigt ein Beispiel.\n- Mit **Try it** landet ein Beispiel im Terminal – **Enter** drückst du selbst.\n- Sobald du die Aufgabe erledigt hast, wird der Schritt **automatisch**\n  abgehakt und der nächste geht auf.\n\nEs gibt keine Punkte – probier ruhig herum. Bleib dabei in deinem Übungsordner\n`~/exercises/bash-funktionen-lektion` (dort startet das Terminal), sonst\nwerden deine Befehle nicht erkannt.",
+      "shell": "BASH",
+      "difficulty": 2,
+      "setupScript": "# Der Ordner ist anfangs leer – funcs.sh legen die Lernenden selbst an.\ntrue",
+      "tags": ["bash", "funktionen", "functions", "skripte"],
+      "visibility": "PRIVATE",
+      "steps": [
+        {
+          "title": "Deine erste Funktion",
+          "description": "Eine **Funktion** ist ein kleines Stück Bash-Code mit einem Namen.\nDu definierst sie einmal und kannst sie danach so oft aufrufen, wie du willst –\ngenau wie einen normalen Befehl.\n\nSo sieht das aus:\n\n```bash\nhallo() { echo \"Hallo Welt\"; }\n```\n\nWichtig: Zwischen `{` und dem ersten Befehl steht ein **Leerzeichen**, und der\nletzte Befehl endet mit **`;`** (oder einem Zeilenumbruch). Aufgerufen wird die\nFunktion einfach mit ihrem Namen – ohne Klammern:\n\n```bash\nhallo\n```\n\n**Probier es aus:** Definiere die Funktion `hallo` und ruf sie danach auf.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks (Befehlsprotokoll).",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "\\bhallo\\s*\\(\\s*\\)|\\bfunction\\s+hallo\\b",
+              "successOnly": false,
+              "message": "Definiere zuerst die Funktion hallo, z. B. mit hallo() { echo \"Hallo Welt\"; }"
+            },
+            {
+              "type": "command_used",
+              "pattern": "(^|[;&|]\\s*)hallo(?!\\s*\\()(\\s|$|[;&|])",
+              "successOnly": true,
+              "message": "Jetzt ruf hallo noch auf – einfach den Namen eintippen."
+            }
+          ],
+          "hints": [
+            "Mit dem Button **Try it** landet das Beispiel direkt im Terminal – du musst nur noch Enter drücken.",
+            "Fehlermeldung `syntax error near unexpected token`? Prüfe das Leerzeichen nach `{` und das `;` vor `}`."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Parameter: $1 und $2",
+          "description": "Funktionen können **Argumente** bekommen – genau wie Befehle.\nIn der Funktion heißen sie `$1` (erstes Argument), `$2` (zweites) usw.\n\n```bash\ngruss() { echo \"Hallo $1, du bist $2 Jahre alt.\"; }\ngruss Max 16\n```\n\nAusgabe: `Hallo Max, du bist 16 Jahre alt.`\n\nSetz `$1` in **doppelte Anführungszeichen**, wenn du es verwendest – dann\nfunktioniert es auch mit Leerzeichen im Argument.\n\n**Probier es aus:** Definiere `gruss` und ruf die Funktion mit **zwei**\nArgumenten auf (deinem Namen und deinem Alter).",
+          "checkScript": "# Geprüft wird mit den fertigen Checks (Befehlsprotokoll).",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "\\bgruss\\s*\\(\\s*\\)|\\bfunction\\s+gruss\\b",
+              "successOnly": false,
+              "message": "Definiere zuerst die Funktion gruss."
+            },
+            {
+              "type": "command_used",
+              "pattern": "(^|[;&|]\\s*)gruss(?!\\s*\\()\\s+\\S+\\s+\\S+(\\s|$|[;&|])",
+              "successOnly": true,
+              "message": "Ruf gruss mit zwei Argumenten auf, z. B. gruss Max 16"
+            }
+          ],
+          "hints": [
+            "Die Argumente stehen beim Aufruf einfach hinter dem Namen, durch Leerzeichen getrennt.",
+            "`gruss Anna 17` – `$1` ist dann `Anna`, `$2` ist `17`."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Alle Argumente: $# und $@",
+          "description": "Oft weißt du vorher nicht, wie viele Argumente kommen. Dafür gibt es:\n\n| Variable | Bedeutung |\n|---|---|\n| `$#` | **Anzahl** der Argumente |\n| `$@` | **alle** Argumente |\n\n```bash\nzaehle() { echo \"Du hast $# Argumente übergeben: $@\"; }\nzaehle Apfel Birne Kiwi\n```\n\nAusgabe: `Du hast 3 Argumente übergeben: Apfel Birne Kiwi`\n\nMit `\"$@\"` (in Anführungszeichen) kannst du alle Argumente sauber an einen\nanderen Befehl weitergeben, z. B. in einer Schleife `for x in \"$@\"; do …; done`.\n\n**Probier es aus:** Definiere `zaehle` (mit `$#`) und ruf die Funktion mit\n**mindestens drei** Argumenten auf.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks (Befehlsprotokoll).",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "(\\bzaehle\\s*\\(\\s*\\)|\\bfunction\\s+zaehle\\b).*\\$#",
+              "successOnly": false,
+              "message": "Definiere zaehle so, dass sie $# ausgibt."
+            },
+            {
+              "type": "command_used",
+              "pattern": "(^|[;&|]\\s*)zaehle(?!\\s*\\()(\\s+\\S+){3,}(\\s|$|[;&|])",
+              "successOnly": true,
+              "message": "Ruf zaehle mit mindestens drei Argumenten auf."
+            }
+          ],
+          "hints": [
+            "`$#` ist eine Zahl – sie zählt die Argumente beim Aufruf.",
+            "Probier auch `zaehle` ganz ohne Argumente: Was gibt `$#` dann aus?"
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Lokale und globale Variablen",
+          "description": "Variablen in der Bash sind normalerweise **global**: Eine Funktion kann\nVariablen von außen verändern – das führt schnell zu Überraschungen.\n\nMit **`local`** gilt eine Variable nur **innerhalb** der Funktion:\n\n```bash\nfarbe=rot\nfarbe_setzen() { local farbe=blau; echo \"innen: $farbe\"; }\nfarbe_setzen\necho \"außen: $farbe\"\n```\n\nAusgabe:\n\n```text\ninnen: blau\naußen: rot\n```\n\nOhne `local` würde die Funktion die äußere Variable überschreiben und\n`außen: blau` erscheinen.\n\n**Probier es aus:** Definiere `farbe_setzen` mit `local`, ruf sie auf und gib\ndanach `$farbe` mit `echo` aus.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks (Befehlsprotokoll).",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "\\blocal\\s+farbe=",
+              "successOnly": false,
+              "message": "Verwende in der Funktion local farbe=…"
+            },
+            {
+              "type": "command_used",
+              "pattern": "(^|[;&|]\\s*)farbe_setzen(?!\\s*\\()(\\s|$|[;&|])",
+              "successOnly": true,
+              "message": "Ruf farbe_setzen auf."
+            },
+            {
+              "type": "command_used",
+              "pattern": "(^\\s*|\\bfarbe_setzen\\s*;\\s*)echo\\b.*\\$\\{?farbe\\b",
+              "successOnly": false,
+              "message": "Gib danach außerhalb der Funktion $farbe mit echo aus."
+            }
+          ],
+          "hints": [
+            "Tipp die Zeilen aus dem Beispiel nacheinander ein (oder nimm **Try it**).",
+            "Lass `local` testweise weg: Was steht danach bei `echo \"außen: $farbe\"`?"
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "return, Exit-Code und $( … )",
+          "description": "Eine Funktion kann auf zwei Arten etwas „zurückgeben“:\n\n1. **`return n`** setzt den **Exit-Code** (0 = Erfolg, 1–255 = Fehler). Den\n   liest du danach mit `$?` – praktisch für Ja/Nein-Fragen.\n2. **Ausgabe mit `echo`**: Die fängst du mit **`$( … )`** in einer Variable auf.\n\n```bash\nist_gerade() { [ $(( $1 % 2 )) -eq 0 ]; }\nist_gerade 7\necho $?\n```\n\n`echo $?` zeigt `1` – 7 ist nicht gerade. (Ohne `return` gilt der Exit-Code\ndes letzten Befehls in der Funktion.)\n\n```bash\ndoppelt() { echo $(( $1 * 2 )); }\nergebnis=$(doppelt 21)\necho \"Ergebnis: $ergebnis\"\n```\n\nMerke: `return` ist **nur** für den Status da – Zahlen oder Texte gibst du mit\n`echo` aus.\n\n**Probier es aus:** Ruf `ist_gerade` auf und schau dir mit `echo $?` den\nExit-Code an. Speichere dann das Ergebnis von `doppelt` mit `$( … )` in einer\nVariable.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks (Befehlsprotokoll).",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "\\$\\?",
+              "successOnly": false,
+              "message": "Schau dir den Exit-Code mit echo $? an."
+            },
+            {
+              "type": "command_used",
+              "pattern": "\\bdoppelt\\s*\\(\\s*\\)|\\bfunction\\s+doppelt\\b",
+              "successOnly": false,
+              "message": "Definiere die Funktion doppelt."
+            },
+            {
+              "type": "command_used",
+              "pattern": "=\\s*\\\"?\\$\\(\\s*doppelt\\s+\\S+",
+              "successOnly": true,
+              "message": "Speichere das Ergebnis mit variable=$(doppelt 21) in einer Variable."
+            }
+          ],
+          "hints": [
+            "`$?` gilt immer für den **letzten** Befehl – gib es direkt nach dem Aufruf aus.",
+            "Kein Leerzeichen um das `=`: `ergebnis=$(doppelt 21)`."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Standardwerte mit ${1:-…}",
+          "description": "Was passiert, wenn jemand deine Funktion **ohne** Argument aufruft? Dann ist\n`$1` leer. Mit **`${1:-Standard}`** nimmst du in diesem Fall einen Standardwert:\n\n```bash\nbegruessung() { local name=${1:-Welt}; echo \"Hallo $name!\"; }\nbegruessung\nbegruessung Lisa\n```\n\nAusgabe:\n\n```text\nHallo Welt!\nHallo Lisa!\n```\n\nDas funktioniert mit jeder Variable: `${variable:-wert}`.\n\n**Probier es aus:** Definiere `begruessung` mit `${1:-…}` und ruf sie **ohne**\nArgument auf.",
+          "checkScript": "# Geprüft wird mit den fertigen Checks (Befehlsprotokoll).",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "\\$\\{1:-",
+              "successOnly": false,
+              "message": "Verwende in der Funktion ${1:-…} für den Standardwert."
+            },
+            {
+              "type": "command_used",
+              "pattern": "(^|[;&|]\\s*)begruessung\\s*($|[;&|])",
+              "successOnly": true,
+              "message": "Ruf begruessung ohne Argument auf."
+            }
+          ],
+          "hints": [
+            "Achte auf die geschweiften Klammern und den Doppelpunkt: `${1:-Welt}`.",
+            "Ohne Argument heißt: nur `begruessung` und Enter."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Funktionen in einer Datei: source",
+          "description": "Funktionen, die du im Terminal definierst, sind weg, sobald du die Shell\nschließt. Besser: Du schreibst sie in eine **Datei** und lädst sie mit\n**`source`** (Kurzform: `.`) in deine Shell.\n\nLeg die Datei `funcs.sh` in deinem Übungsordner an – zum Beispiel mit `echo`\n(die einfachen Anführungszeichen sorgen dafür, dass `$1` wörtlich in die Datei\nkommt):\n\n```bash\necho 'quadrat() { echo $(( $1 * $1 )); }' > funcs.sh\n```\n\nOder öffne die Datei mit `nano funcs.sh` und tipp die Funktion dort ein.\nDanach laden und verwenden:\n\n```bash\nsource funcs.sh\nquadrat 7\n```\n\n**Probier es aus:** Leg `funcs.sh` mit der Funktion `quadrat` an, lade sie mit\n`source` und ruf `quadrat 7` auf (Ergebnis: `49`).",
+          "checkScript": "# Geprüft wird mit den fertigen Checks (Befehlsprotokoll).",
+          "checks": [
+            {
+              "type": "file_exists",
+              "path": "funcs.sh",
+              "kind": "file",
+              "message": "Die Datei funcs.sh gibt es noch nicht."
+            },
+            {
+              "type": "command_output",
+              "command": "source ./funcs.sh >/dev/null 2>&1; quadrat 7",
+              "match": "exact",
+              "value": "49",
+              "message": "In funcs.sh fehlt noch eine Funktion quadrat, die bei quadrat 7 genau 49 ausgibt."
+            },
+            {
+              "type": "command_used",
+              "pattern": "(^|[;&|]\\s*)(source|\\.)\\s+(\\./)?funcs\\.sh\\b",
+              "successOnly": true,
+              "message": "Lade die Datei mit source funcs.sh in deine Shell."
+            }
+          ],
+          "hints": [
+            "`cat funcs.sh` zeigt dir, was wirklich in der Datei steht.",
+            "Nach jeder Änderung an `funcs.sh` musst du sie neu mit `source funcs.sh` laden."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        },
+        {
+          "title": "Abschluss: eine backup-Funktion",
+          "description": "Jetzt kombinierst du alles. Schreib in **`funcs.sh`** eine Funktion\n**`backup`**, die eine Datei sichert:\n\n- Sie erwartet **genau ein** Argument (prüfe `$#`).\n- Stimmt die Anzahl nicht, gibt sie eine Hilfe auf **stderr** aus (`>&2`) und\n  beendet sich mit **`return 1`**.\n- Sonst kopiert sie die Datei nach `<datei>.bak`.\n\nEin Gerüst zum Ausbauen:\n\n```bash\nbackup() {\n  if [ $# -ne 1 ]; then\n    echo \"Verwendung: backup DATEI\" >&2\n    return 1\n  fi\n  cp -- \"$1\" \"$1.bak\"\n}\n```\n\nAm bequemsten schreibst du das mit `nano funcs.sh` in die Datei (die Funktion\n`quadrat` darf drinbleiben). Danach testen:\n\n```bash\nsource funcs.sh\nbackup; echo \"Exit-Code: $?\"\necho test > notiz.txt\nbackup notiz.txt && ls\n```\n\n**Probier es aus:** Ergänze `backup` in `funcs.sh`. Geprüft wird die Datei –\nmit falscher Argumentanzahl und mit einer echten Datei.",
+          "checkScript": "# Tests backup from funcs.sh in a temp folder (the student's files stay untouched).\n[ -f funcs.sh ] || { echo \"Die Datei funcs.sh gibt es noch nicht.\"; exit 1; }\nt=$(mktemp -d) || exit 1\ntrap 'rm -rf -- \"$t\"' EXIT\ncp -- funcs.sh \"$t/\" && cd -- \"$t\" || exit 1\necho \"Testinhalt\" > probe.txt\n\nrun() { timeout 10 bash -c 'source ./funcs.sh >/dev/null 2>&1; declare -F backup >/dev/null || exit 42; backup \"$@\"' backup \"$@\" </dev/null; }\n\nout=$(run 2>err.txt); rc=$?\n[ \"$rc\" -eq 42 ] && { echo \"In funcs.sh gibt es noch keine Funktion backup.\"; exit 1; }\n[ \"$rc\" -ne 0 ] || { echo \"backup ohne Argument soll mit return 1 enden (Exit-Code ungleich 0).\"; exit 1; }\n[ -s err.txt ] || { echo \"backup ohne Argument soll eine Hilfe auf stderr ausgeben (echo … >&2).\"; exit 1; }\n[ -z \"$out\" ] || { echo \"Die Hilfe gehört auf stderr, nicht auf stdout: echo \\\"…\\\" >&2\"; exit 1; }\n\nrun probe.txt probe.txt >/dev/null 2>&1 && { echo \"backup mit zwei Argumenten soll ebenfalls mit return 1 abbrechen.\"; exit 1; }\n\nrun probe.txt >/dev/null 2>&1 || { echo \"backup probe.txt soll funktionieren (Exit-Code 0).\"; exit 1; }\nif [ ! -f probe.txt.bak ] || ! cmp -s probe.txt probe.txt.bak; then\n  echo \"backup probe.txt soll eine Kopie probe.txt.bak anlegen.\"\n  exit 1\nfi\necho \"Super – backup prüft seine Argumente, meldet Fehler auf stderr und legt die Kopie an.\"\n",
+          "checks": [],
+          "hints": [
+            "`[ $# -ne 1 ]` ist wahr, wenn **nicht genau ein** Argument übergeben wurde.",
+            "`>&2` leitet die Ausgabe von `echo` auf stderr um.",
+            "Teste mit `backup; echo $?` – es sollte eine Meldung und `1` erscheinen."
+          ],
+          "points": 0,
+          "requiresPrevious": true
+        }
+      ]
+    }
+  ]
+}

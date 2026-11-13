@@ -9,7 +9,8 @@ import { type db as Db } from "~/server/db";
  * Exercise bundles: JSON files for sharing / versioning exercises.
  *   { "format": "online-shell-exercises", "version": 1, "exercises": [...] }
  * Exercises are matched by slug; steps by position (so student progress on
- * a step survives a re-import). The same logic is used by the CLI
+ * a step survives a re-import). `kind` ("EXERCISE" | "LESSON") is optional
+ * and defaults to EXERCISE, so version-1 files without it still import. The same logic is used by the CLI
  * (deploy/import-exercises.mjs) — keep them in sync.
  */
 
@@ -129,6 +130,7 @@ export function toBundle(
       slug: e.slug,
       description: e.description,
       shell: e.shell,
+      kind: e.kind,
       difficulty: e.difficulty,
       setupScript: e.setupScript,
       tags: e.tags,

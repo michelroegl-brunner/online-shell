@@ -28,6 +28,7 @@ export default async function EditAssignmentPage({
         dueAt: a.dueAt,
         maxChecks: a.maxChecks,
         allowHints: a.allowHints,
+        allowCheatSheet: a.allowCheatSheet,
         allowPaste: a.allowPaste,
         published: a.published,
         publishAt: a.publishAt,
@@ -37,8 +38,10 @@ export default async function EditAssignmentPage({
           title: i.exercise.title,
           slug: i.exercise.slug,
           shell: i.exercise.shell,
+          kind: i.exercise.kind,
           defaultPoints: i.exercise.points,
           points: i.points == null ? "" : String(i.points),
+          gate: i.gate,
           attempts: i.attempts,
         })),
       }}

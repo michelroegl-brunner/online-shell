@@ -35,6 +35,13 @@ export const stepInput = z.object({
   requiresPrevious: z.boolean(),
 });
 
+/**
+ * EXERCISE = graded task. LESSON = guided, ungraded walkthrough: worth 0
+ * points, and each step checks itself after the student runs a command.
+ */
+export const EXERCISE_KINDS = ["EXERCISE", "LESSON"] as const;
+export type ExerciseKind = (typeof EXERCISE_KINDS)[number];
+
 export const exerciseInput = z.object({
   title: z.string().trim().min(1, "Title is required").max(200),
   slug: z
@@ -44,6 +51,8 @@ export const exerciseInput = z.object({
   /** Markdown intro shown above the steps */
   description: z.string().max(50_000),
   shell: z.enum(["BASH", "PWSH"]),
+  /** Optional in imports (older bundles): defaults to a normal exercise. */
+  kind: z.enum(EXERCISE_KINDS).default("EXERCISE"),
   difficulty: z.number().int().min(1).max(5),
   setupScript: z.string().max(100_000),
   tags: z.array(z.string().trim().toLowerCase().min(1).max(40)).max(20),
@@ -76,6 +85,7 @@ export const EXERCISE_TEMPLATE: ExerciseInput = {
   title: "Log files: count, find, archive",
   slug: "log-files-count-find-archive",
   shell: "BASH",
+  kind: "EXERCISE",
   difficulty: 2,
   visibility: "PRIVATE",
   tags: ["find", "sort", "tar"],

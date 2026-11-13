@@ -9,3 +9,7 @@ docker compose -p online-shell -f deploy/docker-compose.yml --env-file /opt/onli
 ```
 
 `*.solutions.md` files hold the reference solutions (for teachers, not imported).
+
+`lessons/` holds guided, ungraded **lessons** in the same format (`"kind": "LESSON"`;
+without `kind` an entry is a normal exercise). Import them the same way, e.g.
+`content/lessons/bash-funktionen.json` (Bash functions, German).

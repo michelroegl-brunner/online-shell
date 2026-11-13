@@ -8,6 +8,7 @@ import {
   EyeOff,
   FlaskConical,
   Loader2,
+  Lock,
   Plus,
   Save,
   Search,
@@ -19,6 +20,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { LessonBadge } from "~/components/learn/badges";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
@@ -47,9 +49,13 @@ export type EditorItem = {
   title: string;
   slug: string;
   shell: "BASH" | "PWSH";
+  /** Lessons are worth 0 points (no points field). */
+  kind: "EXERCISE" | "LESSON";
   defaultPoints: number;
   /** "" = use the exercise's default */
   points: string;
+  /** Items after this one stay locked until it is solved. */
+  gate: boolean;
   /** Attempts already made on this item (0 for new items). */
   attempts: number;
 };
@@ -63,6 +69,7 @@ export type EditorInitial = {
   dueAt: Date | null;
   maxChecks: number | null;
   allowHints: boolean;
+  allowCheatSheet: boolean;
   allowPaste: boolean;
   published: boolean;
   publishAt: Date | null;
@@ -128,9 +135,13 @@ export function AssignmentEditor({
   const saving = create.isPending || update.isPending;
 
   const totalPoints = form.items.reduce(
-    (s, i) => s + (i.points === "" ? i.defaultPoints : Number(i.points) || 0),
+    (s, i) =>
+      i.kind === "LESSON"
+        ? s
+        : s + (i.points === "" ? i.defaultPoints : Number(i.points) || 0),
     0,
   );
+  const lessonCount = form.items.filter((i) => i.kind === "LESSON").length;
 
   function buildInput() {
     const maxChecks = form.maxChecks.trim();
@@ -140,12 +151,16 @@ export function AssignmentEditor({
       groupIds: form.groupIds,
       items: form.items.map((i) => ({
         exerciseId: i.exerciseId,
-        points: i.points === "" ? null : Number(i.points),
+        // Lessons are always worth 0; don't store a stray override.
+        points:
+          i.kind === "LESSON" || i.points === "" ? null : Number(i.points),
+        gate: i.gate,
       })),
       opensAt: fromLocalInput(form.opensAt),
       dueAt: fromLocalInput(form.dueAt),
       maxChecks: maxChecks === "" ? null : Number(maxChecks),
       allowHints: form.allowHints,
+      allowCheatSheet: form.allowCheatSheet,
       allowPaste: form.allowPaste,
       published: form.published,
       publishAt: form.published
@@ -492,6 +507,20 @@ export function AssignmentEditor({
               Allow hints
             </label>
           </Field>
+          <Field label="Cheat sheets" className="md:col-span-1">
+            <label
+              className="flex h-9 items-center gap-2 text-sm"
+              title="Show topic cheat sheets next to the terminal (matched by the exercise's tags)."
+            >
+              <input
+                type="checkbox"
+                className="accent-primary size-4"
+                checked={form.allowCheatSheet}
+                onChange={(e) => set("allowCheatSheet", e.target.checked)}
+              />
+              Show cheat sheets
+            </label>
+          </Field>
           <Field label="Terminal" className="md:col-span-1">
             <label
               className="flex h-9 items-center gap-2 text-sm"
@@ -515,6 +544,8 @@ export function AssignmentEditor({
             Exercises
             <span className="text-muted-foreground ml-auto text-sm font-normal">
               {form.items.length} exercise{form.items.length === 1 ? "" : "s"},{" "}
+              {lessonCount > 0 &&
+                `${lessonCount} lesson${lessonCount === 1 ? "" : "s"} (no points), `}
               {totalPoints} points
             </span>
           </CardTitle>
@@ -538,32 +569,59 @@ export function AssignmentEditor({
                     <div className="flex items-center gap-2 font-medium">
                       {it.title}
                       <ShellBadge shell={it.shell} />
+                      {it.kind === "LESSON" && <LessonBadge />}
                     </div>
                     <div className="text-muted-foreground font-mono text-xs">
                       {it.slug}
                       {it.attempts > 0 &&
                         ` · ${it.attempts} attempt${it.attempts === 1 ? "" : "s"}`}
                     </div>
+                    <label
+                      className="mt-1 flex w-fit items-center gap-2 text-xs"
+                      title="Students can open the following exercises only after solving this one (e.g. a lesson before its exercises)."
+                    >
+                      <input
+                        type="checkbox"
+                        className="accent-primary size-3.5"
+                        checked={it.gate}
+                        onChange={(e) =>
+                          set(
+                            "items",
+                            form.items.map((x, i) =>
+                              i === idx ? { ...x, gate: e.target.checked } : x,
+                            ),
+                          )
+                        }
+                      />
+                      <Lock className="text-muted-foreground size-3" />
+                      Must be done before the next ones
+                    </label>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Input
-                      type="number"
-                      min={0}
-                      className="w-20"
-                      aria-label="Points"
-                      placeholder={String(it.defaultPoints)}
-                      value={it.points}
-                      onChange={(e) =>
-                        set(
-                          "items",
-                          form.items.map((x, i) =>
-                            i === idx ? { ...x, points: e.target.value } : x,
-                          ),
-                        )
-                      }
-                    />
-                    <span className="text-muted-foreground text-xs">pts</span>
-                  </div>
+                  {it.kind === "LESSON" ? (
+                    <span className="text-muted-foreground w-24 text-right text-xs">
+                      no points
+                    </span>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <Input
+                        type="number"
+                        min={0}
+                        className="w-20"
+                        aria-label="Points"
+                        placeholder={String(it.defaultPoints)}
+                        value={it.points}
+                        onChange={(e) =>
+                          set(
+                            "items",
+                            form.items.map((x, i) =>
+                              i === idx ? { ...x, points: e.target.value } : x,
+                            ),
+                          )
+                        }
+                      />
+                      <span className="text-muted-foreground text-xs">pts</span>
+                    </div>
+                  )}
                   <div className="flex">
                     <Button
                       variant="ghost"
@@ -612,8 +670,11 @@ export function AssignmentEditor({
                   title: ex.title,
                   slug: ex.slug,
                   shell: ex.shell,
+                  kind: ex.kind,
                   defaultPoints: ex.points,
                   points: "",
+                  // A lesson usually comes first and opens the exercises.
+                  gate: ex.kind === "LESSON",
                   attempts: 0,
                 },
               ])
@@ -635,6 +696,7 @@ function ExercisePicker({
     title: string;
     slug: string;
     shell: "BASH" | "PWSH";
+    kind: "EXERCISE" | "LESSON";
     points: number;
   }) => void;
 }) {
@@ -679,6 +741,7 @@ function ExercisePicker({
                 <div className="flex items-center gap-2 text-sm">
                   {ex.title}
                   <ShellBadge shell={ex.shell} />
+                  {ex.kind === "LESSON" && <LessonBadge />}
                   {ex.tags.slice(0, 3).map((t) => (
                     <Badge key={t} variant="outline" className="text-xs">
                       {t}
@@ -686,7 +749,8 @@ function ExercisePicker({
                   ))}
                 </div>
                 <div className="text-muted-foreground font-mono text-xs">
-                  {ex.slug} · {ex.points} pts
+                  {ex.slug} ·{" "}
+                  {ex.kind === "LESSON" ? "lesson" : `${ex.points} pts`}
                 </div>
               </div>
               <Button

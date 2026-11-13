@@ -132,7 +132,7 @@ export function Library() {
                 <div className="text-muted-foreground text-xs">
                   {ex.mine ? "you" : ex.author.name} ·{" "}
                   {ex.stepCount === 1 ? "1 step" : `${ex.stepCount} steps`} ·{" "}
-                  {ex.points} pts ·{" "}
+                  {ex.kind === "LESSON" ? "lesson" : `${ex.points} pts`} ·{" "}
                   {ex.usedIn === 0
                     ? "not used yet"
                     : `used in ${ex.usedIn} assignment${ex.usedIn === 1 ? "" : "s"}`}

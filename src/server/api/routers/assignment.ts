@@ -49,6 +49,8 @@ const assignmentInput = z
         z.object({
           exerciseId: z.string().min(1),
           points: z.number().int().min(0).max(1000).nullable().optional(),
+          /** The items after this one stay locked until it is solved. */
+          gate: z.boolean().default(false),
         }),
       )
       .max(100),
@@ -56,6 +58,8 @@ const assignmentInput = z
     dueAt: z.date().nullable().optional(),
     maxChecks: z.number().int().min(1).max(1000).nullable().optional(),
     allowHints: z.boolean().default(true),
+    /** Topic cheat sheets next to the terminal. */
+    allowCheatSheet: z.boolean().default(true),
     allowPaste: z.boolean().default(false),
     published: z.boolean().default(false),
     /** Draft that goes live at this time (ignored once published). */
@@ -110,6 +114,7 @@ const baseData = (input: AssignmentInput) => ({
   dueAt: input.dueAt ?? null,
   maxChecks: input.maxChecks ?? null,
   allowHints: input.allowHints,
+  allowCheatSheet: input.allowCheatSheet,
   allowPaste: input.allowPaste,
   published: input.published,
   publishAt: input.published ? null : (input.publishAt ?? null),
@@ -243,12 +248,14 @@ export const assignmentRouter = createTRPCRouter({
               id: true,
               order: true,
               points: true,
+              gate: true,
               exercise: {
                 select: {
                   id: true,
                   title: true,
                   slug: true,
                   shell: true,
+                  kind: true,
                   points: true,
                   difficulty: true,
                 },
@@ -269,6 +276,7 @@ export const assignmentRouter = createTRPCRouter({
           id: i.id,
           order: i.order,
           points: i.points,
+          gate: i.gate,
           exercise: i.exercise,
           attempts: i._count.attempts,
         })),
@@ -290,6 +298,7 @@ export const assignmentRouter = createTRPCRouter({
               exerciseId: it.exerciseId,
               order,
               points: it.points ?? null,
+              gate: it.gate,
             })),
           },
         },
@@ -353,7 +362,7 @@ export const assignmentRouter = createTRPCRouter({
           return id
             ? ctx.db.assignmentItem.update({
                 where: { id },
-                data: { order, points: it.points ?? null },
+                data: { order, points: it.points ?? null, gate: it.gate },
               })
             : ctx.db.assignmentItem.create({
                 data: {
@@ -361,6 +370,7 @@ export const assignmentRouter = createTRPCRouter({
                   exerciseId: it.exerciseId,
                   order,
                   points: it.points ?? null,
+                  gate: it.gate,
                 },
               });
         }),
@@ -433,6 +443,7 @@ export const assignmentRouter = createTRPCRouter({
           dueAt: src.dueAt,
           maxChecks: src.maxChecks,
           allowHints: src.allowHints,
+          allowCheatSheet: src.allowCheatSheet,
           allowPaste: src.allowPaste,
           published: false,
           groups: sameClass
@@ -443,6 +454,7 @@ export const assignmentRouter = createTRPCRouter({
               exerciseId: i.exerciseId,
               order: i.order,
               points: i.points,
+              gate: i.gate,
             })),
           },
         },

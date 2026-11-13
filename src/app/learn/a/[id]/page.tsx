@@ -1,17 +1,22 @@
 import { TRPCError } from "@trpc/server";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { AppHeader } from "~/components/app-header";
 import { LEARN_NAV } from "~/lib/nav";
 import { Announcements } from "~/components/learn/announcements";
-import { AttemptIcon, WindowBadge } from "~/components/learn/badges";
+import {
+  AttemptIcon,
+  LessonBadge,
+  WindowBadge,
+} from "~/components/learn/badges";
 import { HandInButton } from "~/components/learn/exam-guard";
 import { TestRunBanner } from "~/components/learn/test-run-banner";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent } from "~/components/ui/card";
 import { formatDateTime } from "~/lib/format";
+import { cn } from "~/lib/utils";
 import { getCurrentUser } from "~/server/auth/current-user";
 import { api } from "~/trpc/server";
 
@@ -89,48 +94,84 @@ export default async function AssignmentPage({
 
         <Card>
           <CardContent className="flex flex-col divide-y p-0">
-            {a.items.map((item, i) => (
-              <Link
-                key={item.id}
-                href={`/learn/a/${a.id}/${item.id}`}
-                className="hover:bg-accent/40 flex items-center gap-4 px-4 py-3"
-              >
-                <AttemptIcon status={item.status} />
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium">
-                    <span className="text-muted-foreground mr-2">{i + 1}.</span>
-                    {item.title}
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                    <Badge variant="secondary" className="font-mono">
-                      {item.shell === "BASH" ? "bash" : "pwsh"}
-                    </Badge>
-                    {item.tags.slice(0, 4).map((t) => (
-                      <Badge key={t} variant="outline" className="text-xs">
-                        {t}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                <div className="text-right text-sm">
-                  <div>
-                    {item.score ?? 0}/{item.points} pts
-                  </div>
-                  {item.stepCount > 1 && (
-                    <div className="text-muted-foreground text-xs">
-                      {item.stepsPassed}/{item.stepCount} steps
-                    </div>
+            {a.items.map((item, i) => {
+              const lesson = item.kind === "LESSON";
+              const inner = (
+                <>
+                  {item.lockedBy ? (
+                    <Lock
+                      className="text-muted-foreground size-5"
+                      aria-label="Locked"
+                    />
+                  ) : (
+                    <AttemptIcon status={item.status} />
                   )}
-                  <div className="text-muted-foreground text-xs">
-                    {"●".repeat(item.difficulty)}
-                    <span className="opacity-30">
-                      {"●".repeat(5 - item.difficulty)}
-                    </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium">
+                      <span className="text-muted-foreground mr-2">
+                        {i + 1}.
+                      </span>
+                      {item.title}
+                    </div>
+                    {item.lockedBy && (
+                      <div className="text-muted-foreground mt-0.5 text-xs">
+                        Finish “{item.lockedBy}” first.
+                      </div>
+                    )}
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      {lesson && <LessonBadge />}
+                      <Badge variant="secondary" className="font-mono">
+                        {item.shell === "BASH" ? "bash" : "pwsh"}
+                      </Badge>
+                      {item.tags.slice(0, 4).map((t) => (
+                        <Badge key={t} variant="outline" className="text-xs">
+                          {t}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
+                  <div className="text-right text-sm">
+                    {/* Lessons are ungraded: no points. */}
+                    {!lesson && (
+                      <div>
+                        {item.score ?? 0}/{item.points} pts
+                      </div>
+                    )}
+                    {item.stepCount > 1 && (
+                      <div className="text-muted-foreground text-xs">
+                        {item.stepsPassed}/{item.stepCount} steps
+                      </div>
+                    )}
+                    {!lesson && (
+                      <div className="text-muted-foreground text-xs">
+                        {"●".repeat(item.difficulty)}
+                        <span className="opacity-30">
+                          {"●".repeat(5 - item.difficulty)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  {!item.lockedBy && (
+                    <ChevronRight className="text-muted-foreground size-4" />
+                  )}
+                </>
+              );
+              const row = "flex items-center gap-4 px-4 py-3";
+              // Locked behind a gate: not a link (the server refuses it too).
+              return item.lockedBy ? (
+                <div key={item.id} className={cn(row, "opacity-60")}>
+                  {inner}
                 </div>
-                <ChevronRight className="text-muted-foreground size-4" />
-              </Link>
-            ))}
+              ) : (
+                <Link
+                  key={item.id}
+                  href={`/learn/a/${a.id}/${item.id}`}
+                  className={cn(row, "hover:bg-accent/40")}
+                >
+                  {inner}
+                </Link>
+              );
+            })}
             {a.items.length === 0 && (
               <p className="text-muted-foreground p-6 text-center text-sm">
                 This assignment has no exercises yet.

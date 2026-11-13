@@ -1,7 +1,7 @@
 import "server-only";
 
 import { type db as dbType } from "~/server/db";
-import { itemMaxPoints, itemScore } from "./scoring";
+import { isLesson, itemMaxPoints, itemScore } from "./scoring";
 import { assignmentWhereVisibleTo } from "./visibility";
 import { effectiveDueAt, windowState } from "./window";
 
@@ -64,6 +64,7 @@ export async function studentProgress(db: Db, userId: string) {
             select: {
               title: true,
               shell: true,
+              kind: true,
               difficulty: true,
               tags: true,
               points: true,
@@ -106,13 +107,14 @@ export async function studentProgress(db: Db, userId: string) {
       const ex = item.exercise;
       const att = item.attempts[0];
       const stepTotal = ex.steps.reduce((s, x) => s + x.points, 0);
-      const max = itemMaxPoints(item.points, ex.points);
+      // Lessons are worth 0 (scoring.ts); their completion still counts.
+      const max = itemMaxPoints(item.points, ex.points, ex.kind);
       const progress = new Map((att?.steps ?? []).map((s) => [s.stepId, s]));
       const passedSteps = ex.steps.filter(
         (s) => progress.get(s.id)?.status === "PASSED",
       );
       const isSolved = att?.status === "PASSED";
-      const score = att?.score ?? 0;
+      const score = isLesson(ex.kind) ? 0 : (att?.score ?? 0);
 
       exercises += 1;
       maxPoints += max;
@@ -120,12 +122,12 @@ export async function studentProgress(db: Db, userId: string) {
       if (isSolved) solved += 1;
 
       // Timeline: each solved step adds its (scaled) points when it passed.
-      for (const s of passedSteps) {
+      for (const s of isLesson(ex.kind) ? [] : passedSteps) {
         const at = progress.get(s.id)?.passedAt;
         if (at)
           events.push({
             at,
-            points: itemScore(s.points, stepTotal, item.points),
+            points: itemScore(s.points, stepTotal, item.points, ex.kind),
           });
       }
 

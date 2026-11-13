@@ -18,10 +18,15 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Announcements } from "~/components/learn/announcements";
-import { WindowBadge } from "~/components/learn/badges";
+import { CheatSheetPanel } from "~/components/learn/cheat-sheet-panel";
+import { ErrorExplainer } from "~/components/learn/error-explainer";
+import { LessonBadge, WindowBadge } from "~/components/learn/badges";
 import { ExamGuard, HandInButton } from "~/components/learn/exam-guard";
 import { Markdown } from "~/components/markdown";
-import { ShellTerminal } from "~/components/terminal/shell-terminal";
+import {
+  ShellTerminal,
+  type ShellTerminalHandle,
+} from "~/components/terminal/shell-terminal";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
@@ -30,6 +35,9 @@ import { api, type RouterOutputs } from "~/trpc/react";
 type Item = RouterOutputs["learn"]["item"];
 type Step = Item["steps"][number];
 type CheckResult = { ok: boolean; output: string };
+
+/** Lessons: wait this long after the last Enter before checking. */
+const AUTO_CHECK_DELAY_MS = 1000;
 
 export function Workspace({ initial }: { initial: Item }) {
   const utils = api.useUtils();
@@ -52,6 +60,10 @@ export function Workspace({ initial }: { initial: Item }) {
   const check = api.learn.check.useMutation();
   const hint = api.learn.hint.useMutation();
   const reset = api.learn.reset.useMutation();
+  const autoCheck = api.learn.autoCheck.useMutation();
+
+  const lesson = exercise.kind === "LESSON";
+  const terminal = useRef<ShellTerminalHandle>(null);
 
   // The step to work on: first open step that isn't solved yet.
   const current =
@@ -92,13 +104,82 @@ export function Workspace({ initial }: { initial: Item }) {
         stepId: step.id,
       });
       setResults((m) => ({ ...m, [step.id]: { ok: r.ok, output: r.output } }));
-      if (r.exerciseSolved && r.ok) toast.success("Exercise solved! 🎉");
-      else if (r.ok) toast.success(`Step ${step.index + 1} solved!`);
+      if (r.exerciseSolved && r.ok) {
+        toast.success(lesson ? "Lesson complete! 🎉" : "Exercise solved! 🎉");
+      } else if (r.ok) {
+        toast.success(lesson ? "✓ Done!" : `Step ${step.index + 1} solved!`);
+      }
       // Let the next step open itself.
       if (r.ok) setExpanded((m) => ({ ...m, [step.id]: false }));
       await refresh();
     } catch (e) {
       toast.error((e as Error).message);
+    }
+  }
+
+  // ── Lessons: check the current step by itself after each command ──
+  // Debounced (the command log is written when the command finishes) and
+  // never overlapping: a command typed during a check queues one more run.
+  // Quiet: a failed auto-check shows nothing; a passed one says so and
+  // opens the next step. The server picks the current step.
+  const autoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoBusy = useRef(false);
+  const autoAgain = useRef(false);
+  useEffect(
+    () => () => {
+      if (autoTimer.current) clearTimeout(autoTimer.current);
+    },
+    [],
+  );
+
+  async function runAutoCheck() {
+    if (autoBusy.current) {
+      autoAgain.current = true;
+      return;
+    }
+    autoBusy.current = true;
+    try {
+      const r = await autoCheck.mutateAsync({ itemId: item.itemId });
+      const stepId = r.stepId;
+      if (r.ok && stepId) {
+        setResults((m) => ({ ...m, [stepId]: { ok: true, output: r.output } }));
+        setExpanded((m) => ({ ...m, [stepId]: false }));
+        toast.success(r.exerciseSolved ? "Lesson complete! 🎉" : "✓ Done!");
+        await refresh();
+      }
+    } catch {
+      // Quiet on purpose: the manual Check button shows real errors.
+    } finally {
+      autoBusy.current = false;
+      if (autoAgain.current) {
+        autoAgain.current = false;
+        scheduleAutoCheck();
+      }
+    }
+  }
+
+  function scheduleAutoCheck() {
+    if (autoTimer.current) clearTimeout(autoTimer.current);
+    autoTimer.current = setTimeout(
+      () => void runAutoCheck(),
+      AUTO_CHECK_DELAY_MS,
+    );
+  }
+
+  const autoCheckOn = lesson && open && ready && current !== null;
+
+  // Bumped after every command: the explainer looks at the command log then.
+  const [commandTick, setCommandTick] = useState(0);
+  function onCommand() {
+    setCommandTick((n) => n + 1);
+    if (autoCheckOn) scheduleAutoCheck();
+  }
+
+  /** Lessons: put an example from the text at the prompt (no Enter). */
+  function tryIt(code: string) {
+    const res = terminal.current?.sendText(code) ?? "offline";
+    if (res === "offline") {
+      toast.info("The terminal isn't connected yet — try again in a moment.");
     }
   }
 
@@ -135,7 +216,7 @@ export function Workspace({ initial }: { initial: Item }) {
 
   const solved = attempt?.status === "PASSED";
   const stepsPassed = steps.filter((s) => s.status === "PASSED").length;
-  const multi = steps.length > 1;
+  const multi = steps.length > 1 || lesson;
   const base = `/learn/a/${assignment.id}`;
   const exam = assignment.mode === "EXAM";
 
@@ -162,17 +243,21 @@ export function Workspace({ initial }: { initial: Item }) {
             <h1 className="text-xl font-semibold">{exercise.title}</h1>
             {solved && (
               <Badge className="bg-primary/15 text-primary border-primary/30">
-                <CheckCircle2 /> solved
+                <CheckCircle2 /> {lesson ? "done" : "solved"}
               </Badge>
             )}
           </div>
           <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-2 text-sm">
+            {lesson && <LessonBadge />}
             <Badge variant="secondary" className="font-mono">
               {exercise.shell === "BASH" ? "bash" : "pwsh"}
             </Badge>
-            <span>
-              {attempt?.score ?? 0}/{exercise.points} points
-            </span>
+            {/* Lessons are ungraded: no points anywhere. */}
+            {!lesson && (
+              <span>
+                {attempt?.score ?? 0}/{exercise.points} points
+              </span>
+            )}
             {multi && (
               <span>
                 · {stepsPassed}/{steps.length} steps
@@ -203,7 +288,20 @@ export function Workspace({ initial }: { initial: Item }) {
           </div>
         )}
 
-        {exercise.description && <Markdown>{exercise.description}</Markdown>}
+        {exercise.description && (
+          <Markdown onCodeAction={lesson && open ? tryIt : undefined}>
+            {exercise.description}
+          </Markdown>
+        )}
+
+        {lesson && open && (
+          <p className="rounded-md border border-sky-400/30 bg-sky-400/5 p-3 text-sm">
+            Read a step, try the example in the terminal (
+            <span className="font-medium">Try it</span> puts it at the prompt —
+            you press Enter), then do the task. Each step checks itself after
+            your commands.
+          </p>
+        )}
 
         <p className="text-muted-foreground text-xs">
           Your files are in{" "}
@@ -211,12 +309,21 @@ export function Workspace({ initial }: { initial: Item }) {
           {multi && " — all steps work in this folder"}.
         </p>
 
+        {assignment.allowCheatSheet && (
+          <CheatSheetPanel
+            itemId={item.itemId}
+            onInsert={open && ready ? tryIt : undefined}
+          />
+        )}
+
         <ol className="flex flex-col gap-3">
           {steps.map((s) => (
             <StepCard
               key={s.id}
               step={s}
               multi={multi}
+              lesson={lesson}
+              onTryIt={lesson && open && ready ? tryIt : undefined}
               expanded={isExpanded(s)}
               isCurrent={s.id === current?.id}
               onToggle={() =>
@@ -251,7 +358,16 @@ export function Workspace({ initial }: { initial: Item }) {
           ) : (
             <span />
           )}
-          {position.next ? (
+          {position.next && position.nextLockedBy ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled
+              title={`The next exercise opens after “${position.nextLockedBy}”.`}
+            >
+              <Lock /> Finish this {lesson ? "lesson" : "exercise"} first
+            </Button>
+          ) : position.next ? (
             <Button variant={solved ? "default" : "ghost"} size="sm" asChild>
               <Link href={`${base}/${position.next}`}>
                 Next exercise <ChevronRight />
@@ -273,6 +389,8 @@ export function Workspace({ initial }: { initial: Item }) {
           <div className="flex flex-wrap items-center gap-2">
             {current && (
               <Button
+                // Lessons check themselves; this is only the fallback.
+                variant={lesson ? "secondary" : "default"}
                 onClick={() => void runCheck(current)}
                 disabled={!ready || check.isPending}
               >
@@ -297,6 +415,14 @@ export function Workspace({ initial }: { initial: Item }) {
               )}
               {confirmReset ? "Click again: wipe folder & start over" : "Reset"}
             </Button>
+            {autoCheckOn && (
+              <span className="text-muted-foreground ml-auto flex items-center gap-1.5 text-xs">
+                {autoCheck.isPending && (
+                  <Loader2 className="size-3 animate-spin" />
+                )}
+                Step {current.index + 1} checks itself after each command
+              </span>
+            )}
           </div>
         )}
 
@@ -316,10 +442,15 @@ export function Workspace({ initial }: { initial: Item }) {
         ) : (
           <ShellTerminal
             key={termKey}
+            ref={terminal}
             shell={exercise.shell}
             exercise={exercise.slug}
             className="min-h-[20rem] flex-1"
+            onCommand={onCommand}
           />
+        )}
+        {open && ready && (
+          <ErrorExplainer itemId={item.itemId} trigger={commandTick} />
         )}
       </section>
     </div>
@@ -329,6 +460,8 @@ export function Workspace({ initial }: { initial: Item }) {
 function StepCard({
   step: s,
   multi,
+  lesson,
+  onTryIt,
   expanded,
   isCurrent,
   onToggle,
@@ -344,6 +477,10 @@ function StepCard({
 }: {
   step: Step;
   multi: boolean;
+  /** Lesson layout: "Step n" headers, no points, quiet success. */
+  lesson: boolean;
+  /** Lessons: code blocks get a "Try it" button that types into the shell. */
+  onTryIt?: (code: string) => void;
   expanded: boolean;
   isCurrent: boolean;
   onToggle: () => void;
@@ -396,10 +533,19 @@ function StepCard({
               <Lock className="size-3.5" />
             )}
           </span>
-          <span className="flex-1 font-medium">{s.title}</span>
-          <span className="text-muted-foreground text-xs tabular-nums">
-            {s.score ?? 0}/{s.points}
+          <span className="flex-1">
+            {lesson && (
+              <span className="text-muted-foreground block text-[11px] tracking-wide uppercase">
+                Step {s.index + 1}
+              </span>
+            )}
+            <span className="font-medium">{s.title}</span>
           </span>
+          {!lesson && (
+            <span className="text-muted-foreground text-xs tabular-nums">
+              {s.score ?? 0}/{s.points}
+            </span>
+          )}
           {s.unlocked && (
             <ChevronDown
               className={cn(
@@ -419,7 +565,9 @@ function StepCard({
 
       {s.unlocked && (expanded || !multi) && (
         <div className={cn("flex flex-col gap-3 p-3", multi && "border-t")}>
-          {s.description && <Markdown>{s.description}</Markdown>}
+          {s.description && (
+            <Markdown onCodeAction={onTryIt}>{s.description}</Markdown>
+          )}
 
           {allowHints && s.hintCount > 0 && (
             <div className="flex flex-col gap-2">
@@ -448,7 +596,12 @@ function StepCard({
             </div>
           )}
 
-          {result && (
+          {result && lesson && result.ok ? (
+            // Lessons: just a calm confirmation, no check output.
+            <div className="text-primary flex items-center gap-2 text-sm font-medium">
+              <CheckCircle2 className="size-4" /> Done!
+            </div>
+          ) : result ? (
             <div
               className={cn(
                 "rounded-lg border p-3",
@@ -471,13 +624,13 @@ function StepCard({
                 </pre>
               )}
             </div>
-          )}
+          ) : null}
 
           {canAct && (
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 size="sm"
-                variant={passed ? "ghost" : "secondary"}
+                variant={passed || lesson ? "ghost" : "secondary"}
                 onClick={onCheck}
                 disabled={anyChecking || outOfChecks}
               >

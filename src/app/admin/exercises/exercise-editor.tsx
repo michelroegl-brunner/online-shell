@@ -198,6 +198,21 @@ export function ExerciseEditor({
             }}
           />
         </Field>
+        <Field label="Kind" className="md:col-span-2">
+          <Select
+            value={form.kind}
+            onValueChange={(v) => set("kind", v as FormState["kind"])}
+            disabled={readOnly}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="EXERCISE">Exercise (graded)</SelectItem>
+              <SelectItem value="LESSON">Lesson (guided, no points)</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
         <Field label="Shell" className="md:col-span-2">
           <Select
             value={form.shell}
@@ -223,8 +238,15 @@ export function ExerciseEditor({
           />
         </Field>
         <Field label="Points (sum of steps)" className="md:col-span-1">
-          <div className="flex h-9 items-center px-1 font-medium tabular-nums">
-            {total}
+          <div
+            className="flex h-9 items-center px-1 font-medium tabular-nums"
+            title={
+              form.kind === "LESSON"
+                ? "Lessons are always worth 0 points in assignments."
+                : undefined
+            }
+          >
+            {form.kind === "LESSON" ? 0 : total}
           </div>
         </Field>
         <Field label="Visibility" className="md:col-span-2">
@@ -244,13 +266,23 @@ export function ExerciseEditor({
             </SelectContent>
           </Select>
         </Field>
-        <Field label="Tags (comma-separated)" className="md:col-span-6">
+        <Field label="Tags (comma-separated)" className="md:col-span-4">
           <Input
             value={form.tags}
             onChange={(e) => set("tags", e.target.value)}
             placeholder="find, pipes, loops"
           />
         </Field>
+        {form.kind === "LESSON" && (
+          <p className="text-muted-foreground text-sm md:col-span-6">
+            <b>Lesson:</b> a guided walkthrough. It is worth 0 points (step
+            points are ignored) and doesn&apos;t count towards grades. Each step
+            is checked automatically after the student runs a command, so make
+            the checks pass on their own (“command used” or a file the check
+            sources). Code blocks in step texts get an “Into the terminal”
+            button.
+          </p>
+        )}
       </fieldset>
 
       <Tabs defaultValue="steps">

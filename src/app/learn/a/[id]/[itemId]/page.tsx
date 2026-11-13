@@ -18,8 +18,12 @@ export default async function ExercisePage({
   if (!user) redirect("/auth/signin");
   const data = await api.learn.item({ itemId }).catch((e: unknown) => {
     if (e instanceof TRPCError && e.code === "NOT_FOUND") notFound();
-    // Not open yet: the API refuses to return the task.
-    if (e instanceof TRPCError && e.code === "FORBIDDEN") redirect("/learn");
+    // Not open yet, or locked behind a gate (finish an earlier item
+    // first): the API refuses to return the task. The assignment page
+    // shows why (and sends on to /learn if the assignment isn't open).
+    if (e instanceof TRPCError && e.code === "FORBIDDEN") {
+      redirect(`/learn/a/${id}`);
+    }
     throw e;
   });
   if (data.assignment.id !== id) notFound();

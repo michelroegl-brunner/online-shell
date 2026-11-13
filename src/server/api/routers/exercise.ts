@@ -2,7 +2,12 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { parseChecks } from "~/lib/checks";
-import { exerciseInput, totalPoints, type StepInput } from "~/lib/exercise";
+import {
+  EXERCISE_KINDS,
+  exerciseInput,
+  totalPoints,
+  type StepInput,
+} from "~/lib/exercise";
 import { createTRPCRouter, teacherProcedure } from "~/server/api/trpc";
 import { type db } from "~/server/db";
 import {
@@ -105,6 +110,7 @@ export const exerciseRouter = createTRPCRouter({
         .object({
           q: z.string().trim().max(100).optional(),
           shell: z.enum(["BASH", "PWSH"]).optional(),
+          kind: z.enum(EXERCISE_KINDS).optional(),
           mine: z.boolean().optional(),
           archived: z.boolean().optional(),
         })
@@ -117,6 +123,7 @@ export const exerciseRouter = createTRPCRouter({
             readableWhere(ctx.user),
             { archived: input.archived ?? false },
             input.shell ? { shell: input.shell } : {},
+            input.kind ? { kind: input.kind } : {},
             input.mine ? { authorId: ctx.user.id } : {},
             input.q
               ? {
@@ -135,6 +142,7 @@ export const exerciseRouter = createTRPCRouter({
           title: true,
           slug: true,
           shell: true,
+          kind: true,
           difficulty: true,
           points: true,
           tags: true,
@@ -211,6 +219,7 @@ export const exerciseRouter = createTRPCRouter({
             slug: true,
             description: true,
             shell: true,
+            kind: true,
             difficulty: true,
             points: true,
             tags: true,
@@ -385,6 +394,7 @@ export const exerciseRouter = createTRPCRouter({
           slug,
           description: src.description,
           shell: src.shell,
+          kind: src.kind,
           difficulty: src.difficulty,
           points: src.points,
           setupScript: src.setupScript,

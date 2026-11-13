@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { LessonBadge } from "~/components/learn/badges";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -22,17 +23,20 @@ import { api } from "~/trpc/react";
 import { ImportExport } from "./import-export";
 
 type ShellFilter = "ALL" | "BASH" | "PWSH";
+type KindFilter = "ALL" | "EXERCISE" | "LESSON";
 
 export function ExerciseList() {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [shell, setShell] = useState<ShellFilter>("ALL");
+  const [kind, setKind] = useState<KindFilter>("ALL");
   const [mine, setMine] = useState(false);
   const [archived, setArchived] = useState(false);
 
   const list = api.exercise.list.useQuery({
     q: q || undefined,
     shell: shell === "ALL" ? undefined : shell,
+    kind: kind === "ALL" ? undefined : kind,
     mine,
     archived,
   });
@@ -73,6 +77,15 @@ export function ExerciseList() {
             ["ALL", "All"],
             ["BASH", "Bash"],
             ["PWSH", "PowerShell"],
+          ]}
+        />
+        <Segmented
+          value={kind}
+          onChange={setKind}
+          options={[
+            ["ALL", "All kinds"],
+            ["EXERCISE", "Exercises"],
+            ["LESSON", "Lessons"],
           ]}
         />
         <Toggle on={mine} onClick={() => setMine((v) => !v)}>
@@ -140,6 +153,7 @@ export function ExerciseList() {
                       />
                     )}
                     {ex.title}
+                    {ex.kind === "LESSON" && <LessonBadge />}
                     <span className="text-muted-foreground text-xs font-normal">
                       {ex.stepCount === 1 ? "1 step" : `${ex.stepCount} steps`}
                     </span>
@@ -165,7 +179,7 @@ export function ExerciseList() {
                   </span>
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
-                  {ex.points}
+                  {ex.kind === "LESSON" ? "–" : ex.points}
                 </TableCell>
                 <TableCell className="text-muted-foreground hidden lg:table-cell">
                   {ex.author.name}

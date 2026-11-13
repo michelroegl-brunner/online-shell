@@ -34,7 +34,8 @@ if (bundle.format !== "online-shell-exercises" || bundle.version !== 1 || !Array
 for (const ex of bundle.exercises) {
   const ok =
     typeof ex.title === "string" && SLUG_RE.test(ex.slug ?? "") &&
-    ["BASH", "PWSH"].includes(ex.shell) && Array.isArray(ex.steps) && ex.steps.length > 0 &&
+    ["BASH", "PWSH"].includes(ex.shell) && [undefined, "EXERCISE", "LESSON"].includes(ex.kind) &&
+    Array.isArray(ex.steps) && ex.steps.length > 0 &&
     ex.steps.every((s) => typeof s.title === "string" && typeof s.checkScript === "string" && Number.isInteger(s.points));
   if (!ok) {
     console.error(`invalid exercise: ${ex.slug ?? ex.title}`);
@@ -68,6 +69,8 @@ try {
       slug: ex.slug,
       description: ex.description ?? "",
       shell: ex.shell,
+      // Optional (older bundles have no kind): a normal graded exercise.
+      kind: ex.kind ?? "EXERCISE",
       difficulty: ex.difficulty ?? 1,
       setupScript: ex.setupScript ?? "",
       tags: ex.tags ?? [],

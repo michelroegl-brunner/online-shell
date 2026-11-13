@@ -33,6 +33,7 @@ export default async function EditExercisePage({
           slug: ex.slug,
           description: ex.description,
           shell: ex.shell,
+          kind: ex.kind,
           difficulty: ex.difficulty,
           setupScript: ex.setupScript,
           tags: ex.tags,

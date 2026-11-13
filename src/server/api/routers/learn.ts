@@ -8,6 +8,9 @@ import { EXAM_EVENT_TYPES, openExamsFor } from "~/server/assignments/exam";
 import { studentProgress } from "~/server/assignments/progress";
 import { recomputeAttempt } from "~/server/assignments/recompute";
 import {
+  type ExerciseKind,
+  gateLocks,
+  isLesson,
   itemMaxPoints,
   itemScore,
   stepUnlocked,
@@ -21,7 +24,8 @@ import {
 } from "~/server/assignments/window";
 import { type db as dbType } from "~/server/db";
 import { runStepChecks } from "~/server/exercises/checks";
-import { runSetup } from "~/server/exercises/run";
+import { runSetup, type RunResult } from "~/server/exercises/run";
+import { type ShellKind } from "~/server/runner";
 import type { Prisma } from "../../../../generated/prisma";
 
 /**
@@ -32,14 +36,19 @@ import type { Prisma } from "../../../../generated/prisma";
  * Exercises have 1..n steps sharing one folder. Progress is stored per step
  * (AttemptStep); the Attempt row holds the totals (status, score, checks,
  * hintsUsed) so lists and reports stay simple.
+ *
+ * Lessons (Exercise.kind = LESSON) are ungraded walkthroughs: 0 points, no
+ * check limit, and the page calls `autoCheck` after each command so a step
+ * passes by itself. Gates (AssignmentItem.gate) lock the items after an
+ * unsolved gated item for students (teachers' test runs ignore them).
  */
 
 type Db = typeof dbType;
 
 const itemPoints = (item: {
   points: number | null;
-  exercise: { points: number };
-}) => itemMaxPoints(item.points, item.exercise.points);
+  exercise: { points: number; kind: ExerciseKind };
+}) => itemMaxPoints(item.points, item.exercise.points, item.exercise.kind);
 
 type Viewer = { id: string; role: string };
 
@@ -78,6 +87,8 @@ async function loadItem(db: Db, user: Viewer, itemId: string) {
           title: true,
           description: true,
           shell: true,
+          kind: true,
+          tags: true,
           difficulty: true,
           points: true,
           setupScript: true,
@@ -104,11 +115,21 @@ async function loadItem(db: Db, user: Viewer, itemId: string) {
           dueAt: true,
           maxChecks: true,
           allowHints: true,
+          allowCheatSheet: true,
           mode: true,
           class: { select: { name: true } },
           extensions: { where: { userId }, select: { extraMinutes: true } },
           submissions: { where: { userId }, select: { submittedAt: true } },
-          items: { orderBy: { order: "asc" }, select: { id: true } },
+          // For navigation and gates (my status on every item).
+          items: {
+            orderBy: { order: "asc" },
+            select: {
+              id: true,
+              gate: true,
+              exercise: { select: { title: true } },
+              attempts: { where: { userId }, select: { status: true } },
+            },
+          },
         },
       },
       attempts: { where: { userId }, include: { steps: true } },
@@ -125,11 +146,27 @@ async function loadItem(db: Db, user: Viewer, itemId: string) {
       : windowState(item.assignment, extra);
   const attempt = item.attempts[0] ?? null;
   const exam = item.assignment.mode === "EXAM";
+  const lesson = isLesson(item.exercise.kind);
   // Checks per step: the assignment's limit plus what a teacher granted.
+  // Lessons have no limit (they check themselves after every command).
   const maxChecks =
-    item.assignment.maxChecks === null
+    lesson || item.assignment.maxChecks === null
       ? null
       : item.assignment.maxChecks + (attempt?.extraChecks ?? 0);
+
+  // Gates: title of the unsolved gated item that keeps this one (or the
+  // next one) locked. Test runs ignore gates.
+  const order = item.assignment.items;
+  const locks = gateLocks(
+    order.map((i) => ({
+      gate: i.gate,
+      title: i.exercise.title,
+      passed: i.attempts[0]?.status === "PASSED",
+    })),
+  );
+  const idx = order.findIndex((i) => i.id === item.id);
+  const lockedBy = preview ? null : (locks[idx] ?? null);
+  const nextLockedBy = preview ? null : (locks[idx + 1] ?? null);
 
   // Step states (unlock depends on the previous step's progress).
   const progress = new Map((attempt?.steps ?? []).map((s) => [s.stepId, s]));
@@ -155,8 +192,11 @@ async function loadItem(db: Db, user: Viewer, itemId: string) {
     steps,
     preview,
     exam,
+    lesson,
     submitted,
     maxChecks,
+    lockedBy,
+    nextLockedBy,
   };
 }
 
@@ -179,6 +219,63 @@ const HIDDEN_OUTPUT_PASSED = "Check passed.";
 const HIDDEN_OUTPUT_FAILED = "Not solved yet. (Exam: check output is hidden.)";
 
 type Loaded = Awaited<ReturnType<typeof loadItem>>;
+
+/** Items after an unsolved gated item stay locked for students. */
+function assertNotGated(loaded: Loaded) {
+  if (loaded.lockedBy) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: `Finish “${loaded.lockedBy}” first — this exercise unlocks after it.`,
+    });
+  }
+}
+
+/**
+ * Run one step's checks (ready-made + script) against my folder. Stores
+ * the commands so far first, so "command used" sees the latest ones.
+ */
+async function runChecksFor(
+  db: Db,
+  userId: string,
+  attemptId: string,
+  ex: { slug: string; shell: ShellKind },
+  step: { checkScript: string; checks: unknown },
+): Promise<RunResult> {
+  await ingestCommandLog(userId);
+  const checks = parseChecks(step.checks);
+  const commands = checks.some((c) => c.type === "command_used")
+    ? await db.commandLog.findMany({
+        where: { attemptId },
+        select: { command: true, exitCode: true },
+      })
+    : [];
+  return guardRunner(() =>
+    runStepChecks(
+      userId,
+      ex,
+      { checkScript: step.checkScript, checks },
+      commands,
+    ),
+  );
+}
+
+/** Only the first passing check awards the step (conditional update). */
+async function markStepPassed(
+  db: Db,
+  attemptId: string,
+  step: { id: string; points: number },
+) {
+  await db.attemptStep.updateMany({
+    where: { attemptId, stepId: step.id, status: { not: "PASSED" } },
+    data: { status: "PASSED", score: step.points, passedAt: new Date() },
+  });
+}
+
+/**
+ * Students with an auto-check running (this server process). Auto-checks
+ * fire after every command, so overlapping ones are skipped, not queued.
+ */
+const autoChecking = new Set<string>();
 
 function findStep(loaded: Loaded, stepId: string) {
   const step = loaded.steps.find((s) => s.id === stepId);
@@ -263,7 +360,7 @@ export const learnRouter = createTRPCRouter({
         items: {
           select: {
             points: true,
-            exercise: { select: { points: true } },
+            exercise: { select: { points: true, kind: true } },
             attempts: {
               where: { userId },
               select: { status: true, score: true },
@@ -296,8 +393,11 @@ export const learnRouter = createTRPCRouter({
             total: a.items.length,
             solved: a.items.filter((i) => i.attempts[0]?.status === "PASSED")
               .length,
+            // Lessons never add points (even with a manual score).
             points: a.items.reduce(
-              (s, i) => s + (i.attempts[0]?.score ?? 0),
+              (s, i) =>
+                s +
+                (isLesson(i.exercise.kind) ? 0 : (i.attempts[0]?.score ?? 0)),
               0,
             ),
             maxPoints: a.items.reduce((s, i) => s + itemPoints(i), 0),
@@ -331,10 +431,12 @@ export const learnRouter = createTRPCRouter({
             select: {
               id: true,
               points: true,
+              gate: true,
               exercise: {
                 select: {
                   title: true,
                   shell: true,
+                  kind: true,
                   difficulty: true,
                   points: true,
                   tags: true,
@@ -371,6 +473,13 @@ export const learnRouter = createTRPCRouter({
           message: "This assignment hasn't started yet.",
         });
       }
+      const locks = gateLocks(
+        a.items.map((i) => ({
+          gate: i.gate,
+          title: i.exercise.title,
+          passed: i.attempts[0]?.status === "PASSED",
+        })),
+      );
       return {
         id: a.id,
         title: a.title,
@@ -385,17 +494,24 @@ export const learnRouter = createTRPCRouter({
         allowHints: a.allowHints,
         mode: a.mode,
         submittedAt,
-        items: a.items.map((i) => ({
+        items: a.items.map((i, idx) => ({
           id: i.id,
           title: i.exercise.title,
           shell: i.exercise.shell,
+          kind: i.exercise.kind,
           difficulty: i.exercise.difficulty,
           tags: i.exercise.tags,
+          /** Later items stay locked until this one is solved. */
+          gate: i.gate,
+          /** Title of the gated item to finish first (null = open). */
+          lockedBy: preview ? null : (locks[idx] ?? null),
           points: itemPoints(i),
           stepCount: i.exercise._count.steps,
           stepsPassed: i.attempts[0]?.steps.length ?? 0,
           status: i.attempts[0]?.status ?? null,
-          score: i.attempts[0]?.score ?? null,
+          score: isLesson(i.exercise.kind)
+            ? null
+            : (i.attempts[0]?.score ?? null),
           checks: i.attempts[0]?.checks ?? 0,
         })),
       };
@@ -405,6 +521,7 @@ export const learnRouter = createTRPCRouter({
   item: protectedProcedure
     .input(z.object({ itemId: z.string() }))
     .query(async ({ ctx, input }) => {
+      const loaded = await loadItem(ctx.db, ctx.user, input.itemId);
       const {
         item,
         attempt,
@@ -415,7 +532,8 @@ export const learnRouter = createTRPCRouter({
         exam,
         submitted,
         maxChecks,
-      } = await loadItem(ctx.db, ctx.user, input.itemId);
+        nextLockedBy,
+      } = loaded;
       // During an exam, other assignments' tasks and revealed hints stay
       // hidden too (not just their actions).
       await assertNotLockedByExam(ctx.db, ctx.user, item.assignment.id);
@@ -427,10 +545,12 @@ export const learnRouter = createTRPCRouter({
           message: "This assignment hasn't started yet.",
         });
       }
+      assertNotGated(loaded);
       const ids = item.assignment.items.map((i) => i.id);
       const idx = ids.indexOf(item.id);
       const total = steps.reduce((s, st) => s + st.points, 0);
-      const scale = (p: number) => itemScore(p, total, item.points);
+      const scale = (p: number) =>
+        itemScore(p, total, item.points, item.exercise.kind);
       return {
         itemId: item.id,
         preview,
@@ -442,6 +562,7 @@ export const learnRouter = createTRPCRouter({
           state,
           maxChecks,
           allowHints: item.assignment.allowHints,
+          allowCheatSheet: item.assignment.allowCheatSheet,
           mode: item.assignment.mode,
           submittedAt: submitted,
         },
@@ -450,8 +571,13 @@ export const learnRouter = createTRPCRouter({
           total: ids.length,
           prev: ids[idx - 1] ?? null,
           next: ids[idx + 1] ?? null,
+          /** The next item is locked until this gated one is solved. */
+          nextLockedBy,
         },
         exercise: {
+          id: item.exercise.id,
+          kind: item.exercise.kind,
+          tags: item.exercise.tags,
           slug: item.exercise.slug,
           title: item.exercise.title,
           description: item.exercise.description,
@@ -487,7 +613,7 @@ export const learnRouter = createTRPCRouter({
         })),
         attempt: attempt && {
           status: attempt.status,
-          score: attempt.score,
+          score: isLesson(item.exercise.kind) ? 0 : attempt.score,
           checks: attempt.checks,
           resets: attempt.resets,
           prepared: attempt.setupAt !== null,
@@ -506,12 +632,10 @@ export const learnRouter = createTRPCRouter({
     .input(z.object({ itemId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
-      const { item, attempt, state } = await loadItem(
-        ctx.db,
-        ctx.user,
-        input.itemId,
-      );
+      const loaded = await loadItem(ctx.db, ctx.user, input.itemId);
+      const { item, attempt, state } = loaded;
       await assertNotLockedByExam(ctx.db, ctx.user, item.assignment.id);
+      assertNotGated(loaded);
       if (attempt?.setupAt) {
         await ingestCommandLog(userId);
         // Touch updatedAt so command-log attribution prefers this attempt.
@@ -558,6 +682,7 @@ export const learnRouter = createTRPCRouter({
       const { item, attempt, state, exam } = loaded;
       assertOpen(state);
       await assertNotLockedByExam(ctx.db, ctx.user, item.assignment.id);
+      assertNotGated(loaded);
       if (!attempt?.setupAt) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
@@ -575,7 +700,8 @@ export const learnRouter = createTRPCRouter({
       });
 
       // Claim a check atomically BEFORE running it, so parallel requests
-      // can't get past maxChecks (per step; no limit once the step passed).
+      // can't get past maxChecks (per step; no limit once the step passed;
+      // lessons have none).
       const max = loaded.maxChecks;
       const claim = await ctx.db.attemptStep.updateMany({
         where: {
@@ -593,24 +719,14 @@ export const learnRouter = createTRPCRouter({
           message: `No checks left for this step (${max} allowed).`,
         });
       }
-      // Store commands up to now before checking (keeps the log in order).
-      await ingestCommandLog(userId);
       let res;
       try {
-        const checks = parseChecks(step.checks);
-        const commands = checks.some((c) => c.type === "command_used")
-          ? await ctx.db.commandLog.findMany({
-              where: { attemptId: attempt.id },
-              select: { command: true, exitCode: true },
-            })
-          : [];
-        res = await guardRunner(() =>
-          runStepChecks(
-            userId,
-            { slug: item.exercise.slug, shell: item.exercise.shell },
-            { checkScript: step.checkScript, checks },
-            commands,
-          ),
+        res = await runChecksFor(
+          ctx.db,
+          userId,
+          attempt.id,
+          { slug: item.exercise.slug, shell: item.exercise.shell },
+          step,
         );
       } catch (e) {
         // The check never ran: give the claimed check back.
@@ -620,17 +736,7 @@ export const learnRouter = createTRPCRouter({
         });
         throw e;
       }
-      if (res.ok) {
-        // Only the first passing check awards the step (conditional update).
-        await ctx.db.attemptStep.updateMany({
-          where: {
-            attemptId: attempt.id,
-            stepId: step.id,
-            status: { not: "PASSED" },
-          },
-          data: { status: "PASSED", score: step.points, passedAt: new Date() },
-        });
-      }
+      if (res.ok) await markStepPassed(ctx.db, attempt.id, step);
       await ctx.db.attemptStep.update({
         where: key,
         data: { checkOutput: res.output.slice(0, 8000) },
@@ -658,6 +764,92 @@ export const learnRouter = createTRPCRouter({
       };
     }),
 
+  /**
+   * Lessons only: check the current step (or `stepId`) quietly after the
+   * student ran a command. Doesn't count as a check and stores nothing
+   * when it fails (no output, no check count), so the page stays calm;
+   * when it passes, the step is solved like with `check`.
+   */
+  autoCheck: protectedProcedure
+    .input(z.object({ itemId: z.string(), stepId: z.string().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user.id;
+      const loaded = await loadItem(ctx.db, ctx.user, input.itemId);
+      const { item, attempt, state, exam, lesson } = loaded;
+      if (!lesson) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Only lessons check themselves.",
+        });
+      }
+      assertOpen(state);
+      await assertNotLockedByExam(ctx.db, ctx.user, item.assignment.id);
+      assertNotGated(loaded);
+      const idle = { ran: false, ok: false, stepId: null, output: "" };
+      if (!attempt?.setupAt) return { ...idle, exerciseSolved: false };
+      const step = input.stepId
+        ? findStep(loaded, input.stepId)
+        : loaded.steps.find(
+            (s) => s.unlocked && s.progress?.status !== "PASSED",
+          );
+      const solved = attempt.status === "PASSED";
+      if (!step || step.progress?.status === "PASSED") {
+        return { ...idle, exerciseSolved: solved };
+      }
+      if (autoChecking.has(userId)) return { ...idle, exerciseSolved: solved };
+      autoChecking.add(userId);
+      let res: RunResult;
+      try {
+        res = await runChecksFor(
+          ctx.db,
+          userId,
+          attempt.id,
+          { slug: item.exercise.slug, shell: item.exercise.shell },
+          step,
+        );
+      } finally {
+        autoChecking.delete(userId);
+      }
+      if (!res.ok) {
+        return { ...idle, ran: true, stepId: step.id, exerciseSolved: solved };
+      }
+
+      const key = {
+        attemptId_stepId: { attemptId: attempt.id, stepId: step.id },
+      };
+      await ctx.db.attemptStep.upsert({
+        where: key,
+        create: { attemptId: attempt.id, stepId: step.id },
+        update: {},
+      });
+      await markStepPassed(ctx.db, attempt.id, step);
+      // The passing run counts as the step's one check (for reports).
+      await ctx.db.attemptStep.update({
+        where: key,
+        data: {
+          checks: { increment: 1 },
+          checkOutput: res.output.slice(0, 8000),
+        },
+      });
+      await ctx.db.attempt.update({
+        where: { id: attempt.id },
+        data: { checkOutput: res.output.slice(0, 8000) },
+      });
+      const updated = await recomputeAttempt(
+        ctx.db,
+        attempt.id,
+        item.exercise.steps,
+        item.points,
+      );
+      return {
+        ran: true,
+        ok: true,
+        stepId: step.id,
+        output: exam ? HIDDEN_OUTPUT_PASSED : res.output,
+        exerciseSolved: updated.status === "PASSED",
+      };
+    }),
+
   /** Reveal the next hint of a step. */
   hint: protectedProcedure
     .input(z.object({ itemId: z.string(), stepId: z.string() }))
@@ -666,6 +858,7 @@ export const learnRouter = createTRPCRouter({
       const { item, attempt, state } = loaded;
       assertOpen(state);
       await assertNotLockedByExam(ctx.db, ctx.user, item.assignment.id);
+      assertNotGated(loaded);
       if (!item.assignment.allowHints) {
         throw new TRPCError({
           code: "FORBIDDEN",
@@ -711,13 +904,11 @@ export const learnRouter = createTRPCRouter({
     .input(z.object({ itemId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
-      const { item, attempt, state } = await loadItem(
-        ctx.db,
-        ctx.user,
-        input.itemId,
-      );
+      const loaded = await loadItem(ctx.db, ctx.user, input.itemId);
+      const { item, attempt, state } = loaded;
       assertOpen(state);
       await assertNotLockedByExam(ctx.db, ctx.user, item.assignment.id);
+      assertNotGated(loaded);
       if (!attempt) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",

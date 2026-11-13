@@ -10,6 +10,7 @@ import { api } from "~/trpc/react";
 /**
  * Import / export exercises as JSON bundles
  * ({ format: "online-shell-exercises", version: 1, exercises: [...] }).
+ * Lessons travel in the same bundles (`kind: "LESSON"`).
  */
 export function ImportExport() {
   const utils = api.useUtils();
