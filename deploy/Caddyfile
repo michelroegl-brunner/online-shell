@@ -20,8 +20,9 @@ https://{$DOMAIN}, https://10.10.10.230 {
 	# Runner -> web callbacks are internal (docker network only).
 	respond /api/runner/* 404
 
-	# Terminal WebSockets go straight to the runner; everything else to Next.
-	@attach path /attach /attach/*
+	# Terminal WebSockets (students' /attach, teachers' /watch) go straight to
+	# the runner; everything else to Next.
+	@attach path /attach /attach/* /watch /watch/*
 	reverse_proxy @attach runner:4100
 
 	reverse_proxy web:3000
