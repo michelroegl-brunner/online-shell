@@ -12,7 +12,7 @@ import {
   itemScore,
   stepUnlocked,
 } from "~/server/assignments/scoring";
-import { assignmentWhere } from "~/server/access";
+import { assignmentWhere, isAdmin } from "~/server/access";
 import { assignmentWhereVisibleTo } from "~/server/assignments/visibility";
 import {
   effectiveDueAt,
@@ -50,6 +50,9 @@ type Viewer = { id: string; role: string };
  */
 function learnWhere(user: Viewer): Prisma.AssignmentWhereInput {
   if (user.role === "STUDENT") return assignmentWhereVisibleTo(user.id);
+  // Admins reach everything. Don't put assignmentWhere()'s `{}` into an OR:
+  // Prisma drops empty filters there, leaving only the student rule (404).
+  if (isAdmin(user)) return {};
   return { OR: [assignmentWhereVisibleTo(user.id), assignmentWhere(user)] };
 }
 
