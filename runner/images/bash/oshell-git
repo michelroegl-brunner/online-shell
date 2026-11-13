@@ -8,7 +8,14 @@
 # should still stick to plumbing that doesn't touch the worktree (rev-list,
 # ls-files, ls-tree, cat-file, merge-base, diff --cached …): worktree diffs
 # can run .gitattributes filter drivers, which can't be disabled generically.
+# No optional locks: root must not rewrite .git/index (it would become
+# root-owned and break the student's next git add).
+export GIT_OPTIONAL_LOCKS=0 GIT_TERMINAL_PROMPT=0
 exec git \
+  -c core.editor=false \
+  -c sequence.editor=false \
+  -c core.askPass=false \
+  -c credential.helper= \
   -c safe.directory='*' \
   -c core.fsmonitor=false \
   -c core.hooksPath=/dev/null \

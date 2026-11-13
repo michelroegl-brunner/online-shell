@@ -645,7 +645,7 @@
           "checks": [
             {
               "type": "command_output",
-              "command": "oshell-git -C ich merge-base --is-ancestor $(oshell-git -C server/projekt.git rev-parse main) HEAD && echo ja || echo nein",
+              "command": "rev=\"$(oshell-git -C server/projekt.git rev-parse --verify main)\" && oshell-git -C ich merge-base --is-ancestor \"$rev\" HEAD && echo ja || echo nein",
               "match": "exact",
               "value": "ja",
               "message": "Dein Ordner ich ist noch nicht auf dem Stand des Servers – führe dort git pull aus."
