@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { TERMINAL_LINE_HEIGHT, terminalFontFamily } from "./font";
 
 type Status = "connecting" | "ready" | "closed" | "error";
 
@@ -114,15 +115,17 @@ export function ShellTerminal({
     let disposed = false;
     let cleanup = () => undefined as void;
     void (async () => {
-      const [{ Terminal }, { FitAddon }] = await Promise.all([
+      const [{ Terminal }, { FitAddon }, fontFamily] = await Promise.all([
         import("@xterm/xterm"),
         import("@xterm/addon-fit"),
+        terminalFontFamily(14),
       ]);
       if (disposed || !hostRef.current) return;
       const term = new Terminal({
         cursorBlink: true,
-        fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+        fontFamily,
         fontSize: 14,
+        lineHeight: TERMINAL_LINE_HEIGHT,
         theme: { background: "#0a0a0a" },
         scrollback: 5000,
       });

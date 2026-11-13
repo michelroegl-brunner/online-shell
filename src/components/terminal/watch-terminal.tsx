@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { TERMINAL_LINE_HEIGHT, terminalFontFamily } from "./font";
 
 type Status = "connecting" | "live" | "waiting" | "closed" | "error";
 type Control = "none" | "pending" | "granted" | "denied" | "busy";
@@ -39,13 +40,17 @@ export function WatchTerminal({
     let disposed = false;
     let cleanup = () => undefined as void;
     void (async () => {
-      const { Terminal } = await import("@xterm/xterm");
+      const [{ Terminal }, fontFamily] = await Promise.all([
+        import("@xterm/xterm"),
+        terminalFontFamily(13),
+      ]);
       if (disposed || !hostRef.current) return;
       const term = new Terminal({
         cursorBlink: false,
         disableStdin: true,
-        fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+        fontFamily,
         fontSize: 13,
+        lineHeight: TERMINAL_LINE_HEIGHT,
         theme: { background: "#0a0a0a" },
         scrollback: 5000,
       });
