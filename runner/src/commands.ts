@@ -18,8 +18,13 @@
 
 const START = Buffer.from("\x1b]7337;");
 const BEL = 0x07;
-/** Longest payload we accept (a long pasted command line, base64'd). */
-const MAX_PAYLOAD = 16 * 1024;
+/**
+ * Longest payload we accept, in base64 chars (~3 KB of command line).
+ * Anything that isn't strict base64 up to BEL within this many bytes is not
+ * a marker and passes through untouched, so a student can't use a fake
+ * marker to hide large parts of their output from a watching teacher.
+ */
+const MAX_PAYLOAD = 4096;
 /** A held-back partial marker is released after this long. */
 const FLUSH_MS = 40;
 const RECENT = 30;
@@ -44,21 +49,34 @@ function record(userId: string, payload: string) {
   } catch {
     return;
   }
-  const [epoch, exit, cwd, ...rest] = line.split("\t");
+  // The shell's own timestamp is ignored: the receive time can't be faked
+  // (a future date would otherwise pin a fake "last command" / hide idling).
+  const [, exit, cwd, ...rest] = line.split("\t");
   const command = rest.join("\t").trim();
-  if (!epoch || !cwd || !command) return;
-  const at = Number(epoch) * 1000;
+  if (!cwd?.startsWith("/home/student") || !command) return;
   const exitCode = Number.parseInt(exit ?? "", 10);
   const list = recentByUser.get(userId) ?? [];
   list.push({
-    at: Number.isFinite(at) && at > 0 ? at : Date.now(),
-    exitCode: Number.isNaN(exitCode) ? null : exitCode,
+    at: Date.now(),
+    exitCode:
+      Number.isInteger(exitCode) && exitCode >= 0 && exitCode <= 255
+        ? exitCode
+        : null,
     cwd,
     command: command.slice(0, 2000),
   });
   if (list.length > RECENT) list.splice(0, list.length - RECENT);
   recentByUser.set(userId, list);
 }
+
+/** A–Z a–z 0–9 + / = */
+const isB64 = (c: number) =>
+  (c >= 0x41 && c <= 0x5a) ||
+  (c >= 0x61 && c <= 0x7a) ||
+  (c >= 0x30 && c <= 0x39) ||
+  c === 0x2b ||
+  c === 0x2f ||
+  c === 0x3d;
 
 /** Length of the longest suffix of `buf` that is a prefix of START. */
 function partialMarker(buf: Buffer) {
@@ -103,19 +121,22 @@ export function commandSniffer(userId: string, emit: (b: Buffer) => void) {
         break;
       }
       out.push(buf.subarray(i, s));
-      const e = buf.indexOf(BEL, s + START.length);
-      if (e === -1) {
-        if (buf.length - s > MAX_PAYLOAD) {
-          out.push(buf.subarray(s)); // not ours after all: pass through
-        } else {
-          carry = Buffer.from(buf.subarray(s));
-        }
+      // Strict: base64 chars only, then BEL, within MAX_PAYLOAD.
+      const from = s + START.length;
+      let j = from;
+      while (j < buf.length && j - from < MAX_PAYLOAD && isB64(buf[j]!)) j++;
+      if (j < buf.length && buf[j] === BEL) {
+        record(userId, buf.subarray(from, j).toString("latin1"));
+        i = j + 1;
+        continue;
+      }
+      if (j === buf.length && j - from < MAX_PAYLOAD) {
+        carry = Buffer.from(buf.subarray(s)); // may continue in the next chunk
         break;
       }
-      if (e - s - START.length <= MAX_PAYLOAD) {
-        record(userId, buf.subarray(s + START.length, e).toString("latin1"));
-      }
-      i = e + 1;
+      // Not a marker: pass the start sequence through and keep scanning.
+      out.push(buf.subarray(s, from));
+      i = from;
     }
     const cleaned = out.length === 1 ? out[0]! : Buffer.concat(out);
     if (cleaned.length) emit(cleaned);
