@@ -249,6 +249,8 @@ export async function internetForItem(
 ): Promise<boolean> {
   try {
     const loaded = await loadItem(db, user, itemId);
+    // Exam running: only that exam's items may switch it on.
+    await assertNotLockedByExam(db, user, loaded.item.assignment.id);
     return loaded.item.exercise.slug === slug && wantsInternet(loaded);
   } catch {
     return false;
@@ -806,6 +808,10 @@ export const learnRouter = createTRPCRouter({
           where: key,
           data: { checks: { decrement: 1 } },
         });
+        // Don't leave the box online for a step that isn't current.
+        if (internetMayChange(loaded, step, false)) {
+          await syncInternet(ctx.db, ctx.user, input.itemId);
+        }
         throw e;
       }
       if (res.ok) await markStepPassed(ctx.db, attempt.id, step);
@@ -881,6 +887,11 @@ export const learnRouter = createTRPCRouter({
           { slug: item.exercise.slug, shell: item.exercise.shell },
           step,
         );
+      } catch (e) {
+        if (internetMayChange(loaded, step, false)) {
+          await syncInternet(ctx.db, ctx.user, input.itemId);
+        }
+        throw e;
       } finally {
         autoChecking.delete(userId);
       }
