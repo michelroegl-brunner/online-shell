@@ -11,6 +11,7 @@ import { manageRouter } from "~/server/api/routers/manage";
 import { meRouter } from "~/server/api/routers/me";
 import { reportRouter } from "~/server/api/routers/report";
 import { toolsRouter } from "~/server/api/routers/tools";
+import { wechselplanRouter } from "~/server/api/routers/wechselplan";
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 
 export const appRouter = createTRPCRouter({
@@ -27,6 +28,7 @@ export const appRouter = createTRPCRouter({
   cheatsheet: cheatsheetRouter,
   explain: explainRouter,
   tools: toolsRouter,
+  wechselplan: wechselplanRouter,
 });
 
 export type AppRouter = typeof appRouter;

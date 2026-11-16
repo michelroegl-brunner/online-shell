@@ -1,6 +1,15 @@
 "use client";
 
-import { Check, Pencil, Plus, Split, Trash2, X } from "lucide-react";
+import {
+  ArrowRightLeft,
+  Check,
+  Loader2,
+  Pencil,
+  Plus,
+  Split,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -24,8 +33,15 @@ import {
 } from "~/components/ui/table";
 import { api } from "~/trpc/react";
 
+import { groupSyncSummary } from "../wechselplan-import";
+
 type Student = { id: string; name: string };
-type Group = { id: string; name: string; members: { userId: string }[] };
+type Group = {
+  id: string;
+  name: string;
+  wechselplanKey: string | null;
+  members: { userId: string }[];
+};
 
 /**
  * Groups of a class (e.g. "Gruppe A" / "Gruppe B"). Assignments can later
@@ -35,10 +51,13 @@ export function GroupsCard({
   classId,
   students,
   groups,
+  canPullWechselplan,
 }: {
   classId: string;
   students: Student[];
   groups: Group[];
+  /** Class comes from an M365 group (not a dev class) */
+  canPullWechselplan: boolean;
 }) {
   const utils = api.useUtils();
   const invalidate = () => utils.class.byId.invalidate({ id: classId });
@@ -70,6 +89,14 @@ export function GroupsCard({
   });
   const setMembers = api.class.setGroupMembers.useMutation({
     onSuccess: invalidate,
+    onError,
+  });
+  const wp = api.wechselplan.status.useQuery();
+  const pull = api.wechselplan.pullGroups.useMutation({
+    onSuccess: async (r) => {
+      toast.success(`Pulled from Wechselplan: ${groupSyncSummary(r)}`);
+      await invalidate();
+    },
     onError,
   });
   const split = api.class.splitEvenly.useMutation({
@@ -141,6 +168,21 @@ export function GroupsCard({
               <Plus /> Add group
             </Button>
           </form>
+          {canPullWechselplan && wp.data?.enabled && (
+            <Button
+              variant="secondary"
+              title="Create/update the groups you have in Wechselplan (one per weekday plan and group)"
+              disabled={pull.isPending}
+              onClick={() => pull.mutate({ classId })}
+            >
+              {pull.isPending ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <ArrowRightLeft />
+              )}
+              Pull from Wechselplan
+            </Button>
+          )}
           <div className="ml-auto flex items-center gap-2">
             <label htmlFor="split" className="text-muted-foreground text-sm">
               Split into
@@ -205,6 +247,15 @@ export function GroupsCard({
                         <span className="text-muted-foreground text-sm font-normal">
                           ({g.members.length})
                         </span>
+                        {g.wechselplanKey && (
+                          <Badge
+                            variant="outline"
+                            className="ml-1 text-xs font-normal"
+                            title="Mirrors a Wechselplan group; pulling again overwrites its members"
+                          >
+                            WP
+                          </Badge>
+                        )}
                       </p>
                       <Button
                         size="icon"

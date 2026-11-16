@@ -337,6 +337,7 @@ export function ClassDetail({ id }: { id: string }) {
           name: m.user.name,
         }))}
         groups={c.groups}
+        canPullWechselplan={!c.isDev}
       />
     </div>
   );

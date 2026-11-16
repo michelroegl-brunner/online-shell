@@ -14,7 +14,7 @@ import {
 } from "~/server/graph";
 import type { Prisma } from "../../../../generated/prisma";
 
-type Ctx = { db: typeof Db; user: { id: string; role: string } };
+export type Ctx = { db: typeof Db; user: { id: string; role: string } };
 
 /**
  * Dev classes (no M365 group behind them) are available whenever the dev
@@ -90,7 +90,7 @@ const letter = (i: number): string =>
  * Pull the group's members from Graph, upsert them as users and make the
  * class membership match exactly. Teachers/admins are never members.
  */
-async function syncFromGraph(
+export async function syncFromGraph(
   ctx: Ctx,
   cls: { id: string; entraGroupId: string },
 ) {
@@ -175,6 +175,54 @@ async function syncFromGraph(
   };
 }
 
+/**
+ * Import an M365 group as a class (caller becomes a teacher of it) and sync
+ * its members.
+ *
+ * If the group is already a class, the caller is NOT added: that would let
+ * any teacher join any class (and see its students/results) just by
+ * importing its group. Existing teachers (and admins) are simply sent to
+ * the class; everyone else must be added by a teacher via `addTeacher`.
+ */
+export async function importGroupAsClass(
+  ctx: Ctx,
+  groupId: string,
+  schoolYear: string | undefined,
+) {
+  const existing = await ctx.db.class.findUnique({
+    where: { entraGroupId: groupId },
+    select: {
+      id: true,
+      teachers: {
+        select: { userId: true, user: { select: { name: true } } },
+      },
+    },
+  });
+  if (existing) {
+    const isTeacher = existing.teachers.some((t) => t.userId === ctx.user.id);
+    if (isTeacher || ctx.user.role === "ADMIN") {
+      return { id: existing.id, alreadyImported: true, sync: null };
+    }
+    const owners = existing.teachers.map((t) => t.user.name).join(", ");
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: `This group is already a class${owners ? ` (teachers: ${owners})` : ""}. Ask one of its teachers to add you.`,
+    });
+  }
+
+  const group = await guardGraph(() => getGroup(groupId));
+  const cls = await ctx.db.class.create({
+    data: {
+      entraGroupId: group.id,
+      name: group.displayName,
+      schoolYear: emptyToNull(schoolYear),
+      teachers: { create: { userId: ctx.user.id } },
+    },
+  });
+  const sync = await syncFromGraph(ctx, cls);
+  return { id: cls.id, alreadyImported: false, sync };
+}
+
 export const classRouter = createTRPCRouter({
   /** Which import path the UI should offer. */
   mode: teacherProcedure.query(() => ({
@@ -232,6 +280,7 @@ export const classRouter = createTRPCRouter({
             select: {
               id: true,
               name: true,
+              wechselplanKey: true,
               members: { select: { userId: true } },
             },
           },
@@ -384,14 +433,7 @@ export const classRouter = createTRPCRouter({
       return groups.map((g) => ({ ...g, classId: byGroup.get(g.id) ?? null }));
     }),
 
-  /**
-   * Import a group as a class (caller becomes a teacher of it).
-   *
-   * If the group is already a class, the caller is NOT added: that would let
-   * any teacher join any class (and see its students/results) just by
-   * importing its group. Existing teachers (and admins) are simply sent to
-   * the class; everyone else must be added by a teacher via `addTeacher`.
-   */
+  /** Import a group as a class; see importGroupAsClass. */
   import: teacherProcedure
     .input(
       z.object({
@@ -399,42 +441,9 @@ export const classRouter = createTRPCRouter({
         schoolYear: z.string().trim().max(20).optional(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const existing = await ctx.db.class.findUnique({
-        where: { entraGroupId: input.groupId },
-        select: {
-          id: true,
-          teachers: {
-            select: { userId: true, user: { select: { name: true } } },
-          },
-        },
-      });
-      if (existing) {
-        const isTeacher = existing.teachers.some(
-          (t) => t.userId === ctx.user.id,
-        );
-        if (isTeacher || ctx.user.role === "ADMIN") {
-          return { id: existing.id, alreadyImported: true, sync: null };
-        }
-        const owners = existing.teachers.map((t) => t.user.name).join(", ");
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: `This group is already a class${owners ? ` (teachers: ${owners})` : ""}. Ask one of its teachers to add you.`,
-        });
-      }
-
-      const group = await guardGraph(() => getGroup(input.groupId));
-      const cls = await ctx.db.class.create({
-        data: {
-          entraGroupId: group.id,
-          name: group.displayName,
-          schoolYear: emptyToNull(input.schoolYear),
-          teachers: { create: { userId: ctx.user.id } },
-        },
-      });
-      const sync = await syncFromGraph(ctx, cls);
-      return { id: cls.id, alreadyImported: false, sync };
-    }),
+    .mutation(({ ctx, input }) =>
+      importGroupAsClass(ctx, input.groupId, input.schoolYear),
+    ),
 
   syncMembers: teacherProcedure
     .input(z.object({ id: z.string() }))

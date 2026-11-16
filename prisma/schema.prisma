@@ -73,6 +73,7 @@ model User {
   classGroups          ClassGroupMember[]
   announcements        Announcement[]
   submissions          AssignmentSubmission[]
+  gradePushes          GradePush[]
 }
 
 model Class {
@@ -96,6 +97,9 @@ model ClassGroup {
   id        String   @id @default(cuid())
   classId   String
   name      String
+  /// Set when the group mirrors a Wechselplan group:
+  /// "<planClassId>:<weekday>:<groupId>". Re-pulling updates it in place.
+  wechselplanKey String?
   createdAt DateTime @default(now())
 
   class       Class              @relation(fields: [classId], references: [id], onDelete: Cascade)
@@ -103,6 +107,7 @@ model ClassGroup {
   assignments AssignmentGroup[]
 
   @@unique([classId, name])
+  @@unique([classId, wechselplanKey])
 }
 
 model ClassGroupMember {
@@ -228,6 +233,7 @@ model Assignment {
   groups        AssignmentGroup[]
   announcements Announcement[]
   submissions   AssignmentSubmission[]
+  gradePushes   GradePush[]
 
   @@index([classId])
 }
@@ -410,4 +416,22 @@ model ExamEvent {
   attempt Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
 
   @@index([attemptId, at])
+}
+
+/// Grades of an assignment sent to Wechselplan's Noten grid (one row per push).
+model GradePush {
+  id           String   @id @default(cuid())
+  assignmentId String
+  userId       String
+  /// NotenEntry column, e.g. "praktischeArbeit1"
+  field        String
+  /// Entries sent / actually written
+  sent         Int
+  written      Int
+  createdAt    DateTime @default(now())
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([assignmentId, createdAt])
 }

@@ -43,6 +43,7 @@ import {
   loadScale,
   saveScale,
 } from "./grades";
+import { WechselplanPushButton } from "./wechselplan-push";
 
 type Data = RouterOutputs["report"]["assignment"];
 type Row = Data["rows"][number];
@@ -175,6 +176,7 @@ export function AssignmentReport({ initial }: { initial: Data }) {
               scale={scale}
               onEditScale={() => setGradeDialog(true)}
             />
+            <WechselplanPushButton data={data} scale={scale} />
             <label className="text-muted-foreground flex items-center gap-1.5 text-sm">
               <input
                 type="checkbox"

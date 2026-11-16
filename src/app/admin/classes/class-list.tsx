@@ -27,10 +27,13 @@ import {
 } from "~/components/ui/table";
 import { api } from "~/trpc/react";
 
+import { WechselplanImportDialog } from "./wechselplan-import";
+
 export function ClassList() {
   const router = useRouter();
   const [archived, setArchived] = useState(false);
   const mode = api.class.mode.useQuery();
+  const wp = api.wechselplan.status.useQuery();
   const list = api.class.list.useQuery({ archived });
 
   return (
@@ -45,6 +48,9 @@ export function ClassList() {
         >
           Archived
         </Button>
+        {mode.data?.graphEnabled && wp.data?.enabled && (
+          <WechselplanImportDialog />
+        )}
         {mode.data?.graphEnabled && <ImportDialog />}
         {mode.data?.devFallback && (
           <DevCreateDialog primary={!mode.data.graphEnabled} />

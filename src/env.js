@@ -35,6 +35,14 @@ export const env = createEnv({
     RUNNER_URL: z.string().url().default("http://localhost:4100"),
     RUNNER_PUBLIC_URL: z.string().url().default("ws://localhost:4100"),
     RUNNER_SECRET: z.string().min(16),
+    // Wechselplan (school planning app): import classes/groups, push grades.
+    // Both unset = the integration is hidden.
+    WECHSELPLAN_URL: z
+      .string()
+      .url()
+      .optional()
+      .transform((u) => u?.replace(/\/+$/, "")),
+    WECHSELPLAN_API_SECRET: z.string().min(16).optional(),
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
@@ -53,6 +61,8 @@ export const env = createEnv({
     RUNNER_URL: process.env.RUNNER_URL,
     RUNNER_PUBLIC_URL: process.env.RUNNER_PUBLIC_URL,
     RUNNER_SECRET: process.env.RUNNER_SECRET,
+    WECHSELPLAN_URL: process.env.WECHSELPLAN_URL,
+    WECHSELPLAN_API_SECRET: process.env.WECHSELPLAN_API_SECRET,
     NODE_ENV: process.env.NODE_ENV,
   },
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,
