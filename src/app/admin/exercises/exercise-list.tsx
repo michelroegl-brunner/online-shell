@@ -216,7 +216,7 @@ export function ShellBadge({ shell }: { shell: "BASH" | "PWSH" }) {
   );
 }
 
-function Segmented<T extends string>({
+export function Segmented<T extends string>({
   value,
   onChange,
   options,

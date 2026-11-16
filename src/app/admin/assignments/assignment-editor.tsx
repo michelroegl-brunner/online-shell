@@ -1,27 +1,19 @@
 "use client";
 
 import {
-  ArrowDown,
-  ArrowUp,
   Copy,
   Eye,
   EyeOff,
   FlaskConical,
   Loader2,
-  Lock,
-  Plus,
   Save,
-  Search,
   Trash2,
-  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { LessonBadge } from "~/components/learn/badges";
-import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
   Card,
@@ -41,7 +33,7 @@ import {
 } from "~/components/ui/select";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { ShellBadge } from "../exercises/exercise-list";
+import { ExerciseSelection } from "./exercise-selection";
 import { fromLocalInput, toLocalInput } from "./format";
 
 export type EditorItem = {
@@ -134,15 +126,6 @@ export function AssignmentEditor({
   const duplicate = api.assignment.duplicate.useMutation();
   const setPublished = api.assignment.setPublished.useMutation();
   const saving = create.isPending || update.isPending;
-
-  const totalPoints = form.items.reduce(
-    (s, i) =>
-      i.kind === "LESSON"
-        ? s
-        : s + (i.points === "" ? i.defaultPoints : Number(i.points) || 0),
-    0,
-  );
-  const lessonCount = form.items.filter((i) => i.kind === "LESSON").length;
 
   function buildInput() {
     const maxChecks = form.maxChecks.trim();
@@ -273,14 +256,6 @@ export function AssignmentEditor({
     } catch (e) {
       toast.error((e as Error).message);
     }
-  }
-
-  function moveItem(idx: number, dir: -1 | 1) {
-    const items = [...form.items];
-    const j = idx + dir;
-    if (j < 0 || j >= items.length) return;
-    [items[idx], items[j]] = [items[j]!, items[idx]!];
-    set("items", items);
   }
 
   return (
@@ -563,239 +538,10 @@ export function AssignmentEditor({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            Exercises
-            <span className="text-muted-foreground ml-auto text-sm font-normal">
-              {form.items.length} exercise{form.items.length === 1 ? "" : "s"},{" "}
-              {lessonCount > 0 &&
-                `${lessonCount} lesson${lessonCount === 1 ? "" : "s"} (no points), `}
-              {totalPoints} points
-            </span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          {form.items.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              No exercises yet. Add some from the library below.
-            </p>
-          ) : (
-            <ol className="flex flex-col gap-2">
-              {form.items.map((it, idx) => (
-                <li
-                  key={it.exerciseId}
-                  className="flex flex-wrap items-center gap-3 rounded-md border p-2"
-                >
-                  <span className="text-muted-foreground w-6 text-right font-mono text-sm">
-                    {idx + 1}.
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 font-medium">
-                      {it.title}
-                      <ShellBadge shell={it.shell} />
-                      {it.kind === "LESSON" && <LessonBadge />}
-                    </div>
-                    <div className="text-muted-foreground font-mono text-xs">
-                      {it.slug}
-                      {it.attempts > 0 &&
-                        ` · ${it.attempts} attempt${it.attempts === 1 ? "" : "s"}`}
-                    </div>
-                    <label
-                      className="mt-1 flex w-fit items-center gap-2 text-xs"
-                      title="Students can open the following exercises only after solving this one (e.g. a lesson before its exercises)."
-                    >
-                      <input
-                        type="checkbox"
-                        className="accent-primary size-3.5"
-                        checked={it.gate}
-                        onChange={(e) =>
-                          set(
-                            "items",
-                            form.items.map((x, i) =>
-                              i === idx ? { ...x, gate: e.target.checked } : x,
-                            ),
-                          )
-                        }
-                      />
-                      <Lock className="text-muted-foreground size-3" />
-                      Must be done before the next ones
-                    </label>
-                  </div>
-                  {it.kind === "LESSON" ? (
-                    <span className="text-muted-foreground w-24 text-right text-xs">
-                      no points
-                    </span>
-                  ) : (
-                    <div className="flex items-center gap-1">
-                      <Input
-                        type="number"
-                        min={0}
-                        className="w-20"
-                        aria-label="Points"
-                        placeholder={String(it.defaultPoints)}
-                        value={it.points}
-                        onChange={(e) =>
-                          set(
-                            "items",
-                            form.items.map((x, i) =>
-                              i === idx ? { ...x, points: e.target.value } : x,
-                            ),
-                          )
-                        }
-                      />
-                      <span className="text-muted-foreground text-xs">pts</span>
-                    </div>
-                  )}
-                  <div className="flex">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Move up"
-                      disabled={idx === 0}
-                      onClick={() => moveItem(idx, -1)}
-                    >
-                      <ArrowUp />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Move down"
-                      disabled={idx === form.items.length - 1}
-                      onClick={() => moveItem(idx, 1)}
-                    >
-                      <ArrowDown />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Remove"
-                      onClick={() =>
-                        set(
-                          "items",
-                          form.items.filter((_, i) => i !== idx),
-                        )
-                      }
-                    >
-                      <X />
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          )}
-
-          <ExercisePicker
-            added={new Set(form.items.map((i) => i.exerciseId))}
-            onAdd={(ex) =>
-              set("items", [
-                ...form.items,
-                {
-                  exerciseId: ex.id,
-                  title: ex.title,
-                  slug: ex.slug,
-                  shell: ex.shell,
-                  kind: ex.kind,
-                  defaultPoints: ex.points,
-                  points: "",
-                  // A lesson usually comes first and opens the exercises.
-                  gate: ex.kind === "LESSON",
-                  attempts: 0,
-                },
-              ])
-            }
-          />
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function ExercisePicker({
-  added,
-  onAdd,
-}: {
-  added: Set<string>;
-  onAdd: (ex: {
-    id: string;
-    title: string;
-    slug: string;
-    shell: "BASH" | "PWSH";
-    kind: "EXERCISE" | "LESSON";
-    points: number;
-  }) => void;
-}) {
-  const [q, setQ] = useState("");
-  const list = api.exercise.list.useQuery({ q: q || undefined });
-
-  return (
-    <div className="rounded-md border border-dashed p-3">
-      <div className="relative mb-2 w-full sm:w-72">
-        <Search className="text-muted-foreground absolute top-2.5 left-2.5 size-4" />
-        <Input
-          placeholder="Search exercise library…"
-          className="pl-8"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-      </div>
-      <div className="flex max-h-64 flex-col overflow-y-auto">
-        {list.isLoading && (
-          <span className="text-muted-foreground text-sm">Loading…</span>
-        )}
-        {list.data?.length === 0 && (
-          <span className="text-muted-foreground text-sm">
-            No exercises found.{" "}
-            <Link
-              href="/admin/exercises/new"
-              className="text-primary underline"
-            >
-              Create one
-            </Link>
-            .
-          </span>
-        )}
-        {list.data?.map((ex) => {
-          const isAdded = added.has(ex.id);
-          return (
-            <div
-              key={ex.id}
-              className="hover:bg-muted/50 flex items-center gap-2 rounded px-2 py-1.5"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 text-sm">
-                  {ex.title}
-                  <ShellBadge shell={ex.shell} />
-                  {ex.kind === "LESSON" && <LessonBadge />}
-                  {ex.tags.slice(0, 3).map((t) => (
-                    <Badge key={t} variant="outline" className="text-xs">
-                      {t}
-                    </Badge>
-                  ))}
-                </div>
-                <div className="text-muted-foreground font-mono text-xs">
-                  {ex.slug} ·{" "}
-                  {ex.kind === "LESSON" ? "lesson" : `${ex.points} pts`}
-                </div>
-              </div>
-              <Button
-                size="sm"
-                variant={isAdded ? "ghost" : "secondary"}
-                disabled={isAdded}
-                onClick={() => onAdd(ex)}
-              >
-                {isAdded ? (
-                  "Added"
-                ) : (
-                  <>
-                    <Plus /> Add
-                  </>
-                )}
-              </Button>
-            </div>
-          );
-        })}
-      </div>
+      <ExerciseSelection
+        items={form.items}
+        onChange={(items) => set("items", items)}
+      />
     </div>
   );
 }
