@@ -158,6 +158,17 @@ server). Bundles live in `content/exercises/`; see `content/README.md`.
 **Test run** (exercise page): runs setup in the teacher's *own* box, opens a
 terminal in the exercise folder, then runs a chosen step's check.
 
+**Variables** (`Exercise.variables`, "Variables" tab, `src/lib/variables.ts`):
+per-student values so neighbours can't copy answers. Kinds: number in a
+range, one of a list, random word. Each student's values are picked from a
+seed (`<userId>:<itemId>`) when they open the exercise and stored on the
+attempt (`Attempt.vars`), so they never change for them. `{{NAME}}` is
+replaced in the intro, step titles/texts, hints and ready-made checks;
+setup and check scripts get them as environment variables (`$NAME` /
+`$env:NAME`). Test runs use fixed example values. The attempt page shows the
+student's values, and "Similar work" flags a student who typed someone
+else's value.
+
 ### Lessons
 
 An exercise can be a **lesson** (`Exercise.kind = LESSON`, "Kind" in the
@@ -273,8 +284,27 @@ Student flow (`/learn/a/<assignment>/<item>`, router `learn`):
    and the item's points are awarded (assignment override or exercise
    default). Later failed checks never take points away. `maxChecks`
    limits checks until solved.
-4. **Hints** are revealed one at a time (`hintsUsed` is recorded).
+4. **Hints** are revealed one at a time (`hintsUsed` is recorded). With
+   `Assignment.hintPenalty` (% per hint, 0 = free) each hint revealed
+   before the step passes lowers the step's points
+   (`stepEarned` in `scoring.ts`; frozen in `AttemptStep.hintsAtPass`).
+   The button shows the cost; changing the penalty recomputes attempts.
 5. **Reset** wipes the folder and re-runs setup (counted in `resets`).
+
+**Activity log** (`AttemptEvent`, `src/server/assignments/activity.ts`):
+setup, every check (passed or not, with the first lines of its output),
+auto-checks that pass, hints and resets. It feeds the session replay and
+the heatmap.
+
+**Practice sets** ("Practise" on `/learn/progress`,
+`src/server/assignments/practice.ts`): for a weak topic, a student gets a
+personal assignment (`Assignment.practiceForId` / `practiceTag`) of up to 3
+SHARED library exercises with that tag, easiest first. Only they see it
+(`assignmentWhereVisibleTo`); teachers' lists, reports and grades leave it
+out (`assignmentWhere`), and it counts for the topic stats, not for points.
+Never picked: exercises used in any assignment of the student's classes,
+in an exam that hasn't closed, or already solved in a practice set. Not
+available while an exam runs.
 
 **Command log**: before start/check/reset, the server rotates
 `/run/oshell/cmd.log` out of the student's box and stores each line as a
@@ -372,6 +402,21 @@ as reports (classes you teach, admins all).
 - **Solutions** (`/admin/reports/a/<id>/solutions`): per step, the last
   successful non-trivial command before it passed, grouped by identical
   text; identical long commands (≥ 40 chars, ≥ 2 students) are marked.
+- **Session replay** (attempt page): commands, checks, hints, resets and
+  focus / paste events on one timeline, played back at ×10 / ×60 / ×300
+  (gaps capped) or stepped through; markers jump to checks and hints, and
+  a side panel shows each step's state and the last check output at that
+  moment.
+- **Similar work** (`/admin/reports/a/<id>/similarity`,
+  `src/server/assignments/similarity.ts`): every pair of students compared
+  on another student's variable values, the same rare failing commands,
+  the same rare long commands, IDF-weighted command overlap, and steps
+  solved within 2 minutes of each other. Pairs scoring ≥ 20 (of 100) are
+  listed with the evidence and links to both replays. A pointer, not proof.
+- **Heatmap** (`/admin/reports/a/<id>/heatmap`): per step a bar of solved /
+  stuck here (first unsolved step) / not there yet, who is stuck (active in
+  the last 15 min first), the most common failing check messages and the
+  failing commands of those stuck. Auto-refreshes.
 - **Exercise analytics** (exercise page): pass rate, checks, hints and median
   time per step across all assignments (aggregates only), with flags for
   steps few solve, that need many checks, or take ≥ 3× longer than usual.
@@ -405,7 +450,7 @@ as reports (classes you teach, admins all).
 | `/learn/a/[id]` | students | one assignment: exercises + my status |
 | `/learn/a/[id]/[itemId]` | students | task, hints, terminal, check, reset |
 | `/learn/playground` | everyone | free Bash shell in your own box |
-| `/learn/progress` | everyone | my points over time, solved per tag, weak topics with open exercises to practise |
+| `/learn/progress` | everyone | my points over time, solved per tag, weak topics with open exercises to practise, personal practice sets |
 | `/learn/files` | everyone | browse / preview / download my home folder |
 | `/admin` | TEACHER, ADMIN | exercises, classes, assignments, reports |
 | `/admin/exercises` | TEACHER, ADMIN | exercise library, editor, test run |
@@ -413,9 +458,11 @@ as reports (classes you teach, admins all).
 | `/admin/files/[userId]` | TEACHER, ADMIN | a student's home folder (teachers of one of the student's classes), linked from student and attempt reports |
 | `/admin/classes` | TEACHER, ADMIN | import M365 groups, members, teachers, groups |
 | `/admin/assignments` | TEACHER, ADMIN | create / edit / publish assignments |
-| `/admin/reports` | TEACHER, ADMIN | results per assignment (matrix, CSV, per-exercise stats), per student, per attempt (command history, teacher actions) |
+| `/admin/reports` | TEACHER, ADMIN | results per assignment (matrix, CSV, per-exercise stats), per student, per attempt (session replay, command history, teacher actions) |
 | `/admin/reports/a/[id]/live` | TEACHER, ADMIN | live class view, watch terminals, messages |
 | `/admin/reports/a/[id]/solutions` | TEACHER, ADMIN | solutions compared per step |
+| `/admin/reports/a/[id]/heatmap` | TEACHER, ADMIN | where the class is stuck, per step |
+| `/admin/reports/a/[id]/similarity` | TEACHER, ADMIN | pairs of students whose work looks copied |
 
 `src/proxy.ts` guards `/learn` and `/admin`; the admin layout checks the role again
 on the server. tRPC has `protectedProcedure`, `teacherProcedure`, `adminProcedure`.

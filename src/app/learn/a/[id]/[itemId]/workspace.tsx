@@ -609,17 +609,39 @@ function StepCard({
                   <Markdown>{h}</Markdown>
                 </div>
               ))}
-              {hintsLeft > 0 && canAct && !passed && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="self-start"
-                  onClick={onHint}
-                  disabled={hinting}
-                >
-                  <Lightbulb /> Show a hint ({hintsLeft} left)
-                </Button>
-              )}
+              {canAct &&
+                !passed &&
+                (hintsLeft > 0 || (!lesson && s.worth < s.points)) && (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    {hintsLeft > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={onHint}
+                        disabled={hinting}
+                        title={
+                          !lesson && s.nextHintCost > 0
+                            ? `This hint lowers what the step is worth from ${s.worth} to ${s.worth - s.nextHintCost} points.`
+                            : undefined
+                        }
+                      >
+                        <Lightbulb /> Show a hint ({hintsLeft} left
+                        {!lesson && s.nextHintCost > 0 && (
+                          <>
+                            , costs {s.nextHintCost} pt
+                            {s.nextHintCost === 1 ? "" : "s"}
+                          </>
+                        )}
+                        )
+                      </Button>
+                    )}
+                    {!lesson && s.worth < s.points && (
+                      <span className="text-muted-foreground text-xs">
+                        Solving it now gives {s.worth}/{s.points} points.
+                      </span>
+                    )}
+                  </div>
+                )}
             </div>
           )}
 

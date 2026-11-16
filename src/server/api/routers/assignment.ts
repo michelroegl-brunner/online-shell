@@ -7,6 +7,7 @@ import {
   exerciseReadableWhere,
 } from "~/server/access";
 import { createTRPCRouter, teacherProcedure } from "~/server/api/trpc";
+import { recomputeAttemptById } from "~/server/assignments/recompute";
 import { type db as Db } from "~/server/db";
 
 /**
@@ -58,6 +59,8 @@ const assignmentInput = z
     dueAt: z.date().nullable().optional(),
     maxChecks: z.number().int().min(1).max(1000).nullable().optional(),
     allowHints: z.boolean().default(true),
+    /** Each revealed hint costs this % of the step's points (0 = free). */
+    hintPenalty: z.number().int().min(0).max(100).default(0),
     /** Topic cheat sheets next to the terminal. */
     allowCheatSheet: z.boolean().default(true),
     allowPaste: z.boolean().default(false),
@@ -114,6 +117,7 @@ const baseData = (input: AssignmentInput) => ({
   dueAt: input.dueAt ?? null,
   maxChecks: input.maxChecks ?? null,
   allowHints: input.allowHints,
+  hintPenalty: input.hintPenalty,
   allowCheatSheet: input.allowCheatSheet,
   allowPaste: input.allowPaste,
   published: input.published,
@@ -336,6 +340,10 @@ export const assignmentRouter = createTRPCRouter({
         select: { id: true, exerciseId: true },
       });
       const byExercise = new Map(existing.map((i) => [i.exerciseId, i.id]));
+      const before = await ctx.db.assignment.findUniqueOrThrow({
+        where: { id: input.id },
+        select: { hintPenalty: true },
+      });
       const keep = new Set(data.items.map((i) => i.exerciseId));
       const removed = existing.filter((i) => !keep.has(i.exerciseId));
 
@@ -375,6 +383,14 @@ export const assignmentRouter = createTRPCRouter({
               });
         }),
       ]);
+      // A new hint penalty changes the points of steps already solved.
+      if (before.hintPenalty !== data.hintPenalty) {
+        const attempts = await ctx.db.attempt.findMany({
+          where: { assignmentItem: { assignmentId: input.id } },
+          select: { id: true },
+        });
+        for (const a of attempts) await recomputeAttemptById(ctx.db, a.id);
+      }
       return { id: input.id, removedItems: removed.length };
     }),
 
@@ -443,6 +459,7 @@ export const assignmentRouter = createTRPCRouter({
           dueAt: src.dueAt,
           maxChecks: src.maxChecks,
           allowHints: src.allowHints,
+          hintPenalty: src.hintPenalty,
           allowCheatSheet: src.allowCheatSheet,
           allowPaste: src.allowPaste,
           published: false,

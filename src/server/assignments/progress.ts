@@ -1,7 +1,7 @@
 import "server-only";
 
 import { type db as dbType } from "~/server/db";
-import { isLesson, itemMaxPoints, itemScore } from "./scoring";
+import { isLesson, itemMaxPoints, itemScore, stepEarned } from "./scoring";
 import { assignmentWhereVisibleTo } from "./visibility";
 import { effectiveDueAt, windowState } from "./window";
 
@@ -51,6 +51,8 @@ export async function studentProgress(db: Db, userId: string) {
       id: true,
       title: true,
       mode: true,
+      hintPenalty: true,
+      practiceForId: true,
       opensAt: true,
       dueAt: true,
       extensions: { where: { userId }, select: { extraMinutes: true } },
@@ -82,6 +84,7 @@ export async function studentProgress(db: Db, userId: string) {
                   stepId: true,
                   status: true,
                   checks: true,
+                  hintsAtPass: true,
                   passedAt: true,
                 },
               },
@@ -115,19 +118,28 @@ export async function studentProgress(db: Db, userId: string) {
       );
       const isSolved = att?.status === "PASSED";
       const score = isLesson(ex.kind) ? 0 : (att?.score ?? 0);
+      // Personal practice sets count for the topics, not for points.
+      const practice = a.practiceForId !== null;
 
-      exercises += 1;
-      maxPoints += max;
-      points += score;
-      if (isSolved) solved += 1;
+      if (!practice) {
+        exercises += 1;
+        maxPoints += max;
+        points += score;
+        if (isSolved) solved += 1;
+      }
 
       // Timeline: each solved step adds its (scaled) points when it passed.
-      for (const s of isLesson(ex.kind) ? [] : passedSteps) {
-        const at = progress.get(s.id)?.passedAt;
-        if (at)
+      for (const s of isLesson(ex.kind) || practice ? [] : passedSteps) {
+        const p = progress.get(s.id);
+        if (p?.passedAt)
           events.push({
-            at,
-            points: itemScore(s.points, stepTotal, item.points, ex.kind),
+            at: p.passedAt,
+            points: itemScore(
+              stepEarned(s.points, a.hintPenalty, p.hintsAtPass ?? 0),
+              stepTotal,
+              item.points,
+              ex.kind,
+            ),
           });
       }
 
@@ -155,8 +167,10 @@ export async function studentProgress(db: Db, userId: string) {
         t.steps += ex.steps.length;
         t.checks += checks;
         t.hintsUsed += att?.hintsUsed ?? 0;
-        t.points += score;
-        t.maxPoints += max;
+        if (!practice) {
+          t.points += score;
+          t.maxPoints += max;
+        }
         tags.set(tag, t);
 
         if (!isSolved && open) {

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { type db as dbType } from "~/server/db";
-import { itemScore } from "./scoring";
+import { itemScore, stepEarned } from "./scoring";
 
 type Db = typeof dbType;
 
@@ -18,23 +18,35 @@ export async function recomputeAttempt(
 ) {
   const rows = await db.attemptStep.findMany({ where: { attemptId } });
   const byId = new Map(rows.map((r) => [r.stepId, r]));
-  const earned = steps.reduce(
-    (s, st) => s + (byId.get(st.id)?.status === "PASSED" ? st.points : 0),
-    0,
-  );
-  const total = steps.reduce((s, st) => s + st.points, 0);
-  const allPassed =
-    steps.length > 0 &&
-    steps.every((st) => byId.get(st.id)?.status === "PASSED");
-  const anyPassed = earned > 0 || rows.some((r) => r.status === "PASSED");
   const current = await db.attempt.findUniqueOrThrow({
     where: { id: attemptId },
     select: {
       finishedAt: true,
       scoreOverride: true,
-      assignmentItem: { select: { exercise: { select: { kind: true } } } },
+      assignmentItem: {
+        select: {
+          exercise: { select: { kind: true } },
+          assignment: { select: { hintPenalty: true } },
+        },
+      },
     },
   });
+  const penalty = current.assignmentItem.assignment.hintPenalty;
+  // Hints count as they were when the step passed (hintsAtPass).
+  const earned = steps.reduce((s, st) => {
+    const r = byId.get(st.id);
+    return (
+      s +
+      (r?.status === "PASSED"
+        ? stepEarned(st.points, penalty, r.hintsAtPass ?? 0)
+        : 0)
+    );
+  }, 0);
+  const total = steps.reduce((s, st) => s + st.points, 0);
+  const allPassed =
+    steps.length > 0 &&
+    steps.every((st) => byId.get(st.id)?.status === "PASSED");
+  const anyPassed = earned > 0 || rows.some((r) => r.status === "PASSED");
   const kind = current.assignmentItem.exercise.kind;
   const computed = anyPassed ? itemScore(earned, total, override, kind) : null;
   return db.attempt.update({

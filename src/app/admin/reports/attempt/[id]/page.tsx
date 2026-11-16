@@ -16,6 +16,7 @@ import { formatDateTime } from "~/lib/format";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/server";
 import { AttemptActions } from "./attempt-actions";
+import { SessionReplay } from "./session-replay";
 
 const timeFmt = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Europe/Vienna",
@@ -239,8 +240,15 @@ export default async function AttemptPage({
                           ? `${s.checks} checks · ${s.hintsUsed}/${s.hintCount} hints${s.passedAt ? ` · solved ${formatDateTime(s.passedAt)}` : ""}`
                           : "not started"}
                       </span>
-                      <span className="w-14 text-right tabular-nums">
-                        {s.status === "PASSED" ? s.points : 0}/{s.points}
+                      <span
+                        className="w-14 text-right tabular-nums"
+                        title={
+                          s.status === "PASSED" && s.earned < s.points
+                            ? `${s.hintsAtPass} hint(s) before solving, −${a.assignment.hintPenalty}% each`
+                            : undefined
+                        }
+                      >
+                        {s.earned}/{s.points}
                       </span>
                     </summary>
                     <pre className="bg-muted/40 mt-2 rounded-md p-3 font-mono text-xs whitespace-pre-wrap">
@@ -264,6 +272,19 @@ export default async function AttemptPage({
               </CardContent>
             </Card>
           )}
+
+          <SessionReplay
+            commands={a.commands}
+            activity={a.activity}
+            focusEvents={a.focusEvents}
+            pasteEvents={a.pasteEvents}
+            steps={a.steps.map((s) => ({
+              id: s.id,
+              index: s.index,
+              title: s.title,
+              hintCount: s.hintCount,
+            }))}
+          />
 
           <Card>
             <CardHeader>
@@ -331,15 +352,31 @@ export default async function AttemptPage({
           </Card>
         </div>
         <div className="flex flex-col gap-6">
+          {Object.keys(a.vars).length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  This student&apos;s values
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
+                  {Object.entries(a.vars).map(([k, v]) => (
+                    <div key={k} className="contents">
+                      <dt className="text-muted-foreground font-mono">{k}</dt>
+                      <dd className="font-mono break-all">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </CardContent>
+            </Card>
+          )}
           <AttemptActions
             attemptId={a.id}
             assignmentId={a.assignment.id}
             studentId={a.student.id}
             maxPoints={a.exercise.points}
-            computedScore={a.steps.reduce(
-              (n, s) => n + (s.status === "PASSED" ? s.points : 0),
-              0,
-            )}
+            computedScore={a.steps.reduce((n, s) => n + s.earned, 0)}
             scoreOverride={a.scoreOverride}
             feedback={a.feedback}
             maxChecks={a.assignment.maxChecks}

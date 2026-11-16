@@ -8,7 +8,8 @@ import type { Prisma } from "../../../generated/prisma";
  *   publishing needs no job, it's decided at query time),
  * - in a non-archived class the student is a member of, and
  * - targeting: no groups = the whole class; otherwise the student must be in
- *   at least one of the assignment's groups.
+ *   at least one of the assignment's groups,
+ * - not someone else's personal practice set (practiceForId).
  *
  * Time windows (opensAt / dueAt / extensions) are NOT applied here; the
  * assignment feature decides how to show upcoming and past ones.
@@ -19,6 +20,7 @@ export function assignmentWhereVisibleTo(
   return {
     AND: [
       { OR: [{ published: true }, { publishAt: { lte: new Date() } }] },
+      { OR: [{ practiceForId: null }, { practiceForId: userId }] },
       {
         OR: [
           { groups: { none: {} } },

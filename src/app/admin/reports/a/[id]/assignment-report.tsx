@@ -9,7 +9,9 @@ import {
   Clock,
   Download,
   EyeOff,
+  Fingerprint,
   GitCompare,
+  Grid3x3,
   GraduationCap,
   Lock,
   MessageSquare,
@@ -115,6 +117,16 @@ export function AssignmentReport({ initial }: { initial: Data }) {
           <Button variant="ghost" size="sm" asChild>
             <Link href={`/admin/reports/a/${a.id}/solutions`}>
               <GitCompare /> Solutions
+            </Link>
+          </Button>
+          <Button variant="ghost" size="sm" asChild>
+            <Link href={`/admin/reports/a/${a.id}/heatmap`}>
+              <Grid3x3 /> Heatmap
+            </Link>
+          </Button>
+          <Button variant="ghost" size="sm" asChild>
+            <Link href={`/admin/reports/a/${a.id}/similarity`}>
+              <Fingerprint /> Similar work
             </Link>
           </Button>
           <Button variant="ghost" size="sm" asChild>

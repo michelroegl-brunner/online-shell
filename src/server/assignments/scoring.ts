@@ -34,6 +34,22 @@ export function itemScore(
 }
 
 /**
+ * Hint penalty: each hint revealed before the step passed costs
+ * `penaltyPct` % of the step's points (never below 0). 0 = hints are free.
+ */
+export function stepEarned(
+  points: number,
+  penaltyPct: number,
+  hintsBeforePass: number,
+) {
+  if (penaltyPct <= 0 || hintsBeforePass <= 0) return points;
+  return Math.max(
+    0,
+    Math.round(points * (1 - (penaltyPct * hintsBeforePass) / 100)),
+  );
+}
+
+/**
  * A step is open if it's the first one, doesn't require the previous step,
  * or the previous step is solved.
  */

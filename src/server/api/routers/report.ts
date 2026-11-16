@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
+import { parseVars } from "~/lib/variables";
 import { assignmentWhere, classWhere } from "~/server/access";
 import { createTRPCRouter, teacherProcedure } from "~/server/api/trpc";
 import { parsePasteDetail } from "~/server/assignments/paste-events";
@@ -8,6 +9,7 @@ import {
   type ExerciseKind,
   itemMaxPoints,
   itemScore,
+  stepEarned,
 } from "~/server/assignments/scoring";
 import { effectiveDueAt } from "~/server/assignments/window";
 import { HOME } from "~/server/exercises/run";
@@ -402,6 +404,7 @@ export const reportRouter = createTRPCRouter({
                   dueAt: true,
                   mode: true,
                   maxChecks: true,
+                  hintPenalty: true,
                   class: { select: { id: true, name: true } },
                   extensions: { select: { userId: true, extraMinutes: true } },
                   submissions: { select: { userId: true, submittedAt: true } },
@@ -426,6 +429,19 @@ export const reportRouter = createTRPCRouter({
             select: { id: true, at: true, type: true, detail: true },
             take: 2000,
           },
+          activity: {
+            orderBy: [{ at: "asc" }, { id: "asc" }],
+            select: {
+              id: true,
+              at: true,
+              type: true,
+              stepId: true,
+              ok: true,
+              detail: true,
+            },
+            take: 5000,
+          },
+          vars: true,
         },
       });
       if (!att) throw new TRPCError({ code: "NOT_FOUND" });
@@ -446,6 +462,7 @@ export const reportRouter = createTRPCRouter({
           extraMinutes: extra ?? 0,
           mode: item.assignment.mode,
           maxChecks: item.assignment.maxChecks,
+          hintPenalty: item.assignment.hintPenalty,
           submittedAt:
             item.assignment.submissions.find((x) => x.userId === att.user.id)
               ?.submittedAt ?? null,
@@ -463,16 +480,25 @@ export const reportRouter = createTRPCRouter({
         steps: item.exercise.steps.map((st, index) => {
           const p = att.steps.find((x) => x.stepId === st.id);
           const total = item.exercise.steps.reduce((s, x) => s + x.points, 0);
+          const scale = (n: number) =>
+            itemScore(n, total, item.points, item.exercise.kind);
           return {
             id: st.id,
             index,
             title: st.title,
-            points: itemScore(
-              st.points,
-              total,
-              item.points,
-              item.exercise.kind,
-            ),
+            points: scale(st.points),
+            /** Points the step gave (hint penalty applied); 0 = not solved. */
+            earned:
+              p?.status === "PASSED"
+                ? scale(
+                    stepEarned(
+                      st.points,
+                      item.assignment.hintPenalty,
+                      p.hintsAtPass ?? 0,
+                    ),
+                  )
+                : 0,
+            hintsAtPass: p?.hintsAtPass ?? null,
             status: p?.status ?? null,
             checks: p?.checks ?? 0,
             hintsUsed: p?.hintsUsed ?? 0,
@@ -503,6 +529,17 @@ export const reportRouter = createTRPCRouter({
         minutes: att.finishedAt
           ? Math.round(minutesBetween(att.startedAt, att.finishedAt))
           : null,
+        /** The student's values for the exercise's variables. */
+        vars: parseVars(att.vars),
+        /** Checks, hints, resets… for the session replay. */
+        activity: att.activity.map((e) => ({
+          id: e.id.toString(),
+          at: e.at,
+          type: e.type,
+          stepId: e.stepId,
+          ok: e.ok,
+          detail: e.detail,
+        })),
         commands: att.commands.map((c) => ({
           id: c.id.toString(),
           at: c.at,
@@ -569,7 +606,7 @@ export const reportRouter = createTRPCRouter({
       if (!user) throw new TRPCError({ code: "NOT_FOUND" });
 
       const assignments = await ctx.db.assignment.findMany({
-        where: { classId: cls.id },
+        where: { classId: cls.id, practiceForId: null },
         orderBy: [
           { dueAt: { sort: "asc", nulls: "last" } },
           { createdAt: "asc" },

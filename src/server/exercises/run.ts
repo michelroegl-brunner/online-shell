@@ -3,6 +3,7 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 
 import { SLUG_RE } from "~/lib/exercise";
+import { VAR_NAME_RE, type Vars } from "~/lib/variables";
 import { runner, type ShellKind } from "~/server/runner";
 
 /**
@@ -24,7 +25,22 @@ export type RunResult = {
   timedOut: boolean;
 };
 
-type Ex = { slug: string; shell: ShellKind };
+type Ex = {
+  slug: string;
+  shell: ShellKind;
+  /** The student's exercise variables, exported to the script. */
+  vars?: Vars;
+};
+
+/** `'it'''s'`: single-quote a value for the shell. */
+const shQuote = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
+
+/** `export NAME='value'` lines (names are validated, values quoted). */
+export function exportVars(vars: Vars | undefined) {
+  return Object.entries(vars ?? {})
+    .filter(([k]) => VAR_NAME_RE.test(k))
+    .map(([k, v]) => `export ${k}=${shQuote(v)}`);
+}
 
 /** A script whose first line is a pwsh shebang runs in PowerShell. */
 export const isPwshScript = (body: string) =>
@@ -36,6 +52,7 @@ export function wrap(opts: {
   body: string;
   reset: boolean;
   strict: boolean;
+  vars?: Vars;
 }) {
   const nonce = randomBytes(8).toString("hex");
   const eof = `OSHELL_EOF_${nonce}`;
@@ -66,6 +83,7 @@ export function wrap(opts: {
       : 'mkdir -p -- "$D" || exit 98',
     'cd -- "$D" || exit 98',
     `export OSHELL_DIR="$D" OSHELL_HOME='${HOME}'`,
+    ...exportVars(opts.vars),
     `cat > '${file}' <<'${eof}'`,
     opts.body,
     eof,
@@ -104,6 +122,7 @@ export async function runSetup(
       body: ex.setupScript,
       reset: true,
       strict: true,
+      vars: ex.vars,
     }),
   });
   return toResult(res);
@@ -124,6 +143,7 @@ export async function runCheck(
       body: ex.checkScript,
       reset: false,
       strict: false,
+      vars: ex.vars,
     }),
   });
   return toResult(res);

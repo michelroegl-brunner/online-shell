@@ -11,6 +11,7 @@ export const EMPTY_ASSIGNMENT: EditorInitial = {
   dueAt: null,
   maxChecks: null,
   allowHints: true,
+  hintPenalty: 0,
   allowCheatSheet: true,
   // Students should type commands themselves.
   allowPaste: false,

@@ -135,6 +135,7 @@ export function toBundle(
       setupScript: e.setupScript,
       setupInternet: e.setupInternet,
       tags: e.tags,
+      variables: e.variables,
       visibility: e.visibility,
       steps: e.steps.map((s) => ({
         title: s.title,

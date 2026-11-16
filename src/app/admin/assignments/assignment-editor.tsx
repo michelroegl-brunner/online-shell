@@ -69,6 +69,7 @@ export type EditorInitial = {
   dueAt: Date | null;
   maxChecks: number | null;
   allowHints: boolean;
+  hintPenalty: number;
   allowCheatSheet: boolean;
   allowPaste: boolean;
   published: boolean;
@@ -160,6 +161,7 @@ export function AssignmentEditor({
       dueAt: fromLocalInput(form.dueAt),
       maxChecks: maxChecks === "" ? null : Number(maxChecks),
       allowHints: form.allowHints,
+      hintPenalty: form.allowHints ? form.hintPenalty : 0,
       allowCheatSheet: form.allowCheatSheet,
       allowPaste: form.allowPaste,
       published: form.published,
@@ -506,6 +508,29 @@ export function AssignmentEditor({
               />
               Allow hints
             </label>
+          </Field>
+          <Field label="Each hint costs" className="md:col-span-1">
+            <div
+              className="flex h-9 items-center gap-2 text-sm"
+              title="Share of the step's points a student loses for each hint revealed before solving the step. 0 = hints are free."
+            >
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                step={5}
+                className="w-20"
+                disabled={!form.allowHints}
+                value={form.hintPenalty}
+                onChange={(e) =>
+                  set(
+                    "hintPenalty",
+                    Math.max(0, Math.min(100, Number(e.target.value) || 0)),
+                  )
+                }
+              />
+              <span className="text-muted-foreground">% of the step</span>
+            </div>
           </Field>
           <Field label="Cheat sheets" className="md:col-span-1">
             <label

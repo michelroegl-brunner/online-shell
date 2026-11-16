@@ -3,7 +3,15 @@ import { z } from "zod";
 
 import { assignmentWhere, exerciseReadableWhere } from "~/server/access";
 import { createTRPCRouter, teacherProcedure } from "~/server/api/trpc";
+import { parseVars } from "~/lib/variables";
 import { itemMaxPoints } from "~/server/assignments/scoring";
+import {
+  comparePairs,
+  normalize,
+  REPORT_THRESHOLD,
+  type SimStudent,
+  TRIVIAL,
+} from "~/server/assignments/similarity";
 import { windowState } from "~/server/assignments/window";
 
 /**
@@ -17,11 +25,6 @@ function median(xs: number[]): number | null {
   const m = Math.floor(s.length / 2);
   return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2;
 }
-
-/** Commands that look around rather than solve something. */
-const TRIVIAL =
-  /^(cd|ls|ll|la|l|pwd|clear|cls|history|exit|man|help|less|more|tree|whoami|nano|vi|vim|file|stat|wc|Get-ChildItem|gci|dir|Set-Location|sl|Get-Location|gl|Get-Help|Get-Content|gc|type)(\s|$)|^cat\s+\S+$|^echo \$\?$/i;
-const normalize = (c: string) => c.trim().replace(/\s+/g, " ");
 
 // Step analytics thresholds.
 const MIN_STARTED = 5;
@@ -349,6 +352,340 @@ export const insightsRouter = createTRPCRouter({
 
       return {
         assignment: { id: a.id, title: a.title, className: a.class.name },
+        items,
+      };
+    }),
+
+  /**
+   * Pairs of students whose work looks copied (see similarity.ts): shared
+   * rare commands and mistakes, another student's variable values, steps
+   * solved at the same moment. Only pairs above a threshold come back.
+   */
+  similarity: teacherProcedure
+    .input(z.object({ assignmentId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const a = await ctx.db.assignment.findFirst({
+        where: { AND: [{ id: input.assignmentId }, assignmentWhere(ctx.user)] },
+        select: {
+          id: true,
+          title: true,
+          mode: true,
+          class: { select: { name: true } },
+          items: {
+            orderBy: { order: "asc" },
+            select: {
+              id: true,
+              exercise: {
+                select: {
+                  title: true,
+                  steps: {
+                    orderBy: { order: "asc" },
+                    select: { id: true, title: true },
+                  },
+                },
+              },
+              attempts: {
+                where: { user: { role: "STUDENT" } },
+                select: {
+                  id: true,
+                  vars: true,
+                  user: { select: { id: true, name: true } },
+                  steps: {
+                    where: { status: "PASSED", passedAt: { not: null } },
+                    select: { stepId: true, passedAt: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+      if (!a) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const attemptIds = a.items.flatMap((i) => i.attempts.map((t) => t.id));
+      const commands = attemptIds.length
+        ? await ctx.db.commandLog.findMany({
+            where: { attemptId: { in: attemptIds } },
+            select: { attemptId: true, command: true, exitCode: true },
+            take: 200_000,
+          })
+        : [];
+      const byAttempt = new Map<string, typeof commands>();
+      for (const c of commands) {
+        const list = byAttempt.get(c.attemptId) ?? [];
+        list.push(c);
+        byAttempt.set(c.attemptId, list);
+      }
+
+      // One entry per student across all exercises of the assignment.
+      const students = new Map<string, SimStudent>();
+      /** userId → itemId → attemptId (links in the UI). */
+      const attemptOf: Record<string, Record<string, string>> = {};
+      for (const item of a.items) {
+        for (const att of item.attempts) {
+          const s = students.get(att.user.id) ?? {
+            id: att.user.id,
+            name: att.user.name,
+            commands: [],
+            passed: new Map<string, Date>(),
+            vars: new Map<string, Record<string, string>>(),
+          };
+          for (const c of byAttempt.get(att.id) ?? []) {
+            s.commands.push({
+              itemId: item.id,
+              command: c.command,
+              exitCode: c.exitCode,
+            });
+          }
+          for (const st of att.steps) s.passed.set(st.stepId, st.passedAt!);
+          const vars = parseVars(att.vars);
+          if (Object.keys(vars).length) s.vars.set(item.id, vars);
+          students.set(att.user.id, s);
+          (attemptOf[att.user.id] ??= {})[item.id] = att.id;
+        }
+      }
+
+      const pairs = comparePairs([...students.values()])
+        .filter((p) => p.score >= REPORT_THRESHOLD)
+        .slice(0, 60);
+
+      return {
+        assignment: {
+          id: a.id,
+          title: a.title,
+          mode: a.mode,
+          className: a.class.name,
+        },
+        students: students.size,
+        items: a.items.map((i) => ({ id: i.id, title: i.exercise.title })),
+        steps: a.items.flatMap((i) =>
+          i.exercise.steps.map((s, idx) => ({
+            id: s.id,
+            title:
+              i.exercise.steps.length > 1
+                ? `${i.exercise.title} · ${idx + 1}. ${s.title}`
+                : i.exercise.title,
+          })),
+        ),
+        attemptOf,
+        pairs,
+      };
+    }),
+
+  /**
+   * Where the class is stuck: per step how many students solved it, are
+   * stuck on it (their current step) or haven't got there yet, plus the
+   * most common failing check messages and commands on that step.
+   */
+  heatmap: teacherProcedure
+    .input(z.object({ assignmentId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const a = await ctx.db.assignment.findFirst({
+        where: { AND: [{ id: input.assignmentId }, assignmentWhere(ctx.user)] },
+        select: {
+          id: true,
+          title: true,
+          class: {
+            select: {
+              name: true,
+              memberships: {
+                where: { user: { role: "STUDENT" } },
+                select: { userId: true },
+              },
+            },
+          },
+          groups: {
+            select: {
+              group: { select: { members: { select: { userId: true } } } },
+            },
+          },
+          items: {
+            orderBy: { order: "asc" },
+            select: {
+              id: true,
+              exercise: {
+                select: {
+                  title: true,
+                  kind: true,
+                  steps: {
+                    orderBy: { order: "asc" },
+                    select: { id: true, title: true, requiresPrevious: true },
+                  },
+                },
+              },
+              attempts: {
+                where: { user: { role: "STUDENT" } },
+                select: {
+                  id: true,
+                  startedAt: true,
+                  updatedAt: true,
+                  user: { select: { id: true, name: true } },
+                  steps: {
+                    select: {
+                      stepId: true,
+                      status: true,
+                      checks: true,
+                      hintsUsed: true,
+                      passedAt: true,
+                      updatedAt: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+      if (!a) throw new TRPCError({ code: "NOT_FOUND" });
+
+      // Students the assignment is for (whole class or its groups).
+      const targetIds = a.groups.length
+        ? new Set(a.groups.flatMap((g) => g.group.members.map((m) => m.userId)))
+        : null;
+      const target = new Set(
+        a.class.memberships
+          .map((m) => m.userId)
+          .filter((id) => !targetIds || targetIds.has(id)),
+      );
+      const students = target.size;
+
+      const attemptIds = a.items.flatMap((i) => i.attempts.map((t) => t.id));
+      const [failedChecks, failedCmds, lastCmds] = attemptIds.length
+        ? await Promise.all([
+            ctx.db.attemptEvent.findMany({
+              where: {
+                attemptId: { in: attemptIds },
+                type: "CHECK",
+                ok: false,
+              },
+              select: { stepId: true, detail: true, attemptId: true },
+              take: 50_000,
+            }),
+            ctx.db.commandLog.findMany({
+              where: {
+                attemptId: { in: attemptIds },
+                exitCode: { not: 0 },
+                NOT: { exitCode: null },
+              },
+              select: { attemptId: true, at: true, command: true },
+              take: 50_000,
+            }),
+            ctx.db.commandLog.groupBy({
+              by: ["attemptId"],
+              where: { attemptId: { in: attemptIds } },
+              _max: { at: true },
+            }),
+          ])
+        : [[], [], []];
+      const lastCmdAt = new Map(
+        lastCmds.map((r) => [r.attemptId, r._max.at ?? null]),
+      );
+      const failedByAttempt = new Map<string, typeof failedCmds>();
+      for (const c of failedCmds) {
+        const list = failedByAttempt.get(c.attemptId) ?? [];
+        list.push(c);
+        failedByAttempt.set(c.attemptId, list);
+      }
+
+      const now = Date.now();
+      const ACTIVE_MS = 15 * 60_000;
+      const top = (m: Map<string, number>, n = 3) =>
+        [...m.entries()]
+          .sort((x, y) => y[1] - x[1])
+          .slice(0, n)
+          .map(([text, count]) => ({ text, count }));
+
+      const items = a.items.map((item) => {
+        const atts = item.attempts.filter((t) => target.has(t.user.id));
+        const stepIds = item.exercise.steps.map((s) => s.id);
+        // Per attempt: the step they are on (first one not passed).
+        const currentOf = new Map(
+          atts.map((t) => {
+            const passed = new Set(
+              t.steps.filter((s) => s.status === "PASSED").map((s) => s.stepId),
+            );
+            return [t.id, stepIds.find((id) => !passed.has(id)) ?? null];
+          }),
+        );
+        const steps = item.exercise.steps.map((st, idx) => {
+          let passed = 0;
+          let failedChecksCount = 0;
+          const stuck: {
+            name: string;
+            attemptId: string;
+            checks: number;
+            hints: number;
+            active: boolean;
+            minutes: number;
+          }[] = [];
+          const cmdCounts = new Map<string, number>();
+          for (const t of atts) {
+            const row = t.steps.find((s) => s.stepId === st.id);
+            if (row?.status === "PASSED") {
+              passed++;
+              continue;
+            }
+            if (currentOf.get(t.id) !== st.id) continue;
+            // Since when on this step: previous step's pass, or the start.
+            const prevId = stepIds[idx - 1];
+            const prev = prevId
+              ? t.steps.find((s) => s.stepId === prevId)?.passedAt
+              : null;
+            const since = (prev ?? t.startedAt).getTime();
+            const lastAt = Math.max(
+              t.updatedAt.getTime(),
+              lastCmdAt.get(t.id)?.getTime() ?? 0,
+            );
+            stuck.push({
+              name: t.user.name,
+              attemptId: t.id,
+              checks: row?.checks ?? 0,
+              hints: row?.hintsUsed ?? 0,
+              active: now - lastAt < ACTIVE_MS,
+              minutes: Math.max(0, Math.round((lastAt - since) / 60_000)),
+            });
+            for (const c of failedByAttempt.get(t.id) ?? []) {
+              if (c.at.getTime() < since) continue;
+              const k = normalize(c.command).slice(0, 120);
+              if (k && !TRIVIAL.test(k))
+                cmdCounts.set(k, (cmdCounts.get(k) ?? 0) + 1);
+            }
+          }
+          const checkCounts = new Map<string, number>();
+          for (const e of failedChecks) {
+            if (e.stepId !== st.id) continue;
+            failedChecksCount++;
+            // Group by the first line of what the student was told.
+            const first = (e.detail ?? "").split("\n")[0]?.trim() ?? "";
+            const k = first === "" ? "(no output)" : first;
+            checkCounts.set(k, (checkCounts.get(k) ?? 0) + 1);
+          }
+          return {
+            id: st.id,
+            title: st.title,
+            passed,
+            stuck: stuck.sort(
+              (x, y) =>
+                Number(y.active) - Number(x.active) || y.minutes - x.minutes,
+            ),
+            notReached: Math.max(0, students - passed - stuck.length),
+            failedChecks: failedChecksCount,
+            topCheckMessages: top(checkCounts),
+            topFailingCommands: top(cmdCounts),
+          };
+        });
+        return {
+          id: item.id,
+          title: item.exercise.title,
+          kind: item.exercise.kind,
+          started: atts.length,
+          steps,
+        };
+      });
+
+      return {
+        assignment: { id: a.id, title: a.title, className: a.class.name },
+        students,
         items,
       };
     }),

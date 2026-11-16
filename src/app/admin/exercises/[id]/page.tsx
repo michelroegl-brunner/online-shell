@@ -38,6 +38,7 @@ export default async function EditExercisePage({
           setupScript: ex.setupScript,
           setupInternet: ex.setupInternet,
           tags: ex.tags,
+          variables: ex.variables,
           visibility: ex.visibility,
           steps: ex.steps.map((s) => ({
             id: s.id,

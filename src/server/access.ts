@@ -15,8 +15,14 @@ export const isAdmin = (u: Viewer) => u.role === "ADMIN";
 export const classWhere = (u: Viewer): Prisma.ClassWhereInput =>
   isAdmin(u) ? {} : { teachers: { some: { userId: u.id } } };
 
+/**
+ * Assignments a teacher manages. Students' personal practice sets
+ * (practiceForId) are theirs alone and never show up here.
+ */
 export const assignmentWhere = (u: Viewer): Prisma.AssignmentWhereInput =>
-  isAdmin(u) ? {} : { class: classWhere(u) };
+  isAdmin(u)
+    ? { practiceForId: null }
+    : { class: classWhere(u), practiceForId: null };
 
 /** Exercises a teacher may use: own or SHARED (admins: all). */
 export const exerciseReadableWhere = (u: Viewer): Prisma.ExerciseWhereInput =>

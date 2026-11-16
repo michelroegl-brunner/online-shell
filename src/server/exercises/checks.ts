@@ -1,6 +1,7 @@
 import "server-only";
 
 import { describeCheck, isBlankScript, type StepCheck } from "~/lib/checks";
+import { renderVars, type Vars } from "~/lib/variables";
 import { type ShellKind } from "~/server/runner";
 import { runCheck, type RunResult } from "./run";
 
@@ -90,13 +91,42 @@ function commandUsed(
   );
 }
 
+/** `{{NAME}}` in a ready-made check's texts → the student's value. */
+export function checkWithVars(c: StepCheck, vars: Vars): StepCheck {
+  const r = (s: string) => renderVars(s, vars);
+  const message = c.message === undefined ? undefined : r(c.message);
+  switch (c.type) {
+    case "file_exists":
+      return { ...c, path: r(c.path), message };
+    case "file_content":
+      return { ...c, path: r(c.path), value: r(c.value), message };
+    case "command_output":
+      return { ...c, command: r(c.command), value: r(c.value), message };
+    case "command_used":
+      // A regex: the value is matched literally.
+      return {
+        ...c,
+        pattern: c.pattern.replace(
+          /\{\{\s*([A-Z][A-Z0-9_]{0,30})\s*\}\}/g,
+          (m, n: string) =>
+            vars[n] === undefined
+              ? m
+              : vars[n].replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        ),
+        message,
+      };
+  }
+}
+
 export async function runStepChecks(
   userId: string,
-  ex: { slug: string; shell: ShellKind },
+  ex: { slug: string; shell: ShellKind; vars?: Vars },
   step: { checkScript: string; checks: StepCheck[] },
   /** The attempt's commands; null = no command log (test run). */
   commands: { command: string; exitCode: number | null }[] | null,
 ): Promise<RunResult> {
+  const vars = ex.vars ?? {};
+  step = { ...step, checks: step.checks.map((c) => checkWithVars(c, vars)) };
   const parts: string[] = [];
   let ok = true;
   let timedOut = false;

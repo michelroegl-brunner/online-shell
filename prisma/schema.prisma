@@ -74,6 +74,8 @@ model User {
   announcements        Announcement[]
   submissions          AssignmentSubmission[]
   gradePushes          GradePush[]
+  /// Personal practice sets (Assignment.practiceForId)
+  practiceSets         Assignment[] @relation("PracticeSets")
 }
 
 model Class {
@@ -165,6 +167,9 @@ model Exercise {
   /// Setup runs in a helper container with internet access (downloads)
   setupInternet Boolean  @default(false)
   tags        String[]
+  /// Per-student values (src/lib/variables.ts): `{{NAME}}` in texts and
+  /// ready-made checks, `$NAME` in setup/check scripts.
+  variables   Json       @default("[]")
   visibility  Visibility @default(PRIVATE)
   archived    Boolean    @default(false)
   authorId    String
@@ -219,14 +224,22 @@ model Assignment {
   /// Topic cheat sheets are shown next to the terminal
   allowCheatSheet Boolean @default(true)
   allowHints Boolean        @default(true)
+  /// Each revealed hint costs this % of the step's points (0 = free).
+  hintPenalty Int           @default(0)
   allowPaste Boolean        @default(true)
   published  Boolean        @default(false)
   /// Draft that becomes visible to students at this time (scheduled publish).
   publishAt  DateTime?
+  /// Personal practice set of one student ("practise your weak spots").
+  /// Only that student sees it; teachers' lists and reports leave it out.
+  practiceForId String?
+  /// The tag the practice set was made for.
+  practiceTag   String?
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
 
   class         Class                  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  practiceFor   User?                  @relation("PracticeSets", fields: [practiceForId], references: [id], onDelete: Cascade)
   items         AssignmentItem[]
   extensions    AssignmentExtension[]
   /// No groups = whole class; otherwise only students in >= 1 of them.
@@ -236,6 +249,7 @@ model Assignment {
   gradePushes   GradePush[]
 
   @@index([classId])
+  @@index([practiceForId])
 }
 
 model AssignmentGroup {
@@ -334,6 +348,8 @@ model Attempt {
   /// Teacher's note to the student (shown on the exercise page)
   feedback         String?
   feedbackAt       DateTime?
+  /// This student's values for the exercise's variables (name -> value)
+  vars             Json?
   finishedAt       DateTime?
   updatedAt        DateTime      @default(now()) @updatedAt
 
@@ -341,6 +357,8 @@ model Attempt {
   assignmentItem AssignmentItem @relation(fields: [assignmentItemId], references: [id], onDelete: Cascade)
   commands       CommandLog[]
   events         ExamEvent[]
+  /// Checks, hints, resets… (session replay, heatmap)
+  activity       AttemptEvent[]
   /// Per-step progress; status/score/checks/hintsUsed above are the totals.
   steps          AttemptStep[]
 
@@ -357,6 +375,8 @@ model AttemptStep {
   score       Int?
   checks      Int           @default(0)
   hintsUsed   Int           @default(0)
+  /// Hints revealed when the step passed (what the hint penalty counts)
+  hintsAtPass Int?
   checkOutput String?
   passedAt    DateTime?
   updatedAt   DateTime      @default(now()) @updatedAt
@@ -403,6 +423,25 @@ model CommandLog {
   attempt Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
 
   @@index([attemptId, at])
+}
+
+/// What happened on an attempt besides commands: checks (passed or not),
+/// hints, resets, the setup. Feeds the session replay and the heatmap.
+model AttemptEvent {
+  id        BigInt   @id @default(autoincrement())
+  attemptId String
+  at        DateTime @default(now())
+  /// SETUP | CHECK | AUTOCHECK | HINT | RESET | SUBMIT
+  type      String
+  stepId    String?
+  ok        Boolean?
+  /// CHECK: first lines of the check output; HINT: hint number
+  detail    String?
+
+  attempt Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId, at])
+  @@index([stepId, type])
 }
 
 model ExamEvent {

@@ -25,6 +25,7 @@ import {
   slugify,
   totalPoints,
 } from "~/lib/exercise";
+import { placeholdersIn, renderVars } from "~/lib/variables";
 import { api } from "~/trpc/react";
 import { Field, Script, ScriptHelp } from "./form-parts";
 import {
@@ -34,11 +35,20 @@ import {
   type StepForm,
 } from "./steps-editor";
 import { TestRunPanel } from "./test-run-panel";
+import {
+  exampleVars,
+  fromVarForm,
+  toVarForm,
+  VariablesBadge,
+  VariablesEditor,
+  type VarForm,
+} from "./variables-editor";
 
 /** Form state: tags as text, steps with their own form shape. */
-type FormState = Omit<ExerciseInput, "tags" | "steps"> & {
+type FormState = Omit<ExerciseInput, "tags" | "steps" | "variables"> & {
   tags: string;
   steps: StepForm[];
+  variables: VarForm[];
 };
 
 const toForm = (
@@ -47,6 +57,7 @@ const toForm = (
 ): FormState => ({
   ...e,
   tags: e.tags.join(", "),
+  variables: e.variables.map(toVarForm),
   steps: e.steps.map((s) =>
     toStepForm(s, s.id ? (stepAttempts[s.id] ?? 0) : 0),
   ),
@@ -59,6 +70,7 @@ const fromForm = (f: FormState): ExerciseInput => ({
     .map((t) => t.trim().toLowerCase())
     .filter(Boolean),
   steps: f.steps.map(fromStepForm),
+  variables: f.variables.map(fromVarForm),
 });
 
 export function ExerciseEditor({
@@ -146,6 +158,24 @@ export function ExerciseEditor({
 
   const readOnly = !canEdit;
   const total = totalPoints(form.steps);
+  const example = useMemo(() => exampleVars(form.variables), [form.variables]);
+  // `{{NAME}}` used somewhere without a variable of that name.
+  const unknownVars = useMemo(() => {
+    const out = fromForm(form);
+    const texts = [
+      out.description,
+      ...out.steps.flatMap((s) => [
+        s.title,
+        s.description,
+        ...s.hints,
+        JSON.stringify(s.checks),
+      ]),
+    ];
+    const defined = new Set(out.variables.map((v) => v.name));
+    return [...new Set(texts.flatMap(placeholdersIn))].filter(
+      (n) => !defined.has(n),
+    );
+  }, [form]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -296,7 +326,20 @@ export function ExerciseEditor({
               {form.steps.length}
             </Badge>
           </TabsTrigger>
+          <TabsTrigger value="variables">
+            Variables
+            <VariablesBadge count={form.variables.length} />
+          </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="variables" className="flex flex-col gap-2">
+          <VariablesEditor
+            vars={form.variables}
+            onChange={(v) => set("variables", v)}
+            readOnly={readOnly}
+            unknown={unknownVars}
+          />
+        </TabsContent>
 
         <TabsContent value="intro" className="flex flex-col gap-2">
           <ScriptHelp>
@@ -314,7 +357,9 @@ export function ExerciseEditor({
               <p className="text-muted-foreground mb-2 text-xs tracking-wide uppercase">
                 Preview
               </p>
-              <Markdown>{form.description || "_Nothing yet._"}</Markdown>
+              <Markdown>
+                {renderVars(form.description, example) || "_Nothing yet._"}
+              </Markdown>
             </div>
           </div>
         </TabsContent>

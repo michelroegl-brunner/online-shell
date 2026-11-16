@@ -2,9 +2,21 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { parseChecks } from "~/lib/checks";
+import {
+  parseVariables,
+  renderVars,
+  varsFor,
+  type Vars,
+} from "~/lib/variables";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { logActivity, outputSummary } from "~/server/assignments/activity";
 import { ingestCommandLog } from "~/server/assignments/command-log";
 import { EXAM_EVENT_TYPES, openExamsFor } from "~/server/assignments/exam";
+import {
+  myPracticeSets,
+  practiceAvailability,
+  startPractice,
+} from "~/server/assignments/practice";
 import { studentProgress } from "~/server/assignments/progress";
 import { recomputeAttempt } from "~/server/assignments/recompute";
 import {
@@ -13,6 +25,7 @@ import {
   isLesson,
   itemMaxPoints,
   itemScore,
+  stepEarned,
   stepUnlocked,
 } from "~/server/assignments/scoring";
 import { assignmentWhere, isAdmin } from "~/server/access";
@@ -59,9 +72,10 @@ type Viewer = { id: string; role: string };
  */
 function learnWhere(user: Viewer): Prisma.AssignmentWhereInput {
   if (user.role === "STUDENT") return assignmentWhereVisibleTo(user.id);
-  // Admins reach everything. Don't put assignmentWhere()'s `{}` into an OR:
-  // Prisma drops empty filters there, leaving only the student rule (404).
-  if (isAdmin(user)) return {};
+  // Admins reach every class's assignments (not students' practice sets).
+  // Don't put an empty `{}` into an OR: Prisma drops empty filters there,
+  // leaving only the student rule (404).
+  if (isAdmin(user)) return { practiceForId: null };
   return { OR: [assignmentWhereVisibleTo(user.id), assignmentWhere(user)] };
 }
 
@@ -93,6 +107,7 @@ async function loadItem(db: Db, user: Viewer, itemId: string) {
           points: true,
           setupScript: true,
           setupInternet: true,
+          variables: true,
           steps: {
             orderBy: { order: "asc" },
             select: {
@@ -117,8 +132,10 @@ async function loadItem(db: Db, user: Viewer, itemId: string) {
           dueAt: true,
           maxChecks: true,
           allowHints: true,
+          hintPenalty: true,
           allowCheatSheet: true,
           mode: true,
+          practiceTag: true,
           class: { select: { name: true } },
           extensions: { where: { userId }, select: { extraMinutes: true } },
           submissions: { where: { userId }, select: { submittedAt: true } },
@@ -186,9 +203,17 @@ async function loadItem(db: Db, user: Viewer, itemId: string) {
       ),
     };
   });
+  // My values for the exercise's variables (stable: seeded per student
+  // and item; stored on the attempt once it exists).
+  const vars = varsFor(
+    parseVariables(item.exercise.variables),
+    attempt?.vars,
+    `${userId}:${item.id}`,
+  );
   return {
     item,
     attempt,
+    vars,
     state,
     extra,
     steps,
@@ -309,7 +334,7 @@ async function runChecksFor(
   db: Db,
   userId: string,
   attemptId: string,
-  ex: { slug: string; shell: ShellKind },
+  ex: { slug: string; shell: ShellKind; vars: Vars },
   step: { checkScript: string; checks: unknown },
 ): Promise<RunResult> {
   await ingestCommandLog(userId);
@@ -330,15 +355,29 @@ async function runChecksFor(
   );
 }
 
-/** Only the first passing check awards the step (conditional update). */
+/**
+ * Only the first passing check awards the step (conditional update). The
+ * hints revealed so far are frozen in `hintsAtPass` (hint penalty).
+ */
 async function markStepPassed(
   db: Db,
   attemptId: string,
   step: { id: string; points: number },
+  hintPenalty: number,
 ) {
+  const row = await db.attemptStep.findUnique({
+    where: { attemptId_stepId: { attemptId, stepId: step.id } },
+    select: { hintsUsed: true },
+  });
+  const hints = row?.hintsUsed ?? 0;
   await db.attemptStep.updateMany({
     where: { attemptId, stepId: step.id, status: { not: "PASSED" } },
-    data: { status: "PASSED", score: step.points, passedAt: new Date() },
+    data: {
+      status: "PASSED",
+      score: stepEarned(step.points, hintPenalty, hints),
+      hintsAtPass: hints,
+      passedAt: new Date(),
+    },
   });
 }
 
@@ -414,7 +453,10 @@ export const learnRouter = createTRPCRouter({
   overview: protectedProcedure.query(async ({ ctx }) => {
     const userId = ctx.user.id;
     const assignments = await ctx.db.assignment.findMany({
-      where: assignmentWhereVisibleTo(userId),
+      // Practice sets live on the progress page.
+      where: {
+        AND: [assignmentWhereVisibleTo(userId), { practiceForId: null }],
+      },
       orderBy: [
         { dueAt: { sort: "asc", nulls: "last" } },
         { createdAt: "desc" },
@@ -611,7 +653,10 @@ export const learnRouter = createTRPCRouter({
         submitted,
         maxChecks,
         nextLockedBy,
+        vars,
       } = loaded;
+      const r = (s: string) => renderVars(s, vars);
+      const penalty = item.assignment.hintPenalty;
       // During an exam, other assignments' tasks and revealed hints stay
       // hidden too (not just their actions).
       await assertNotLockedByExam(ctx.db, ctx.user, item.assignment.id);
@@ -640,9 +685,13 @@ export const learnRouter = createTRPCRouter({
           state,
           maxChecks,
           allowHints: item.assignment.allowHints,
+          /** % of a step's points each hint costs (0 = free). */
+          hintPenalty: penalty,
           allowCheatSheet: item.assignment.allowCheatSheet,
           mode: item.assignment.mode,
           submittedAt: submitted,
+          /** Personal practice set: the tag it practises. */
+          practiceTag: item.assignment.practiceTag,
         },
         position: {
           index: idx,
@@ -658,7 +707,7 @@ export const learnRouter = createTRPCRouter({
           tags: item.exercise.tags,
           slug: item.exercise.slug,
           title: item.exercise.title,
-          description: item.exercise.description,
+          description: r(item.exercise.description),
           shell: item.exercise.shell,
           difficulty: item.exercise.difficulty,
           points: itemPoints(item),
@@ -667,16 +716,31 @@ export const learnRouter = createTRPCRouter({
         steps: steps.map((s) => ({
           id: s.id,
           index: s.index,
-          title: s.title,
+          title: r(s.title),
           unlocked: s.unlocked,
           requiresPrevious: s.requiresPrevious,
           /** The terminal is online while this is the current step. */
           internet: s.allowInternet,
-          description: s.unlocked ? s.description : null,
+          description: s.unlocked ? r(s.description) : null,
           points: scale(s.points),
+          /** What solving it is still worth after the hints taken so far. */
+          worth: scale(
+            stepEarned(s.points, penalty, s.progress?.hintsUsed ?? 0),
+          ),
+          /** Points the next hint would cost (0 = free). */
+          nextHintCost:
+            scale(stepEarned(s.points, penalty, s.progress?.hintsUsed ?? 0)) -
+            scale(
+              stepEarned(s.points, penalty, (s.progress?.hintsUsed ?? 0) + 1),
+            ),
           hintCount: s.unlocked ? s.hints.length : 0,
           status: s.progress?.status ?? null,
-          score: s.progress?.status === "PASSED" ? scale(s.points) : null,
+          score:
+            s.progress?.status === "PASSED"
+              ? scale(
+                  stepEarned(s.points, penalty, s.progress.hintsAtPass ?? 0),
+                )
+              : null,
           checks: s.progress?.checks ?? 0,
           lastCheckOutput:
             s.progress?.checkOutput == null
@@ -688,7 +752,7 @@ export const learnRouter = createTRPCRouter({
                 : s.progress.checkOutput,
           revealedHints:
             s.unlocked && item.assignment.allowHints
-              ? s.hints.slice(0, s.progress?.hintsUsed ?? 0)
+              ? s.hints.slice(0, s.progress?.hintsUsed ?? 0).map(r)
               : [],
         })),
         attempt: attempt && {
@@ -713,7 +777,7 @@ export const learnRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
       const loaded = await loadItem(ctx.db, ctx.user, input.itemId);
-      const { item, attempt, state } = loaded;
+      const { item, attempt, state, vars } = loaded;
       await assertNotLockedByExam(ctx.db, ctx.user, item.assignment.id);
       assertNotGated(loaded);
       if (attempt?.setupAt) {
@@ -721,7 +785,7 @@ export const learnRouter = createTRPCRouter({
         // Touch updatedAt so command-log attribution prefers this attempt.
         await ctx.db.attempt.update({
           where: { id: attempt.id },
-          data: { updatedAt: new Date() },
+          data: { updatedAt: new Date(), vars },
         });
         return { prepared: true, setupOk: true, output: "" };
       }
@@ -730,10 +794,17 @@ export const learnRouter = createTRPCRouter({
         where: {
           userId_assignmentItemId: { userId, assignmentItemId: item.id },
         },
-        create: { userId, assignmentItemId: item.id },
-        update: {},
+        create: { userId, assignmentItemId: item.id, vars },
+        update: { vars },
       });
-      const res = await guardRunner(() => runSetup(userId, item.exercise));
+      const res = await guardRunner(() =>
+        runSetup(userId, { ...item.exercise, vars }),
+      );
+      await logActivity(ctx.db, att.id, {
+        type: "SETUP",
+        ok: res.ok,
+        detail: res.ok ? null : outputSummary(res.output),
+      });
       if (res.ok) {
         await ctx.db.attempt.update({
           where: { id: att.id },
@@ -759,7 +830,7 @@ export const learnRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
       const loaded = await loadItem(ctx.db, ctx.user, input.itemId);
-      const { item, attempt, state, exam } = loaded;
+      const { item, attempt, state, exam, vars } = loaded;
       assertOpen(state);
       await assertNotLockedByExam(ctx.db, ctx.user, item.assignment.id);
       assertNotGated(loaded);
@@ -806,7 +877,7 @@ export const learnRouter = createTRPCRouter({
           ctx.db,
           userId,
           attempt.id,
-          { slug: item.exercise.slug, shell: item.exercise.shell },
+          { slug: item.exercise.slug, shell: item.exercise.shell, vars },
           step,
         );
       } catch (e) {
@@ -821,7 +892,20 @@ export const learnRouter = createTRPCRouter({
         }
         throw e;
       }
-      if (res.ok) await markStepPassed(ctx.db, attempt.id, step);
+      if (res.ok) {
+        await markStepPassed(
+          ctx.db,
+          attempt.id,
+          step,
+          item.assignment.hintPenalty,
+        );
+      }
+      await logActivity(ctx.db, attempt.id, {
+        type: "CHECK",
+        stepId: step.id,
+        ok: res.ok,
+        detail: outputSummary(res.output),
+      });
       await ctx.db.attemptStep.update({
         where: key,
         data: { checkOutput: res.output.slice(0, 8000) },
@@ -863,7 +947,7 @@ export const learnRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
       const loaded = await loadItem(ctx.db, ctx.user, input.itemId);
-      const { item, attempt, state, exam, lesson } = loaded;
+      const { item, attempt, state, exam, lesson, vars } = loaded;
       if (!lesson) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -891,7 +975,7 @@ export const learnRouter = createTRPCRouter({
           ctx.db,
           userId,
           attempt.id,
-          { slug: item.exercise.slug, shell: item.exercise.shell },
+          { slug: item.exercise.slug, shell: item.exercise.shell, vars },
           step,
         );
       } catch (e) {
@@ -917,7 +1001,18 @@ export const learnRouter = createTRPCRouter({
         create: { attemptId: attempt.id, stepId: step.id },
         update: {},
       });
-      await markStepPassed(ctx.db, attempt.id, step);
+      await markStepPassed(
+        ctx.db,
+        attempt.id,
+        step,
+        item.assignment.hintPenalty,
+      );
+      await logActivity(ctx.db, attempt.id, {
+        type: "AUTOCHECK",
+        stepId: step.id,
+        ok: true,
+        detail: outputSummary(res.output),
+      });
       // The passing run counts as the step's one check (for reports).
       await ctx.db.attemptStep.update({
         where: key,
@@ -953,7 +1048,7 @@ export const learnRouter = createTRPCRouter({
     .input(z.object({ itemId: z.string(), stepId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const loaded = await loadItem(ctx.db, ctx.user, input.itemId);
-      const { item, attempt, state } = loaded;
+      const { item, attempt, state, vars } = loaded;
       assertOpen(state);
       await assertNotLockedByExam(ctx.db, ctx.user, item.assignment.id);
       assertNotGated(loaded);
@@ -978,12 +1073,20 @@ export const learnRouter = createTRPCRouter({
         create: { attemptId: attempt.id, stepId: step.id },
         update: {},
       });
+      const hints = step.hints.map((h) => renderVars(h, vars));
       if (row.hintsUsed >= step.hints.length) {
-        return { revealedHints: step.hints };
+        return { revealedHints: hints };
       }
       const updated = await ctx.db.attemptStep.update({
         where: key,
         data: { hintsUsed: { increment: 1 } },
+      });
+      await logActivity(ctx.db, attempt.id, {
+        type: "HINT",
+        stepId: step.id,
+        // false = taken after the step was solved (costs nothing).
+        ok: row.status !== "PASSED",
+        detail: String(updated.hintsUsed),
       });
       await recomputeAttempt(
         ctx.db,
@@ -991,7 +1094,7 @@ export const learnRouter = createTRPCRouter({
         item.exercise.steps,
         item.points,
       );
-      return { revealedHints: step.hints.slice(0, updated.hintsUsed) };
+      return { revealedHints: hints.slice(0, updated.hintsUsed) };
     }),
 
   /**
@@ -1003,7 +1106,7 @@ export const learnRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
       const loaded = await loadItem(ctx.db, ctx.user, input.itemId);
-      const { item, attempt, state } = loaded;
+      const { item, attempt, state, vars } = loaded;
       assertOpen(state);
       await assertNotLockedByExam(ctx.db, ctx.user, item.assignment.id);
       assertNotGated(loaded);
@@ -1014,7 +1117,10 @@ export const learnRouter = createTRPCRouter({
         });
       }
       await ingestCommandLog(userId);
-      const res = await guardRunner(() => runSetup(userId, item.exercise));
+      const res = await guardRunner(() =>
+        runSetup(userId, { ...item.exercise, vars }),
+      );
+      await logActivity(ctx.db, attempt.id, { type: "RESET", ok: res.ok });
       await ctx.db.attempt.update({
         where: { id: attempt.id },
         data: {
@@ -1133,9 +1239,59 @@ export const learnRouter = createTRPCRouter({
     }),
 
   /** My points over time, results per tag and weak topics to practise. */
-  progress: protectedProcedure.query(({ ctx }) =>
-    studentProgress(ctx.db, ctx.user.id),
-  ),
+  progress: protectedProcedure.query(async ({ ctx }) => {
+    const progress = await studentProgress(ctx.db, ctx.user.id);
+    const isStudent = ctx.user.role === "STUDENT";
+    const [available, practiceSets] = isStudent
+      ? await Promise.all([
+          practiceAvailability(
+            ctx.db,
+            ctx.user.id,
+            progress.weak.map((w) => w.tag).filter((t) => t !== "untagged"),
+          ),
+          myPracticeSets(ctx.db, ctx.user.id),
+        ])
+      : [{}, []];
+    return {
+      ...progress,
+      weak: progress.weak.map((w) => ({
+        ...w,
+        /** Library exercises I could practise this topic with. */
+        libraryExercises: (available as Record<string, number>)[w.tag] ?? 0,
+      })),
+      practiceSets,
+    };
+  }),
+
+  /**
+   * Practise a weak topic: open my practice set for the tag (or make one
+   * from the shared library). Students only; not while an exam runs.
+   */
+  startPractice: protectedProcedure
+    .input(z.object({ tag: z.string().trim().toLowerCase().min(1).max(40) }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "STUDENT") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Practice sets are for students.",
+        });
+      }
+      const exams = await openExamsFor(ctx.db, ctx.user);
+      if (exams.length > 0) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: `The exam "${exams[0]!.title}" is running — practise after you hand it in.`,
+        });
+      }
+      const res = await startPractice(ctx.db, ctx.user.id, input.tag);
+      if (!res) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `There are no practice exercises for “${input.tag}” in the library yet.`,
+        });
+      }
+      return res;
+    }),
 
   /** Is an exam running for me (locks the playground and other work)? */
   examLock: protectedProcedure.query(async ({ ctx }) => {

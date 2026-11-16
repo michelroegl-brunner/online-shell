@@ -1,4 +1,4 @@
-import { ChevronRight, Target } from "lucide-react";
+import { ChevronRight, Dumbbell, Target } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -15,6 +15,7 @@ import { LEARN_NAV } from "~/lib/nav";
 import { getCurrentUser } from "~/server/auth/current-user";
 import { api } from "~/trpc/server";
 import { PointsChart } from "./points-chart";
+import { PracticeButton } from "./practice-button";
 
 export default async function ProgressPage() {
   const user = await getCurrentUser();
@@ -87,15 +88,25 @@ export default async function ProgressPage() {
                     : "Nothing to show yet."}
                 </p>
               )}
+              {p.weak.some((w) => w.libraryExercises > 0) && (
+                <p className="text-muted-foreground -mt-2 text-xs">
+                  <b>Practise</b> makes you a personal set of extra exercises on
+                  the topic. Only you see it, and it doesn&apos;t count for
+                  points.
+                </p>
+              )}
               {p.weak.map((w) => (
                 <div key={w.tag} className="flex flex-col gap-1.5">
                   <div className="flex items-center gap-2">
                     <Badge variant="outline">{w.tag}</Badge>
-                    <span className="text-muted-foreground text-xs">
+                    <span className="text-muted-foreground flex-1 text-xs">
                       {Math.round(w.rate * 100)}% of steps solved
                       {w.checksPerStep !== null &&
                         ` · ${w.checksPerStep.toFixed(1)} checks per step`}
                     </span>
+                    {w.libraryExercises > 0 && (
+                      <PracticeButton tag={w.tag} count={w.libraryExercises} />
+                    )}
                   </div>
                   {w.practice.length === 0 ? (
                     <p className="text-muted-foreground pl-1 text-xs">
@@ -178,6 +189,38 @@ export default async function ProgressPage() {
             </CardContent>
           </Card>
         </div>
+
+        {p.practiceSets.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Dumbbell className="text-muted-foreground size-4" />
+                Your practice sets
+              </CardTitle>
+              <CardDescription>
+                Extra exercises you asked for. Only you see them; no points.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ul className="flex flex-col">
+                {p.practiceSets.map((s) => (
+                  <li key={s.id}>
+                    <Link
+                      href={`/learn/a/${s.id}`}
+                      className="hover:bg-accent/40 -mx-2 flex items-center gap-2 rounded-md px-2 py-1.5 text-sm"
+                    >
+                      <span className="min-w-0 flex-1 truncate">{s.title}</span>
+                      <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
+                        {s.solved}/{s.total} solved
+                      </span>
+                      <ChevronRight className="text-muted-foreground size-4 shrink-0" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
       </main>
     </>
   );

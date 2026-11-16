@@ -8,6 +8,7 @@ import {
   totalPoints,
   type StepInput,
 } from "~/lib/exercise";
+import { generateVars, parseVariables, PREVIEW_SEED } from "~/lib/variables";
 import { createTRPCRouter, teacherProcedure } from "~/server/api/trpc";
 import { type db } from "~/server/db";
 import {
@@ -100,6 +101,7 @@ export const exerciseRouter = createTRPCRouter({
       return toBundle(
         exercises.map((e) => ({
           ...e,
+          variables: parseVariables(e.variables),
           steps: e.steps.map((s) => ({ ...s, checks: parseChecks(s.checks) })),
         })),
       );
@@ -265,6 +267,7 @@ export const exerciseRouter = createTRPCRouter({
       if (!ex) throw new TRPCError({ code: "NOT_FOUND" });
       return {
         ...ex,
+        variables: parseVariables(ex.variables),
         steps: ex.steps.map(({ _count, ...s }) => ({
           ...s,
           attemptCount: _count.attemptSteps,
@@ -401,6 +404,7 @@ export const exerciseRouter = createTRPCRouter({
           setupScript: src.setupScript,
           setupInternet: src.setupInternet,
           tags: src.tags,
+          variables: parseVariables(src.variables),
           visibility: "PRIVATE",
           authorId: ctx.user.id,
           steps: {
@@ -430,7 +434,7 @@ export const exerciseRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const ex = await loadForRun(ctx, input.id);
       const result = await guardRunner(() => runSetup(ctx.user.id, ex));
-      return { ...result, dir: exerciseDir(ex.slug) };
+      return { ...result, dir: exerciseDir(ex.slug), vars: ex.vars };
     }),
 
   /** Teacher test run: run one step's saved check script against the folder. */
@@ -446,7 +450,7 @@ export const exerciseRouter = createTRPCRouter({
       return guardRunner(() =>
         runStepChecks(
           ctx.user.id,
-          { slug: ex.slug, shell: ex.shell },
+          { slug: ex.slug, shell: ex.shell, vars: ex.vars },
           { checkScript: step.checkScript, checks: parseChecks(step.checks) },
           // No attempt → no command log: "command used" checks are skipped.
           null,
@@ -473,10 +477,16 @@ async function loadForRun(ctx: { db: typeof db; user: Viewer }, id: string) {
       shell: true,
       setupScript: true,
       setupInternet: true,
+      variables: true,
     },
   });
   if (!ex) throw new TRPCError({ code: "NOT_FOUND" });
-  return ex;
+  // Test runs use fixed example values (the same every time).
+  const { variables, ...rest } = ex;
+  return {
+    ...rest,
+    vars: generateVars(parseVariables(variables), PREVIEW_SEED),
+  };
 }
 
 async function guardRunner<T>(fn: () => Promise<T>): Promise<T> {

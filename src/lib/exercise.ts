@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { stepChecks } from "./checks";
+import { variableDefs } from "./variables";
 
 // Shared (client + server) exercise validation.
 
@@ -63,6 +64,8 @@ export const exerciseInput = z.object({
   /** Run the setup with internet access (wget/curl downloads). */
   setupInternet: z.boolean().default(false),
   tags: z.array(z.string().trim().toLowerCase().min(1).max(40)).max(20),
+  /** Per-student values (src/lib/variables.ts). */
+  variables: variableDefs.default([]),
   visibility: z.enum(["PRIVATE", "SHARED"]),
   steps: z
     .array(stepInput)
@@ -97,6 +100,7 @@ export const EXERCISE_TEMPLATE: ExerciseInput = {
   difficulty: 2,
   visibility: "PRIVATE",
   tags: ["find", "sort", "tar"],
+  variables: [],
   description: `In the folder \`logs/\` there are many log files.
 Work through the steps one by one; each step builds on the previous one.`,
   setupInternet: false,
