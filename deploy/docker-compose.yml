@@ -50,6 +50,9 @@ services:
       RUNNER_URL: http://runner:4100
       RUNNER_PUBLIC_URL: wss://${DOMAIN}
       RUNNER_SECRET: ${RUNNER_SECRET:?set RUNNER_SECRET}
+      # Wechselplan integration; both empty = hidden
+      WECHSELPLAN_URL: ${WECHSELPLAN_URL:-}
+      WECHSELPLAN_API_SECRET: ${WECHSELPLAN_API_SECRET:-}
 
   runner:
     build:
