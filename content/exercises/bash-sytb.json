@@ -197,7 +197,7 @@
         {
           "title": "Werkstatt-Summe (werkstatt.sh)",
           "description": "Schreibe ein Skript `werkstatt.sh`, das die **Summe aller Beträge** in\n`klassenkassa.csv` mit dem Zweck `Werkstatt` ermittelt und ausgibt.\n\n- Filtere mit `grep` und `cut`.\n- Die Beträge stehen dann auf einzelnen Zeilen. Mit `paste` fasst du sie zu\n  einem Ausdruck wie `15+13+42+23` zusammen.\n- Speichere den Ausdruck per Command Substitution in einer Variable.\n- Rechne das Ergebnis mit `$(( … ))` aus.",
-          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed werkstatt.sh\nwant=$(( $(grep Werkstatt klassenkassa.csv | cut -d, -f3 | paste -sd+) ))\nout=$(timeout 5 bash werkstatt.sh 2>&1)\necho \"$out\" | grep -Eq \"(^|[^0-9])$want([^0-9]|$)\" || { echo \"Die Summe stimmt nicht. Ausgabe: $out\"; exit 1; }\ngrep -q \"$want\" werkstatt.sh && { echo \"Das Ergebnis darf nicht fest im Skript stehen.\"; exit 1; }\ngrep -q paste werkstatt.sh || { echo \"Verwende paste, um den Ausdruck zu bauen.\"; exit 1; }\necho \"Summe: $want – richtig!\"",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed werkstatt.sh\nwant=$(awk -F, '/Werkstatt/ {s+=$3+0} END {print s+0}' klassenkassa.csv)\nout=$(timeout 5 bash werkstatt.sh 2>&1)\necho \"$out\" | grep -Eq \"(^|[^0-9])$want([^0-9]|$)\" || { echo \"Die Summe stimmt nicht. Ausgabe: $out\"; exit 1; }\ngrep -q \"$want\" werkstatt.sh && { echo \"Das Ergebnis darf nicht fest im Skript stehen.\"; exit 1; }\ngrep -q paste werkstatt.sh || { echo \"Verwende paste, um den Ausdruck zu bauen.\"; exit 1; }\necho \"Summe: $want – richtig!\"",
           "checks": [],
           "hints": [
             "`paste -sd+` verbindet Zeilen mit `+`.",
@@ -438,7 +438,7 @@
         {
           "title": "Durchschnitt im Lager",
           "description": "Verwende `avg.sh`, um den Durchschnitt der Spalte **Stk** in `lager.csv` zu\nermitteln. Bereite die Daten mit `cut` und `tail` vor und speichere die Ausgabe\nvon `avg.sh` in `lager_avg.txt`.",
-          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed lager_avg.txt\nwant=$(( ( $(tail -n +2 lager.csv | cut -d, -f2 | paste -sd+) ) / $(tail -n +2 lager.csv | wc -l) ))\ngrep -Eq \"Durchschnitt:[[:space:]]*$want\\b\" lager_avg.txt || { echo \"In lager_avg.txt fehlt 'Durchschnitt: $want' – Kopfzeile weggelassen?\"; exit 1; }\necho \"Richtig!\"",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed lager_avg.txt\nwant=$(tail -n +2 lager.csv | awk -F, '{s+=$2+0; n++} END {print (n ? int(s/n) : 0)}')\ngrep -Eq \"Durchschnitt:[[:space:]]*$want\\b\" lager_avg.txt || { echo \"In lager_avg.txt fehlt 'Durchschnitt: $want' – Kopfzeile weggelassen?\"; exit 1; }\necho \"Richtig!\"",
           "checks": [
             {
               "type": "command_used",
