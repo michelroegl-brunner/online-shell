@@ -38,7 +38,11 @@ import {
 import { type db as dbType } from "~/server/db";
 import { runStepChecks } from "~/server/exercises/checks";
 import { runSetup, type RunResult } from "~/server/exercises/run";
+import { pastePolicyFor } from "~/server/assignments/paste";
+import { recordPasteBatch } from "~/server/assignments/paste-events";
+import { HOME } from "~/server/exercises/run";
 import {
+  assertTyped,
   listSources,
   MAX_SOURCE_BYTES,
   readSource,
@@ -1189,13 +1193,26 @@ export const learnRouter = createTRPCRouter({
           message: "Open the exercise first.",
         });
       }
+      const slug = loaded.item.exercise.slug;
+      // No-paste assignment open: the save must look typed (server-side,
+      // the editor's own paste block is only the browser).
+      if (!(await pastePolicyFor(ctx.db, ctx.user)).allowed) {
+        await guardRunner(() =>
+          assertTyped(ctx.user.id, slug, input.path, input.text, (chars) =>
+            recordPasteBatch({
+              userId: ctx.user.id,
+              cwd: `${HOME}/exercises/${slug}`,
+              firstAt: Date.now(),
+              lastAt: Date.now(),
+              count: 1,
+              bytes: chars,
+              reasons: { chunk: 1 },
+            }).then(() => undefined),
+          ),
+        );
+      }
       return guardRunner(() =>
-        saveSource(
-          ctx.user.id,
-          loaded.item.exercise.slug,
-          input.path,
-          input.text,
-        ),
+        saveSource(ctx.user.id, slug, input.path, input.text),
       );
     }),
   /**

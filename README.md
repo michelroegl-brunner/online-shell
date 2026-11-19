@@ -144,10 +144,16 @@ content) must pass.
 File and output checks become one generated bash script (values passed
 base64-encoded) that runs like a check script; "command used" is decided by
 the web app against `CommandLog` and is skipped in teacher test runs.
-**C test cases** run in a separate exec **as the student** (never root:
-it's the student's code), each case with a timeout (1–10 s, default 2) and
-output capped at 200 KB; endless loops, segfaults, aborts and division by
-zero get a readable message.
+**C test cases** (`src/server/exercises/c-tests.ts`) run **as the student**
+(never root: it's the student's code): one exec compiles into a temp dir,
+one exec per case runs the program (timeout 1–10 s, default 2; output
+capped at 40 KB) and returns its raw output, exit code and stderr. The
+**expected outputs never enter the box** — exec scripts are readable by the
+student's processes (`ps`, `/proc/*/cmdline`), and their program runs during
+the check — so the web app compares (same rules as the bash checks; POSIX
+classes like `[[:digit:]]` in regexes are mapped to JavaScript). Endless
+loops, segfaults, aborts, division by zero and runaway output get a
+readable message.
 
 ### C exercises
 
@@ -162,8 +168,11 @@ before **Run**, which asks the runner to interrupt the terminal and type
 `crun` — a script in the image that compiles all `*.c` into `./main` with
 `-std=c11 -Wall -Wextra -g -lm`, prints the gcc command, and runs it. This
 works while pasting is off (the runner types a fixed command, never client
-text), and the editor itself blocks paste/drop in no-paste assignments
-(reported like a terminal paste). Starter code comes from the setup script
+text). In no-paste assignments the editor blocks paste/drop, and the
+server checks every save too (`assertTyped`, `src/server/exercises/source.ts`):
+the newly inserted text must fit a typing budget like the terminal's (40
+characters/s, piling up to 800 between saves); a bigger save is refused
+and reported like a terminal paste (at most every 30 s per file). Starter code comes from the setup script
 (the editor's "Add main.c starter" button). Teachers see the student's
 code in the file browser (attempt page → Files). Bundle:
 `content/exercises/c-grundlagen.json`, cheat sheet
