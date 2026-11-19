@@ -151,7 +151,9 @@ capped at 40 KB) and returns its raw output, exit code and stderr. The
 **expected outputs never enter the box** — exec scripts are readable by the
 student's processes (`ps`, `/proc/*/cmdline`), and their program runs during
 the check — so the web app compares (same rules as the bash checks; POSIX
-classes like `[[:digit:]]` in regexes are mapped to JavaScript). Endless
+classes like `[[:digit:]]` in regexes are mapped to JavaScript; the
+teacher's regex runs in a `vm` with a 250 ms limit on lines cut to 2000
+characters, so a backtracking pattern can't block the server). Endless
 loops, segfaults, aborts, division by zero and runaway output get a
 readable message.
 
@@ -171,8 +173,10 @@ works while pasting is off (the runner types a fixed command, never client
 text). In no-paste assignments the editor blocks paste/drop, and the
 server checks every save too (`assertTyped`, `src/server/exercises/source.ts`):
 the newly inserted text must fit a typing budget like the terminal's (40
-characters/s, piling up to 800 between saves); a bigger save is refused
-and reported like a terminal paste (at most every 30 s per file). Starter code comes from the setup script
+characters/s, one budget per student for all files, piling up to 800
+between saves, 200 for a student the server hasn't seen yet; saves of one
+student are checked one after another); a bigger save is refused and
+reported like a terminal paste (at most every 30 s). Starter code comes from the setup script
 (the editor's "Add main.c starter" button). Teachers see the student's
 code in the file browser (attempt page → Files). Bundle:
 `content/exercises/c-grundlagen.json`, cheat sheet

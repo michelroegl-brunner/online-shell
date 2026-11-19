@@ -1,5 +1,7 @@
 import "server-only";
 
+import { runInNewContext } from "node:vm";
+
 import { splitArgs, type CTestCase, type StepCheck } from "~/lib/checks";
 import { runner, type ShellKind } from "~/server/runner";
 import { exerciseDir, type RunResult } from "./run";
@@ -142,7 +144,17 @@ export function posixRegex(re: string): RegExp | null {
   }
 }
 
-export function outputMatches(t: CTestCase, out: string) {
+/**
+ * The teacher's regex runs in the web process on the student's output, so
+ * a pattern with catastrophic backtracking (e.g. `^(a+)+$`) plus crafted
+ * output could block the server. It runs in a vm with a time limit (V8
+ * interrupts a running regex), on lines cut to MAX_LINE characters.
+ */
+const REGEX_TIMEOUT_MS = 250;
+const MAX_LINE = 2_000;
+
+/** true / false, or "timeout" when the regex took too long. */
+export function outputMatches(t: CTestCase, out: string): boolean | "timeout" {
   const got = out.replace(/\n+$/, "");
   switch (t.match) {
     case "exact":
@@ -151,13 +163,20 @@ export function outputMatches(t: CTestCase, out: string) {
       return got.includes(t.expected);
     case "regex": {
       const re = posixRegex(t.expected);
-      return (
-        re !== null &&
-        got
-          .replace(/\r/g, "")
-          .split("\n")
-          .some((l) => re.test(l))
-      );
+      if (!re) return false;
+      const lines = got
+        .replace(/\r/g, "")
+        .split("\n")
+        .map((l) => l.slice(0, MAX_LINE));
+      try {
+        return runInNewContext(
+          "lines.some((l) => re.test(l))",
+          { re, lines },
+          { timeout: REGEX_TIMEOUT_MS },
+        ) as boolean;
+      } catch {
+        return "timeout";
+      }
     }
   }
 }
@@ -217,12 +236,22 @@ export async function runCTests(
       } else if (t.exitCode !== null && r.rc !== t.exitCode) {
         why = `returned ${r.rc} instead of ${t.exitCode}`;
       }
-      if (!why && r && outputMatches(t, r.out)) {
+      const matched = !why && r ? outputMatches(t, r.out) : false;
+      if (matched === true) {
         lines.push(`✓ ${name}`);
         continue;
       }
+      if (matched === "timeout") {
+        why = "REGEX_TIMEOUT";
+      }
       ok = false;
-      lines.push(why ? `✗ ${name}: your program ${why}` : `✗ ${name}`);
+      lines.push(
+        why === "REGEX_TIMEOUT"
+          ? `✗ ${name}: can't be checked — the test's regex took too long (tell your teacher)`
+          : why
+            ? `✗ ${name}: your program ${why}`
+            : `✗ ${name}`,
+      );
       if (t.hidden) {
         lines.push("      (hidden test: input and output are not shown)");
         continue;

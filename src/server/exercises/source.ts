@@ -118,14 +118,24 @@ export async function saveSource(
  * that's the browser. Here the server checks every save: the newly inserted
  * text (new file minus the part it shares with the stored one at start and
  * end) must fit a typing budget like the terminal's (runner: 40 bytes/s).
+ *
+ * One budget PER STUDENT (all files: a new file name is no fresh budget).
  * Saves are batched (auto-save after a pause), so unused budget piles up to
- * MAX_BUDGET (≈ 20 s of typing) per file. Per web process, in memory.
+ * MAX_BUDGET (≈ 20 s of typing). A student the server hasn't seen yet
+ * starts with START_BUDGET only. A refused save doesn't use up anything,
+ * so the budget keeps growing until the save fits (or the student undoes
+ * the paste). Saves of one student are checked one after another. Per web
+ * process, in memory (there is one web container).
  */
 const RATE_PER_SEC = 40;
 const MAX_BUDGET = 800;
+const START_BUDGET = 200;
 const REPORT_EVERY_MS = 30_000;
+/** After this long a student has MAX_BUDGET anyway; dropping them is safe. */
+const FULL_AFTER_MS = (MAX_BUDGET / RATE_PER_SEC) * 1000;
 
 const budgets = new Map<string, { at: number; reportedAt: number }>();
+const queues = new Map<string, Promise<unknown>>();
 
 /** Characters inserted going from `before` to `after` (a replace counts its new text). */
 export function insertedChars(before: string, after: string) {
@@ -142,43 +152,75 @@ export function insertedChars(before: string, after: string) {
   return Math.max(0, after.length - p - s);
 }
 
+/** Run `fn` after the student's previous budget check has finished. */
+function oneAtATime<T>(userId: string, fn: () => Promise<T>): Promise<T> {
+  const prev = queues.get(userId) ?? Promise.resolve();
+  const run = prev.then(fn, fn);
+  const tail = run.catch(() => undefined);
+  queues.set(userId, tail);
+  void tail.then(() => {
+    if (queues.get(userId) === tail) queues.delete(userId);
+  });
+  return run;
+}
+
+/** Forget students whose budget is full anyway (they'd get less, not more). */
+function prune(now: number) {
+  if (budgets.size < 1000) return;
+  for (const [k, b] of budgets) {
+    if (now - b.at > FULL_AFTER_MS && now - b.reportedAt > REPORT_EVERY_MS) {
+      budgets.delete(k);
+    }
+  }
+}
+
 /**
  * Throws when the save inserts more than the typing budget allows; calls
- * `report` (at most every 30 s per file) so the teacher sees the attempt.
+ * `report` (at most every 30 s per student) so the teacher sees it.
  */
-export async function assertTyped(
+export function assertTyped(
   userId: string,
   slug: string,
   path: string,
   text: string,
   report: (chars: number) => Promise<void>,
 ) {
-  let before = "";
-  try {
-    before = (await readSource(userId, slug, path)).text;
-  } catch (e) {
-    // A new file starts empty; anything else is a real error.
-    if (!(e instanceof TRPCError && e.code === "NOT_FOUND")) throw e;
-  }
-  const chars = insertedChars(before, text);
-  const key = `${userId}:${slug}:${path}`;
-  const now = Date.now();
-  const b = budgets.get(key) ?? { at: 0, reportedAt: 0 };
-  const budget = Math.min(MAX_BUDGET, ((now - b.at) / 1000) * RATE_PER_SEC);
-  if (chars <= budget) {
-    budgets.set(key, { ...b, at: now });
-    if (budgets.size > 10_000) budgets.clear();
-    return;
-  }
-  if (now - b.reportedAt > REPORT_EVERY_MS) {
-    budgets.set(key, { ...b, reportedAt: now });
-    await report(chars).catch((e: unknown) =>
-      console.error("[source] paste report failed", e),
-    );
-  }
-  throw new TRPCError({
-    code: "FORBIDDEN",
-    message:
-      "Pasting is turned off for your current assignment — this change wasn't saved. Undo the pasted text (Ctrl+Z) and type it.",
+  return oneAtATime(userId, async () => {
+    let before = "";
+    try {
+      before = (await readSource(userId, slug, path)).text;
+    } catch (e) {
+      // A new file starts empty; anything else is a real error.
+      if (!(e instanceof TRPCError && e.code === "NOT_FOUND")) throw e;
+    }
+    const chars = insertedChars(before, text);
+    const now = Date.now();
+    prune(now);
+    const b = budgets.get(userId) ?? {
+      at: now - (START_BUDGET / RATE_PER_SEC) * 1000,
+      reportedAt: 0,
+    };
+    const budget = Math.min(MAX_BUDGET, ((now - b.at) / 1000) * RATE_PER_SEC);
+    if (chars <= budget) {
+      // Keep what wasn't used (up to the cap) for the next save.
+      const left = budget - chars;
+      budgets.set(userId, {
+        ...b,
+        at: now - (left / RATE_PER_SEC) * 1000,
+      });
+      return;
+    }
+    budgets.set(userId, b);
+    if (now - b.reportedAt > REPORT_EVERY_MS) {
+      budgets.set(userId, { ...b, reportedAt: now });
+      await report(chars).catch((e: unknown) =>
+        console.error("[source] paste report failed", e),
+      );
+    }
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message:
+        "Pasting is turned off for your current assignment — this change wasn't saved. Undo the pasted text (Ctrl+Z) and type it.",
+    });
   });
 }
