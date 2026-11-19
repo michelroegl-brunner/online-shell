@@ -1,6 +1,12 @@
 "use client";
 
-import { Activity, Copy, FlaskConical, Plus } from "lucide-react";
+import {
+  Activity,
+  Copy,
+  FlaskConical,
+  LayoutTemplate,
+  Plus,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -65,6 +71,14 @@ export function AssignmentList() {
             ))}
           </SelectContent>
         </Select>
+        <Button variant="outline" asChild>
+          <Link
+            href="/admin/assignments/templates"
+            title="Prepared exercise sets: just pick a class and the dates"
+          >
+            <LayoutTemplate /> Templates
+          </Link>
+        </Button>
         <Button asChild>
           <Link href={newHref}>
             <Plus /> New assignment

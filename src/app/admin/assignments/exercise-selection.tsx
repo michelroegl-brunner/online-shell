@@ -64,10 +64,7 @@ export function ExerciseSelection({
   const lessonCount = items.filter((i) => i.kind === "LESSON").length;
   const exerciseCount = items.length - lessonCount;
 
-  const added = useMemo(
-    () => new Set(items.map((i) => i.exerciseId)),
-    [items],
-  );
+  const added = useMemo(() => new Set(items.map((i) => i.exerciseId)), [items]);
 
   function toggle(ex: LibraryRow) {
     onChange(
@@ -356,8 +353,7 @@ function Library({
   }, [all]);
 
   const rows = all.filter(
-    (ex) =>
-      (!tag || ex.tags.includes(tag)) && !(hideAdded && added.has(ex.id)),
+    (ex) => (!tag || ex.tags.includes(tag)) && !(hideAdded && added.has(ex.id)),
   );
   const addable = rows.filter((ex) => !added.has(ex.id));
 
@@ -520,11 +516,7 @@ function Library({
           {list.isFetching && !list.isLoading && " · updating…"}
         </span>
         {addable.length > 1 && (
-          <Button
-            variant="ghost"
-            size="xs"
-            onClick={() => onAddMany(addable)}
-          >
+          <Button variant="ghost" size="xs" onClick={() => onAddMany(addable)}>
             <Plus /> Add all {addable.length}
           </Button>
         )}

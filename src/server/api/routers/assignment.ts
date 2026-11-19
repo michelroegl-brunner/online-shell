@@ -19,7 +19,7 @@ import { type db as Db } from "~/server/db";
  * Modes: PRACTICE, or EXAM (see src/server/assignments/exam.ts).
  */
 
-type Ctx = { db: typeof Db; user: { id: string; role: string } };
+export type Ctx = { db: typeof Db; user: { id: string; role: string } };
 
 async function loadAssignment(ctx: Ctx, id: string) {
   const a = await ctx.db.assignment.findFirst({
@@ -30,7 +30,7 @@ async function loadAssignment(ctx: Ctx, id: string) {
   return a;
 }
 
-async function assertClass(ctx: Ctx, classId: string) {
+export async function assertClass(ctx: Ctx, classId: string) {
   const cls = await ctx.db.class.findFirst({
     where: { AND: [{ id: classId }, classWhere(ctx.user)] },
     select: { id: true },
@@ -40,7 +40,7 @@ async function assertClass(ctx: Ctx, classId: string) {
   }
 }
 
-const assignmentInput = z
+export const assignmentInput = z
   .object({
     title: z.string().trim().min(1, "Title is required").max(200),
     classId: z.string().min(1),
@@ -78,10 +78,10 @@ const assignmentInput = z
     { message: "An exercise can only be added once.", path: ["items"] },
   );
 
-type AssignmentInput = z.infer<typeof assignmentInput>;
+export type AssignmentInput = z.infer<typeof assignmentInput>;
 
 /** Validates groups (in class) and exercises (readable). */
-async function validateRefs(ctx: Ctx, input: AssignmentInput) {
+export async function validateRefs(ctx: Ctx, input: AssignmentInput) {
   await assertClass(ctx, input.classId);
 
   if (input.groupIds.length) {
@@ -123,6 +123,27 @@ const baseData = (input: AssignmentInput) => ({
   published: input.published,
   publishAt: input.published ? null : (input.publishAt ?? null),
 });
+
+/** Validates and creates an assignment (also used by templates). */
+export async function createAssignment(ctx: Ctx, input: AssignmentInput) {
+  await validateRefs(ctx, input);
+  return ctx.db.assignment.create({
+    data: {
+      ...baseData(input),
+      classId: input.classId,
+      groups: { create: input.groupIds.map((groupId) => ({ groupId })) },
+      items: {
+        create: input.items.map((it, order) => ({
+          exerciseId: it.exerciseId,
+          order,
+          points: it.points ?? null,
+          gate: it.gate,
+        })),
+      },
+    },
+    select: { id: true },
+  });
+}
 
 export const assignmentRouter = createTRPCRouter({
   /** Assignments of my classes with targeting + progress counts. */
@@ -290,25 +311,7 @@ export const assignmentRouter = createTRPCRouter({
 
   create: teacherProcedure
     .input(assignmentInput)
-    .mutation(async ({ ctx, input }) => {
-      await validateRefs(ctx, input);
-      return ctx.db.assignment.create({
-        data: {
-          ...baseData(input),
-          classId: input.classId,
-          groups: { create: input.groupIds.map((groupId) => ({ groupId })) },
-          items: {
-            create: input.items.map((it, order) => ({
-              exerciseId: it.exerciseId,
-              order,
-              points: it.points ?? null,
-              gate: it.gate,
-            })),
-          },
-        },
-        select: { id: true },
-      });
-    }),
+    .mutation(({ ctx, input }) => createAssignment(ctx, input)),
 
   /**
    * Update. Items are matched by exercise: kept items (and their attempts!)

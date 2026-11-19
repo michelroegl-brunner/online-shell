@@ -27,3 +27,14 @@ export const assignmentWhere = (u: Viewer): Prisma.AssignmentWhereInput =>
 /** Exercises a teacher may use: own or SHARED (admins: all). */
 export const exerciseReadableWhere = (u: Viewer): Prisma.ExerciseWhereInput =>
   isAdmin(u) ? {} : { OR: [{ authorId: u.id }, { visibility: "SHARED" }] };
+
+/** Assignment templates a teacher may use: own or SHARED (admins: all). */
+export const templateReadableWhere = (
+  u: Viewer,
+): Prisma.AssignmentTemplateWhereInput =>
+  isAdmin(u) ? {} : { OR: [{ ownerId: u.id }, { visibility: "SHARED" }] };
+
+/** Assignment templates a teacher may edit/delete: own (admins: all). */
+export const templateEditableWhere = (
+  u: Viewer,
+): Prisma.AssignmentTemplateWhereInput => (isAdmin(u) ? {} : { ownerId: u.id });

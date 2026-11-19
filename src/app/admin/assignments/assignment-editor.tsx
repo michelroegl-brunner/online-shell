@@ -5,6 +5,7 @@ import {
   Eye,
   EyeOff,
   FlaskConical,
+  LayoutTemplate,
   Loader2,
   Save,
   Trash2,
@@ -115,6 +116,7 @@ export function AssignmentEditor({
   );
   const set = <K extends keyof Form>(k: K, v: Form[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
+  const patch = (p: Partial<Form>) => setForm((f) => ({ ...f, ...p }));
 
   const classes = api.assignment.classes.useQuery();
   const cls = classes.data?.find((c) => c.id === form.classId);
@@ -125,6 +127,7 @@ export function AssignmentEditor({
   const del = api.assignment.delete.useMutation();
   const duplicate = api.assignment.duplicate.useMutation();
   const setPublished = api.assignment.setPublished.useMutation();
+  const toTemplate = api.template.fromAssignment.useMutation();
   const saving = create.isPending || update.isPending;
 
   function buildInput() {
@@ -229,6 +232,22 @@ export function AssignmentEditor({
     set("published", next);
   }
 
+  async function saveAsTemplate() {
+    if (!id) return;
+    if (dirty) return toast.error("Save your changes first.");
+    try {
+      const res = await toTemplate.mutateAsync({
+        assignmentId: id,
+        title: form.title,
+      });
+      await utils.template.invalidate();
+      toast.success("Template created (class and dates aren't part of it)");
+      router.push(`/admin/assignments/templates/${res.id}`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  }
+
   async function remove() {
     if (!id) return;
     const msg =
@@ -284,6 +303,14 @@ export function AssignmentEditor({
             </Button>
             <Button variant="ghost" onClick={() => void copy()}>
               <Copy /> Duplicate
+            </Button>
+            <Button
+              variant="ghost"
+              disabled={toTemplate.isPending}
+              onClick={() => void saveAsTemplate()}
+              title="Reuse these exercises and rules for other classes"
+            >
+              <LayoutTemplate /> Save as template
             </Button>
             <Button variant="ghost" onClick={() => void remove()}>
               <Trash2 /> Delete
@@ -360,70 +387,15 @@ export function AssignmentEditor({
                 Choose a class first.
               </span>
             ) : (
-              <div className="flex flex-wrap items-center gap-2">
-                <Chip
-                  active={form.groupIds.length === 0}
-                  onClick={() => set("groupIds", [])}
-                >
-                  Whole class
-                </Chip>
-                {cls.groups.map((g) => {
-                  const on = form.groupIds.includes(g.id);
-                  return (
-                    <Chip
-                      key={g.id}
-                      active={on}
-                      onClick={() =>
-                        set(
-                          "groupIds",
-                          on
-                            ? form.groupIds.filter((x) => x !== g.id)
-                            : [...form.groupIds, g.id],
-                        )
-                      }
-                    >
-                      {g.name}
-                    </Chip>
-                  );
-                })}
-                {cls.groups.length === 0 && (
-                  <span className="text-muted-foreground text-xs">
-                    This class has no groups (create them on the class page).
-                  </span>
-                )}
-              </div>
+              <GroupChips
+                groups={cls.groups}
+                value={form.groupIds}
+                onChange={(groupIds) => set("groupIds", groupIds)}
+              />
             )}
           </Field>
 
-          <Field label="Mode" className="md:col-span-6">
-            <div className="flex flex-wrap items-center gap-2">
-              <Chip
-                active={form.mode === "PRACTICE"}
-                onClick={() => set("mode", "PRACTICE")}
-              >
-                Practice
-              </Chip>
-              <Chip
-                active={form.mode === "EXAM"}
-                onClick={() =>
-                  setForm((f) => ({
-                    ...f,
-                    mode: "EXAM",
-                    // Sensible exam defaults; still editable below.
-                    allowHints: false,
-                    allowPaste: false,
-                  }))
-                }
-              >
-                Exam
-              </Chip>
-              <span className="text-muted-foreground text-xs">
-                {form.mode === "EXAM"
-                  ? "Fullscreen, focus loss is logged, check output hidden, playground and other assignments locked while it runs, students hand in at the end."
-                  : "Students practise at their own pace; check output is shown."}
-              </span>
-            </div>
-          </Field>
+          <ModeField value={form.mode} onChange={patch} />
 
           {!form.published && (
             <Field label="Publish automatically" className="md:col-span-2">
@@ -464,77 +436,7 @@ export function AssignmentEditor({
               onChange={(e) => set("dueAt", e.target.value)}
             />
           </Field>
-          <Field label="Max checks per exercise" className="md:col-span-1">
-            <Input
-              type="number"
-              min={1}
-              placeholder="unlimited"
-              value={form.maxChecks}
-              onChange={(e) => set("maxChecks", e.target.value)}
-            />
-          </Field>
-          <Field label="Hints" className="md:col-span-1">
-            <label className="flex h-9 items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="accent-primary size-4"
-                checked={form.allowHints}
-                onChange={(e) => set("allowHints", e.target.checked)}
-              />
-              Allow hints
-            </label>
-          </Field>
-          <Field label="Each hint costs" className="md:col-span-1">
-            <div
-              className="flex h-9 items-center gap-2 text-sm"
-              title="Share of the step's points a student loses for each hint revealed before solving the step. 0 = hints are free."
-            >
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                step={5}
-                className="w-20"
-                disabled={!form.allowHints}
-                value={form.hintPenalty}
-                onChange={(e) =>
-                  set(
-                    "hintPenalty",
-                    Math.max(0, Math.min(100, Number(e.target.value) || 0)),
-                  )
-                }
-              />
-              <span className="text-muted-foreground">% of the step</span>
-            </div>
-          </Field>
-          <Field label="Cheat sheets" className="md:col-span-1">
-            <label
-              className="flex h-9 items-center gap-2 text-sm"
-              title="Show topic cheat sheets next to the terminal (matched by the exercise's tags)."
-            >
-              <input
-                type="checkbox"
-                className="accent-primary size-4"
-                checked={form.allowCheatSheet}
-                onChange={(e) => set("allowCheatSheet", e.target.checked)}
-              />
-              Show cheat sheets
-            </label>
-          </Field>
-          <Field label="Terminal" className="md:col-span-1">
-            <label
-              className="flex h-9 items-center gap-2 text-sm"
-              title="Off: students can't paste into their terminals while this assignment is open (also blocked on the server)."
-            >
-              <input
-                type="checkbox"
-                className="accent-primary size-4"
-                checked={form.allowPaste}
-                onChange={(e) => set("allowPaste", e.target.checked)}
-              />
-              Allow pasting
-            </label>
-          </Field>
+          <RuleFields value={form} onChange={patch} />
         </CardContent>
       </Card>
 
@@ -546,7 +448,185 @@ export function AssignmentEditor({
   );
 }
 
-function Field({
+export type Mode = "PRACTICE" | "EXAM";
+
+/** Rules shared by assignments and templates. */
+export type Rules = {
+  mode: Mode;
+  /** "" = unlimited */
+  maxChecks: string;
+  allowHints: boolean;
+  hintPenalty: number;
+  allowCheatSheet: boolean;
+  allowPaste: boolean;
+};
+
+/** Practice / exam switch (exam also turns hints and pasting off). */
+export function ModeField({
+  value,
+  onChange,
+}: {
+  value: Mode;
+  onChange: (patch: Partial<Rules>) => void;
+}) {
+  return (
+    <Field label="Mode" className="md:col-span-6">
+      <div className="flex flex-wrap items-center gap-2">
+        <Chip
+          active={value === "PRACTICE"}
+          onClick={() => onChange({ mode: "PRACTICE" })}
+        >
+          Practice
+        </Chip>
+        <Chip
+          active={value === "EXAM"}
+          onClick={() =>
+            onChange({
+              mode: "EXAM",
+              // Sensible exam defaults; still editable below.
+              allowHints: false,
+              allowPaste: false,
+            })
+          }
+        >
+          Exam
+        </Chip>
+        <span className="text-muted-foreground text-xs">
+          {value === "EXAM"
+            ? "Fullscreen, focus loss is logged, check output hidden, playground and other assignments locked while it runs, students hand in at the end."
+            : "Students practise at their own pace; check output is shown."}
+        </span>
+      </div>
+    </Field>
+  );
+}
+
+/** Max checks, hints, hint cost, cheat sheets, pasting (one column each). */
+export function RuleFields({
+  value,
+  onChange,
+}: {
+  value: Omit<Rules, "mode">;
+  onChange: (patch: Partial<Rules>) => void;
+}) {
+  return (
+    <>
+      <Field label="Max checks per exercise" className="md:col-span-1">
+        <Input
+          type="number"
+          min={1}
+          placeholder="unlimited"
+          value={value.maxChecks}
+          onChange={(e) => onChange({ maxChecks: e.target.value })}
+        />
+      </Field>
+      <Field label="Hints" className="md:col-span-1">
+        <label className="flex h-9 items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="accent-primary size-4"
+            checked={value.allowHints}
+            onChange={(e) => onChange({ allowHints: e.target.checked })}
+          />
+          Allow hints
+        </label>
+      </Field>
+      <Field label="Each hint costs" className="md:col-span-1">
+        <div
+          className="flex h-9 items-center gap-2 text-sm"
+          title="Share of the step's points a student loses for each hint revealed before solving the step. 0 = hints are free."
+        >
+          <Input
+            type="number"
+            min={0}
+            max={100}
+            step={5}
+            className="w-20"
+            disabled={!value.allowHints}
+            value={value.hintPenalty}
+            onChange={(e) =>
+              onChange({
+                hintPenalty: Math.max(
+                  0,
+                  Math.min(100, Number(e.target.value) || 0),
+                ),
+              })
+            }
+          />
+          <span className="text-muted-foreground">% of the step</span>
+        </div>
+      </Field>
+      <Field label="Cheat sheets" className="md:col-span-1">
+        <label
+          className="flex h-9 items-center gap-2 text-sm"
+          title="Show topic cheat sheets next to the terminal (matched by the exercise's tags)."
+        >
+          <input
+            type="checkbox"
+            className="accent-primary size-4"
+            checked={value.allowCheatSheet}
+            onChange={(e) => onChange({ allowCheatSheet: e.target.checked })}
+          />
+          Show cheat sheets
+        </label>
+      </Field>
+      <Field label="Terminal" className="md:col-span-1">
+        <label
+          className="flex h-9 items-center gap-2 text-sm"
+          title="Off: students can't paste into their terminals while this assignment is open (also blocked on the server)."
+        >
+          <input
+            type="checkbox"
+            className="accent-primary size-4"
+            checked={value.allowPaste}
+            onChange={(e) => onChange({ allowPaste: e.target.checked })}
+          />
+          Allow pasting
+        </label>
+      </Field>
+    </>
+  );
+}
+
+/** "Whole class" or a set of groups. */
+export function GroupChips({
+  groups,
+  value,
+  onChange,
+}: {
+  groups: { id: string; name: string }[];
+  value: string[];
+  onChange: (groupIds: string[]) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Chip active={value.length === 0} onClick={() => onChange([])}>
+        Whole class
+      </Chip>
+      {groups.map((g) => {
+        const on = value.includes(g.id);
+        return (
+          <Chip
+            key={g.id}
+            active={on}
+            onClick={() =>
+              onChange(on ? value.filter((x) => x !== g.id) : [...value, g.id])
+            }
+          >
+            {g.name}
+          </Chip>
+        );
+      })}
+      {groups.length === 0 && (
+        <span className="text-muted-foreground text-xs">
+          This class has no groups (create them on the class page).
+        </span>
+      )}
+    </div>
+  );
+}
+
+export function Field({
   label,
   className,
   children,
@@ -563,7 +643,7 @@ function Field({
   );
 }
 
-function Chip({
+export function Chip({
   active,
   onClick,
   children,

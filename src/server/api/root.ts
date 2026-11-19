@@ -10,6 +10,7 @@ import { learnRouter } from "~/server/api/routers/learn";
 import { manageRouter } from "~/server/api/routers/manage";
 import { meRouter } from "~/server/api/routers/me";
 import { reportRouter } from "~/server/api/routers/report";
+import { templateRouter } from "~/server/api/routers/template";
 import { toolsRouter } from "~/server/api/routers/tools";
 import { wechselplanRouter } from "~/server/api/routers/wechselplan";
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
@@ -20,6 +21,7 @@ export const appRouter = createTRPCRouter({
   exercise: exerciseRouter,
   class: classRouter,
   assignment: assignmentRouter,
+  template: templateRouter,
   learn: learnRouter,
   report: reportRouter,
   manage: manageRouter,

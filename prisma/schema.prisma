@@ -75,7 +75,8 @@ model User {
   submissions          AssignmentSubmission[]
   gradePushes          GradePush[]
   /// Personal practice sets (Assignment.practiceForId)
-  practiceSets         Assignment[] @relation("PracticeSets")
+  practiceSets         Assignment[]           @relation("PracticeSets")
+  assignmentTemplates  AssignmentTemplate[]
 }
 
 model Class {
@@ -96,13 +97,13 @@ model Class {
 /// A split of a class, e.g. "Gruppe A" / "Gruppe B" for lab lessons.
 /// A student may be in several groups of the same class.
 model ClassGroup {
-  id        String   @id @default(cuid())
-  classId   String
-  name      String
+  id             String   @id @default(cuid())
+  classId        String
+  name           String
   /// Set when the group mirrors a Wechselplan group:
   /// "<planClassId>:<weekday>:<groupId>". Re-pulling updates it in place.
   wechselplanKey String?
-  createdAt DateTime @default(now())
+  createdAt      DateTime @default(now())
 
   class       Class              @relation(fields: [classId], references: [id], onDelete: Cascade)
   members     ClassGroupMember[]
@@ -151,34 +152,35 @@ model ClassTeacher {
 // ────────────────────────────────────────────────────────────
 
 model Exercise {
-  id          String     @id @default(cuid())
+  id            String       @id @default(cuid())
   /// Folder name inside the student's home: ~/exercises/<slug>
-  slug        String     @unique
-  title       String
+  slug          String       @unique
+  title         String
   /// Markdown intro shown above the steps
-  description String
-  shell       ShellKind
-  kind        ExerciseKind @default(EXERCISE)
-  difficulty  Int        @default(1)
+  description   String
+  shell         ShellKind
+  kind          ExerciseKind @default(EXERCISE)
+  difficulty    Int          @default(1)
   /// Total of all step points (kept in sync when the steps are saved)
-  points      Int        @default(10)
+  points        Int          @default(10)
   /// Runs once for the whole exercise; all steps share the folder
-  setupScript String     @default("")
+  setupScript   String       @default("")
   /// Setup runs in a helper container with internet access (downloads)
-  setupInternet Boolean  @default(false)
-  tags        String[]
+  setupInternet Boolean      @default(false)
+  tags          String[]
   /// Per-student values (src/lib/variables.ts): `{{NAME}}` in texts and
   /// ready-made checks, `$NAME` in setup/check scripts.
-  variables   Json       @default("[]")
-  visibility  Visibility @default(PRIVATE)
-  archived    Boolean    @default(false)
-  authorId    String
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  variables     Json         @default("[]")
+  visibility    Visibility   @default(PRIVATE)
+  archived      Boolean      @default(false)
+  authorId      String
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
-  author          User             @relation(fields: [authorId], references: [id])
+  author          User                     @relation(fields: [authorId], references: [id])
   steps           ExerciseStep[]
   assignmentItems AssignmentItem[]
+  templateItems   AssignmentTemplateItem[]
 
   @@index([authorId])
 }
@@ -213,30 +215,30 @@ model ExerciseStep {
 // ────────────────────────────────────────────────────────────
 
 model Assignment {
-  id         String         @id @default(cuid())
-  title      String
-  classId    String
-  mode       AssignmentMode @default(PRACTICE)
-  opensAt    DateTime?
-  dueAt      DateTime?
+  id              String         @id @default(cuid())
+  title           String
+  classId         String
+  mode            AssignmentMode @default(PRACTICE)
+  opensAt         DateTime?
+  dueAt           DateTime?
   /// null = unlimited (practice)
-  maxChecks  Int?
+  maxChecks       Int?
   /// Topic cheat sheets are shown next to the terminal
-  allowCheatSheet Boolean @default(true)
-  allowHints Boolean        @default(true)
+  allowCheatSheet Boolean        @default(true)
+  allowHints      Boolean        @default(true)
   /// Each revealed hint costs this % of the step's points (0 = free).
-  hintPenalty Int           @default(0)
-  allowPaste Boolean        @default(true)
-  published  Boolean        @default(false)
+  hintPenalty     Int            @default(0)
+  allowPaste      Boolean        @default(true)
+  published       Boolean        @default(false)
   /// Draft that becomes visible to students at this time (scheduled publish).
-  publishAt  DateTime?
+  publishAt       DateTime?
   /// Personal practice set of one student ("practise your weak spots").
   /// Only that student sees it; teachers' lists and reports leave it out.
-  practiceForId String?
+  practiceForId   String?
   /// The tag the practice set was made for.
-  practiceTag   String?
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
+  practiceTag     String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   class         Class                  @relation(fields: [classId], references: [id], onDelete: Cascade)
   practiceFor   User?                  @relation("PracticeSets", fields: [practiceForId], references: [id], onDelete: Cascade)
@@ -264,7 +266,7 @@ model AssignmentGroup {
 }
 
 model AssignmentItem {
-  id           String @id @default(cuid())
+  id           String  @id @default(cuid())
   assignmentId String
   exerciseId   String
   order        Int
@@ -279,6 +281,51 @@ model AssignmentItem {
   attempts   Attempt[]
 
   @@unique([assignmentId, exerciseId])
+  @@index([exerciseId])
+}
+
+/// Reusable assignment: exercises + settings, no class or dates. "Use" it to
+/// create a real assignment for a class/groups with a time window.
+model AssignmentTemplate {
+  id              String         @id @default(cuid())
+  title           String
+  /// Private note for teachers (not shown to students)
+  description     String         @default("")
+  mode            AssignmentMode @default(PRACTICE)
+  maxChecks       Int?
+  allowHints      Boolean        @default(true)
+  /// Each revealed hint costs this % of the step's points (0 = free).
+  hintPenalty     Int            @default(0)
+  allowCheatSheet Boolean        @default(true)
+  allowPaste      Boolean        @default(false)
+  /// Suggested length; "Due" is filled in as opens + duration when used.
+  durationMinutes Int?
+  /// SHARED = other teachers can use (and copy) it.
+  visibility      Visibility     @default(PRIVATE)
+  ownerId         String
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  owner User                     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  items AssignmentTemplateItem[]
+
+  @@index([ownerId])
+}
+
+model AssignmentTemplateItem {
+  id         String  @id @default(cuid())
+  templateId String
+  exerciseId String
+  order      Int
+  /// null = exercise default
+  points     Int?
+  /// The items after this one stay locked until this one is solved
+  gate       Boolean @default(false)
+
+  template AssignmentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  exercise Exercise           @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, exerciseId])
   @@index([exerciseId])
 }
 
