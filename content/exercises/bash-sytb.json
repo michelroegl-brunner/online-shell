@@ -1,0 +1,599 @@
+{
+  "format": "online-shell-exercises",
+  "version": 1,
+  "exercises": [
+    {
+      "title": "Bash 01 · Skripte (Übung)",
+      "slug": "bash-01-skripte-ue",
+      "description": "Übungen zu Skripten, Argumenten (`$1`, `$#`) und der Argumentliste `$@`.\n\nDie Prüfung startet deine Skripte mit `bash ./name.sh …` in einem eigenen,\nleeren Ordner – sie müssen also überall funktionieren. Mit `#!/bin/bash` und\n`chmod u+x` kannst du sie auch direkt mit `./name.sh` starten.\n\n> **Hinweis zur Box:** Du arbeitest in einem echten Debian-Linux, aber **ohne\n> Internet** und ohne `sudo`. Dateien, die sonst heruntergeladen werden, liegen\n> schon in deinem Übungsordner. Skripte schreibst du mit `nano` oder `vim`.",
+      "shell": "BASH",
+      "kind": "EXERCISE",
+      "difficulty": 2,
+      "setupScript": "printf 'Das ist der Inhalt\\nder ersten Textdatei\\n' > file1.txt\nprintf 'Das ist der Inhalt\\nder zweiten Textdatei\\n' > file2.txt\nprintf 'Das ist der Inhalt\\nder dritten Textdatei\\n' > file3.txt",
+      "setupInternet": false,
+      "tags": [
+        "bash",
+        "sytb",
+        "uebung",
+        "skripte",
+        "argumente"
+      ],
+      "visibility": "SHARED",
+      "steps": [
+        {
+          "title": "Directory-Struktur (build_dirs.sh)",
+          "description": "Schreibe ein Skript `build_dirs.sh`, das Unterverzeichnisse und Dateien anlegt.\nEs bekommt ein Argument. `./build_dirs.sh abcd` erzeugt:\n\n```\n./\n└── abcd/\n    ├── abcd_01/\n    │   ├── abcd.01.1.txt\n    │   ├── abcd.01.2.txt\n    │   └── abcd.01.3.txt\n    └── abcd_02/\n        ├── abcd.02.1.txt\n        ├── abcd.02.2.txt\n        └── abcd.02.3.txt\n```",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nt=$(mktemp -d); trap 'rm -rf \"$t\"' EXIT\n\nneed build_dirs.sh\ncp build_dirs.sh \"$t\"/\nn=q$RANDOM\n( cd \"$t\" && timeout 5 bash ./build_dirs.sh \"$n\" ) >/dev/null 2>&1\ngot=$(cd \"$t\" && find \"$n\" | sort)\nwant=$(printf '%s\\n' \"$n\" \"$n/${n}_01\" \"$n/${n}_01/$n.01.1.txt\" \"$n/${n}_01/$n.01.2.txt\" \"$n/${n}_01/$n.01.3.txt\" \"$n/${n}_02\" \"$n/${n}_02/$n.02.1.txt\" \"$n/${n}_02/$n.02.2.txt\" \"$n/${n}_02/$n.02.3.txt\" | sort)\nif [ \"$got\" != \"$want\" ]; then\n  echo \"Mit './build_dirs.sh $n' entsteht nicht die erwartete Struktur.\"\n  echo \"Erwartet:\"; echo \"$want\"; echo \"Bekommen:\"; echo \"${got:-(nichts)}\"; exit 1\nfi\necho \"Struktur passt!\"",
+          "checks": [],
+          "hints": [
+            "`mkdir -p` legt auch Zwischenordner an.",
+            "`touch datei` legt eine leere Datei an.",
+            "`tree abcd` zeigt die Struktur wie oben an."
+          ],
+          "points": 5,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Aufräumen (clean_dir.sh)",
+          "description": "Schreibe ein Skript `clean_dir.sh`, das diese Verzeichnisstruktur wieder löscht.\nAufruf: `./clean_dir.sh abcd`",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nt=$(mktemp -d); trap 'rm -rf \"$t\"' EXIT\n\nneed clean_dir.sh build_dirs.sh\ncp clean_dir.sh build_dirs.sh \"$t\"/\nn=q$RANDOM\n( cd \"$t\" && timeout 5 bash ./build_dirs.sh \"$n\" && touch keep.txt && timeout 5 bash ./clean_dir.sh \"$n\" ) >/dev/null 2>&1\n[ -e \"$t/$n\" ] && { echo \"Nach './clean_dir.sh $n' gibt es den Ordner $n noch.\"; exit 1; }\n[ -f \"$t/keep.txt\" ] || { echo \"clean_dir.sh hat zu viel gelöscht!\"; exit 1; }\necho \"Sauber aufgeräumt!\"",
+          "checks": [],
+          "hints": [
+            "`rm -r` löscht einen Ordner samt Inhalt."
+          ],
+          "points": 3,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Skript-Generator (makescript.sh)",
+          "description": "Schreibe ein Skript `makescript.sh`, das\n\n- eine Skriptdatei erzeugt (Name wird als Argument übergeben),\n- die Shebang-Zeile einfügt,\n- einen `echo`-Befehl einfügt und\n- das eXecute-Flag setzt.\n\n`./makescript.sh mytest` erzeugt `mytest.sh`:\n\n```sh\n#!/bin/sh\n\necho \"mytest Skript\"\n\n# write your script here\n```\n\nDas neue Skript kann sofort mit `./mytest.sh` gestartet werden.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nt=$(mktemp -d); trap 'rm -rf \"$t\"' EXIT\n\nneed makescript.sh\ncp makescript.sh \"$t\"/\nn=s$RANDOM\n( cd \"$t\" && timeout 5 bash ./makescript.sh \"$n\" ) >/dev/null 2>&1\nf=\"$t/$n.sh\"\n[ -f \"$f\" ] || { echo \"'./makescript.sh $n' hat keine Datei $n.sh angelegt.\"; exit 1; }\nhead -n1 \"$f\" | grep -Eq '^#!/(usr/)?bin/(env )?(ba)?sh' || { echo \"Die erste Zeile von $n.sh ist keine Shebang-Zeile.\"; exit 1; }\n[ -x \"$f\" ] || { echo \"$n.sh ist nicht ausführbar.\"; exit 1; }\nout=$(cd \"$t\" && timeout 5 \"./$n.sh\" 2>&1)\n[ \"$out\" = \"$n Skript\" ] || { echo \"./$n.sh soll '$n Skript' ausgeben, war: $out\"; exit 1; }\necho \"Generator funktioniert!\"",
+          "checks": [],
+          "hints": [
+            "Mit `>` und `>>` schreibst du Zeilen in die neue Datei.",
+            "In doppelten Anführungszeichen maskierst du `\"` mit `\\\"`."
+          ],
+          "points": 5,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Headline Cat (headline_cat.sh)",
+          "description": "Verwende `$@`. Schreibe ein Skript `headline_cat.sh`, eine Art `cat`: Es bekommt\n**beliebig viele** Textdateien und schreibt sie in die Datei `result.txt`\n(vorhandener Inhalt wird überschrieben). Jedem Datei-Inhalt wird eine\nÜberschrift vorangestellt, danach folgt eine Leerzeile.\n\n`./headline_cat.sh file1.txt file2.txt file3.txt` ergibt in `result.txt`:\n\n```\n== file1.txt ==========================================\nDas ist der Inhalt\nder ersten Textdatei\n\n== file2.txt ==========================================\nDas ist der Inhalt\nder zweiten Textdatei\n\n== file3.txt ==========================================\nDas ist der Inhalt\nder dritten Textdatei\n\n```\n\nDie Dateien `file1.txt` bis `file3.txt` liegen schon im Übungsordner.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nt=$(mktemp -d); trap 'rm -rf \"$t\"' EXIT\n\nneed headline_cat.sh\ncp headline_cat.sh \"$t\"/\ncd \"$t\"\nprintf 'Zeile A\\nZeile B\\n' > a.txt; printf 'nur eine Zeile\\n' > b.txt; printf 'x %s\\n' $RANDOM > c.txt\necho ALT > result.txt\nnorm() { sed -E 's/^== (.*) =+[[:space:]]*$/== \\1 ==/' \"$1\" | sed -e :a -e '/^\\n*$/{$d;N;ba' -e '}'; }\nfor run in 1 2; do timeout 5 bash ./headline_cat.sh a.txt b.txt c.txt >/dev/null 2>&1; done\n[ -f result.txt ] || { echo \"result.txt wurde nicht geschrieben.\"; exit 1; }\n{ for f in a.txt b.txt c.txt; do echo \"== $f ==\"; cat \"$f\"; echo; done; } > want.txt\nif [ \"$(norm result.txt)\" != \"$(norm want.txt)\" ]; then\n  echo \"result.txt stimmt nicht. Erwartet (für a.txt b.txt c.txt, Zweimal aufgerufen):\"; cat want.txt\n  echo \"Bekommen:\"; cat result.txt; exit 1\nfi\necho \"Schön formatiert!\"",
+          "checks": [],
+          "hints": [
+            "`> result.txt` am Anfang leert die Datei.",
+            "In der Schleife hängst du mit `>>` an."
+          ],
+          "points": 5,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Zufallskopie (randcp.sh)",
+          "description": "Schreibe ein Skript `randcp.sh`, das beliebig viele Dateinamen als Argumente\nakzeptiert. Von jeder Datei wird im selben Verzeichnis eine Kopie angelegt, die\nsich durch eine angehängte Zufallszahl unterscheidet:\n\n```\ntest.txt --> test.txt.38573\n```\n\n```sh\n$ ./randcp.sh test1.txt test2.txt\n$ ./randcp.sh *.txt\n```\n\nAchtung: Verwende `#!/bin/bash` – `sh` kennt `$RANDOM` nicht.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nt=$(mktemp -d); trap 'rm -rf \"$t\"' EXIT\n\nneed randcp.sh\ncp randcp.sh \"$t\"/\ncd \"$t\"\necho eins > one.txt; echo zwei > two.dat\ntimeout 5 bash ./randcp.sh one.txt two.dat >/dev/null 2>&1\nfor f in one.txt two.dat; do\n  c=$(ls | grep -E \"^${f//./\\\\.}\\.[0-9]+$\")\n  [ -n \"$c\" ] || { echo \"Keine Kopie von $f in der Form $f.<Zahl> gefunden.\"; exit 1; }\n  cmp -s \"$f\" \"$(echo \"$c\" | head -n1)\" || { echo \"Die Kopie von $f hat einen anderen Inhalt.\"; exit 1; }\ndone\necho \"Kopien angelegt!\"",
+          "checks": [],
+          "hints": [
+            "`$RANDOM` liefert bei jeder Verwendung eine neue Zahl."
+          ],
+          "points": 4,
+          "requiresPrevious": false,
+          "allowInternet": false
+        }
+      ]
+    },
+    {
+      "title": "Bash 02 · Command Substitution (Übung)",
+      "slug": "bash-02-cmdsubst-ue",
+      "description": "Löse alle Aufgaben mit Hilfe von **Command Substitution** `$( … )`.\n\nBerechnungen gehen mit `$(( … ))`:\n\n```sh\nX=99999\nY=88888\nZ=$(( X - Y ))\necho $Z      # 11111\n```\n\n> **Hinweis zur Box:** Du arbeitest in einem echten Debian-Linux, aber **ohne\n> Internet** und ohne `sudo`. Dateien, die sonst heruntergeladen werden, liegen\n> schon in deinem Übungsordner. Skripte schreibst du mit `nano` oder `vim`.",
+      "shell": "BASH",
+      "kind": "EXERCISE",
+      "difficulty": 2,
+      "setupScript": "printf '%s\\n' Haus Baum Auto Schule Lehrer Klasse Fenster Tisch Stuhl Computer Netzwerk Server Kabel Drucker Programm Skript Datei Ordner Bildschirm Tastatur Maus Sonne Regen Wolke Berg Fluss Wald Wiese Stadt Dorf Strasse Bahnhof Zug Bus Fahrrad Kaffee Wasser Brot Apfel Birne Katze Hund Vogel Fisch richtig falsch schnell langsam gross klein hell dunkel warm kalt neu alt gut schlecht laut leise lang kurz ganzen Kilometer Mittel auf unter neben hinter vor zwischen heute morgen gestern immer nie oft selten Freund Projekt Woche Monat Jahr Stunde Minute Sekunde Antwort Frage Aufgabe Pause Ferien Prüfung Note Buch Heft Stift Papier Rechner Speicher Prozess Befehl Shell Linux Fehler Ausgabe Eingabe > wortliste.txt",
+      "setupInternet": false,
+      "tags": [
+        "bash",
+        "sytb",
+        "uebung",
+        "command-substitution",
+        "date"
+      ],
+      "visibility": "SHARED",
+      "steps": [
+        {
+          "title": "Tage bis zum Ball (ball.sh)",
+          "description": "Schreibe ein Skript `ball.sh`, das die Anzahl der Tage bis zum HTL-Ball\nermittelt. Das Datum des Balls wird als Argument übergeben:\n\n```\n$ ./ball.sh 2027-01-22\nEs sind noch 63 Tage bis zum HTL Ball (2027-01-22)\n```\n\nVerwende das `date`-Format *seconds since the Epoch* (`date +%s`).",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed ball.sh\nfor days in 40 100; do\n  b=$(date -d \"+$days days\" -I)\n  out=$(timeout 5 bash ball.sh \"$b\" 2>&1)\n  n=$(echo \"$out\" | grep -oE 'noch -?[0-9]+ Tage' | grep -oE -- '-?[0-9]+')\n  if ! echo \"$out\" | grep -q \"bis zum HTL Ball ($b)\" || [ -z \"$n\" ] || [ \"$n\" -lt $((days-1)) ] || [ \"$n\" -gt \"$days\" ]; then\n    echo \"Für './ball.sh $b' erwartet: Es sind noch $days Tage bis zum HTL Ball ($b)\"\n    echo \"Ausgabe war: $out\"; exit 1\n  fi\ndone\necho \"Countdown läuft!\"",
+          "checks": [],
+          "hints": [
+            "`date -d 2027-01-22 +%s` gibt die Sekunden für ein bestimmtes Datum.",
+            "Ein Tag hat 86400 Sekunden."
+          ],
+          "points": 5,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Zufälliger Satz (satz.sh)",
+          "description": "Schreibe ein Skript `satz.sh`, das einen Satz aus **5 zufälligen Wörtern** bildet\nund in einer Zeile ausgibt, z. B.:\n\n```\nrichtig ganzen Kilometer auf Mittel\n```\n\nDie Wörter kommen aus der Datei `wortliste.txt` (ein Wort pro Zeile, liegt im\nÜbungsordner).\n\n- Das Skript ermittelt die **Anzahl der Wörter selbst** – die Anzahl darf nicht\n  fest im Skript stehen (die Prüfung verwendet auch eine andere Wortliste).\n- `sed -n 5p datei.txt` gibt nur die 5. Zeile aus.\n- `$(( RANDOM % n ))` liefert eine Zahl von `0` bis `n-1`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nt=$(mktemp -d); trap 'rm -rf \"$t\"' EXIT\n\nneed satz.sh\ncp satz.sh \"$t\"/\ncd \"$t\"\nprintf '%s\\n' Alpha Bravo Charlie Delta Echo Foxtrot Golf > wortliste.txt\nseen=\"\"\nfor i in 1 2 3 4 5 6; do\n  out=$(timeout 5 bash ./satz.sh 2>&1 | tail -n1)\n  set -- $out\n  [ $# -eq 5 ] || { echo \"Erwartet 5 Wörter in einer Zeile, bekommen: '$out' (mit einer Wortliste aus 7 Wörtern)\"; exit 1; }\n  for w in \"$@\"; do grep -qx -- \"$w\" wortliste.txt || { echo \"'$w' steht nicht in wortliste.txt. Verwendest du eine feste Anzahl?\"; exit 1; }; done\n  seen=\"$seen|$out\"\ndone\n[ \"$(echo \"$seen\" | tr '|' '\\n' | sort -u | grep -c .)\" -gt 1 ] || { echo \"Der Satz ist jedes Mal gleich – ist er wirklich zufällig?\"; exit 1; }\necho \"Schöne Zufallssätze!\"",
+          "checks": [],
+          "hints": [
+            "`wc -l < wortliste.txt` gibt nur die Zahl aus.",
+            "sed zählt Zeilen ab 1, `RANDOM % n` beginnt bei 0."
+          ],
+          "points": 6,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Datierte Kopie V1 (dated_copy1.sh)",
+          "description": "Schreibe ein Skript `dated_copy1.sh`, das einen Dateinamen als Argument bekommt\nund eine **datierte Kopie** anlegt: Aus `file1.txt` wird am 2026-10-29 die Kopie\n`2026-10-29_file1.txt`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nt=$(mktemp -d); trap 'rm -rf \"$t\"' EXIT\n\nneed dated_copy1.sh\ncp dated_copy1.sh \"$t\"/; cd \"$t\"\necho \"inhalt $RANDOM\" > notiz.txt\ntimeout 5 bash ./dated_copy1.sh notiz.txt >/dev/null 2>&1\nf=\"$(date -I)_notiz.txt\"\n[ -f \"$f\" ] || { echo \"Nach './dated_copy1.sh notiz.txt' fehlt die Datei $f.\"; exit 1; }\ncmp -s notiz.txt \"$f\" || { echo \"$f hat nicht denselben Inhalt wie das Original.\"; exit 1; }\necho \"Datiert kopiert!\"",
+          "checks": [],
+          "hints": [
+            "`date -I` liefert das Datum als JJJJ-MM-TT."
+          ],
+          "points": 3,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Datierte Kopie V2 (dated_copy2.sh)",
+          "description": "**Challenge:** Schreibe `dated_copy2.sh`, bei dem das Datum **nach** dem\nDateinamen steht: aus `file1.txt` wird `file1_2026-10-29.txt`.\n\nTipp: Mit `cut` trennst du Name und Endung: `echo \"filename.ext\" | cut …`",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nt=$(mktemp -d); trap 'rm -rf \"$t\"' EXIT\n\nneed dated_copy2.sh\ncp dated_copy2.sh \"$t\"/; cd \"$t\"\necho \"inhalt $RANDOM\" > bericht.txt; echo \"x,y\" > daten.csv\nfor f in bericht.txt daten.csv; do\n  timeout 5 bash ./dated_copy2.sh \"$f\" >/dev/null 2>&1\n  c=\"${f%.*}_$(date -I).${f##*.}\"\n  [ -f \"$c\" ] || { echo \"Nach './dated_copy2.sh $f' fehlt die Datei $c.\"; exit 1; }\n  cmp -s \"$f\" \"$c\" || { echo \"$c hat nicht denselben Inhalt wie das Original.\"; exit 1; }\ndone\necho \"Datum am richtigen Platz!\"",
+          "checks": [],
+          "hints": [
+            "`cut -d. -f1` liefert den Teil vor dem ersten Punkt."
+          ],
+          "points": 4,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Datierte Kopie V3 (dated_copy3.sh)",
+          "description": "**Challenge:** Erweitere zu `dated_copy3.sh`: Es akzeptiert eine **Liste von\nDateien** und legt von allen eine datierte Kopie wie in V2 an.\n\nTipp: `xargs` oder eine Schleife über `\"$@\"`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nt=$(mktemp -d); trap 'rm -rf \"$t\"' EXIT\n\nneed dated_copy3.sh\ncp dated_copy3.sh \"$t\"/; cd \"$t\"\necho a > eins.txt; echo b > zwei.md; echo c > drei.csv\ntimeout 5 bash ./dated_copy3.sh eins.txt zwei.md drei.csv >/dev/null 2>&1\nfor f in eins.txt zwei.md drei.csv; do\n  c=\"${f%.*}_$(date -I).${f##*.}\"\n  [ -f \"$c\" ] && cmp -s \"$f\" \"$c\" || { echo \"Nach './dated_copy3.sh eins.txt zwei.md drei.csv' fehlt $c (oder der Inhalt stimmt nicht).\"; exit 1; }\ndone\necho \"Alle kopiert!\"",
+          "checks": [],
+          "hints": [],
+          "points": 4,
+          "requiresPrevious": false,
+          "allowInternet": false
+        }
+      ]
+    },
+    {
+      "title": "Bash 03 · Arithmetik (Übung)",
+      "slug": "bash-03-arithmetik-ue",
+      "description": "Übungen zu `let`, `expr` und `$(( ))`.\n\nDie Datei `klassenkassa.csv` liegt im Übungsordner. Aufbau (ohne Kopfzeile):\n\n```\nName,Datum,Betrag,Zweck\nMaximilian,21.09.2023,3,Bus\nSophia,22.09.2023,15,Werkstatt\n```\n\n> **Hinweis zur Box:** Du arbeitest in einem echten Debian-Linux, aber **ohne\n> Internet** und ohne `sudo`. Dateien, die sonst heruntergeladen werden, liegen\n> schon in deinem Übungsordner. Skripte schreibst du mit `nano` oder `vim`.",
+      "shell": "BASH",
+      "kind": "EXERCISE",
+      "difficulty": 2,
+      "setupScript": "cat > klassenkassa.csv <<'EOF'\nMaximilian,21.09.2023,3,Bus\nSophia,22.09.2023,15,Werkstatt\nJonas,21.09.2023,3,Bus\nLena,18.09.2023,13,Werkstatt\nLukas,15.09.2023,2,Kino\nEmma,22.09.2023,42,Werkstatt\nNico,18.09.2023,23,Werkstatt\nJana,20.10.2023,11,Bücher\nTimo,25.11.2023,5,Walter\nLaura,05.11.2023,20,Kopierkosten\nLeonie,06.11.2023,20,Kopierkosten\nFelix,14.10.2023,21,Kino\nSarah,15.09.2023,33,Werkstatt\nJanina,30.10.2023,5,Werkstatt\nAdrian,02.10.2023,7,Kino\nlena,24.11.2023,1,Bus\nSophia,20.11.2023,2,Kino\nFelix,11.11.2023,10,Walter\nJana,22.09.2023,8,Bus\nMaximilian,05.10.2023,21,Kino\nJana,17.10.2023,22,Bus\nSarah,08.11.2023,18,Kopierkosten\nEmma,26.10.2023,10,Walter\nleNa,18.09.2023,9,Kopierkosten\nLeonie,04.10.2023,25,Werkstatt\nFelix,24.10.2023,21,Bus\nSarah,11.09.2023,3,Kopierkosten\nJanina,02.10.2023,10,Walter\nAdrian,02.11.2023,5,Kino\nLenA,24.10.2023,3,Kino\nAnna,15.10.2024,8,Walter\nMax,22.09.2024,16,Bücher\nSophie,02.11.2024,5,Kopierkosten\nFelix,18.09.2024,12,Bus\nLaura,28.10.2024,3,Werkstatt\nLeon,12.10.2024,19,Kino\nEmma,21.11.2024,7,Bus\nTim,10.11.2024,14,Kopierkosten\nLeNa,26.09.2024,6,Kino\nJan,30.11.2024,2,Walter\nSophia,17.09.2024,9,Bus\nBenjamin,25.11.2024,15,Werkstatt\nHannah,08.10.2024,4,Kopierkosten\nPaul,14.11.2024,11,Walter\nMia,29.09.2024,2,Kino\nJulian,05.11.2024,18,Werkstatt\nEmily,23.10.2024,7,Bus\nLiam,20.09.2024,13,Kino\nAmelia,11.11.2024,6,Werkstatt\nDavid,27.10.2024,19,Kopierkosten\nElla,03.10.2024,12,Walter\nLuca,26.11.2024,5,Bus\nSophie,10.09.2024,10,Kino\nLeon,21.10.2024,2,Walter\nMila,16.11.2024,14,Kopierkosten\nElias,04.10.2024,8,Bus\nIsabella,30.11.2024,16,Kino\nAlexander,19.09.2024,4,Walter\nEmma,06.11.2024,11,Kopierkosten\nFinn,22.10.2024,7,Werkstatt\nAnna,15.10.2024,8,Walter\nMax,22.09.2024,16,Bücher\nSophie,02.11.2024,5,Kopierkosten\nFelix,18.09.2024,12,Bus\nLaura,28.10.2024,3,Werkstatt\nLeon,12.10.2024,19,Kino\nEmma,21.11.2024,7,Bus\nTim,10.11.2024,14,Kopierkosten\nleNA,26.09.2024,6,Kino\nJan,30.11.2024,2,Walter\nSophia,17.09.2024,9,Bus\nBenjamin,25.11.2024,15,Werkstatt\nHannah,08.10.2024,4,Kopierkosten\nPaul,14.11.2024,11,Walter\nMia,29.09.2024,2,Kino\nJulian,05.11.2024,18,Werkstatt\nEmily,23.10.2024,7,Bus\nLiam,20.09.2024,13,Kino\nAmelia,11.11.2024,6,Werkstatt\nDavid,27.10.2024,19,Kopierkosten\nElla,03.10.2024,12,Walter\nLuca,26.11.2024,5,Bus\nSophie,10.09.2024,10,Kino\nNina,09.11.2024,14,Walter\nTom,16.09.2024,6,Werkstatt\nIsabel,20.10.2024,3,Bus\nErik,05.11.2024,18,Kopierkosten\nLea,27.09.2024,9,Kino\nJonas,14.10.2024,12,Bücher\nSophie,22.11.2024,5,Werkstatt\nFinn,08.11.2024,11,Kino\nMara,25.09.2024,16,Bus\nTimothy,13.10.2024,7,Kopierkosten\nJulia,03.11.2024,2,Walter\nVincent,19.09.2024,10,Werkstatt\nElena,26.10.2024,6,Kino\nLars,09.11.2024,14,Bücher\nSophie,15.10.2024,8,Kopierkosten\nPaul,28.09.2024,4,Bus\nMia,07.11.2024,19,Walter\nAnton,24.10.2024,12,Werkstatt\nEmilia,10.09.2024,7,Kino\nLukas,29.11.2024,3,Kopierkosten\nLena,16.09.2024,11,Bücher\nOscar,03.11.2024,9,Walter\nEmma,22.11.2024,7,Kino\nDavid,14.09.2024,15,Werkstatt\nLina,05.10.2024,3,Walter\nMarius,18.11.2024,18,Kopierkosten\nLaura,27.09.2024,9,Kino\nSimon,10.11.2024,12,Bücher\nClara,21.10.2024,5,Werkstatt\nJulian,03.11.2024,11,Bus\nHanna,28.09.2024,16,Kopierkosten\nNoah,12.10.2024,7,Walter\nSophie,26.11.2024,2,Kino\nLuca,17.09.2024,14,Werkstatt\nEmma,01.11.2024,6,Kopierkosten\nLiam,19.10.2024,11,Bus\nLena,08.11.2024,18,Werkstatt\nFelix,24.09.2024,4,Kino\nMia,13.10.2024,10,Kopierkosten\nMax,30.11.2024,7,Walter\nElla,09.11.2024,12,Werkstatt\nAlexander,22.09.2024,5,Bus\nSophie,05.11.2024,19,Kopierkosten\nErik,17.11.2024,14,Werkstatt\nHannah,06.10.2024,6,Kopierkosten\nLeon,28.11.2024,3,Bus\nMila,10.09.2024,18,Walter\nFinn,23.10.2024,9,Kino\nSophia,12.11.2024,12,Werkstatt\nNoah,01.10.2024,4,Kopierkosten\nlEna,15.11.2024,16,Bus\nBen,29.09.2024,7,Walter\nClara,11.10.2024,13,Werkstatt\nJonas,26.11.2024,5,Kopierkosten\nMia,09.11.2024,11,Kino\nMax,20.10.2024,18,Bus\nEmily,03.11.2024,6,Werkstatt\nLuca,14.09.2024,12,Kopierkosten\nElena,07.11.2024,3,Walter\nDavid,24.10.2024,16,Kino\nSophie,13.09.2024,8,Werkstatt\nLiam,05.11.2024,19,Kopierkosten\nEmma,22.10.2024,7,Bus\nEOF",
+      "setupInternet": false,
+      "tags": [
+        "bash",
+        "sytb",
+        "uebung",
+        "arithmetik",
+        "csv"
+      ],
+      "visibility": "SHARED",
+      "steps": [
+        {
+          "title": "Multiplizierer (multi.sh)",
+          "description": "Schreibe ein Skript `multi.sh`, das 2 Zahlen als Argumente übernimmt, sie\nmultipliziert und das Ergebnis ausgibt – mit **jeder der 3 Methoden** (`let`,\n`expr`, `$(( ))`), also 3 Zeilen Ausgabe.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed multi.sh\na=$((RANDOM % 50 + 2)); b=$((RANDOM % 50 + 2)); p=$((a*b))\nout=$(timeout 5 bash multi.sh $a $b 2>&1)\n[ \"$(echo \"$out\" | grep -cE \"(^|[^0-9])$p([^0-9]|$)\")\" -ge 3 ] || { echo \"'./multi.sh $a $b' soll dreimal $p ausgeben. Ausgabe: $out\"; exit 1; }\nfor m in let expr '\\$\\(\\('; do grep -Eq \"$m\" multi.sh || { echo \"In multi.sh fehlt eine Methode (${m//\\\\/}).\"; exit 1; }; done\necho \"Dreimal richtig!\"",
+          "checks": [],
+          "hints": [],
+          "points": 4,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Werkstatt-Summe (werkstatt.sh)",
+          "description": "Schreibe ein Skript `werkstatt.sh`, das die **Summe aller Beträge** in\n`klassenkassa.csv` mit dem Zweck `Werkstatt` ermittelt und ausgibt.\n\n- Filtere mit `grep` und `cut`.\n- Die Beträge stehen dann auf einzelnen Zeilen. Mit `paste` fasst du sie zu\n  einem Ausdruck wie `15+13+42+23` zusammen.\n- Speichere den Ausdruck per Command Substitution in einer Variable.\n- Rechne das Ergebnis mit `$(( … ))` aus.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed werkstatt.sh\nwant=$(( $(grep Werkstatt klassenkassa.csv | cut -d, -f3 | paste -sd+) ))\nout=$(timeout 5 bash werkstatt.sh 2>&1)\necho \"$out\" | grep -Eq \"(^|[^0-9])$want([^0-9]|$)\" || { echo \"Die Summe stimmt nicht. Ausgabe: $out\"; exit 1; }\ngrep -q \"$want\" werkstatt.sh && { echo \"Das Ergebnis darf nicht fest im Skript stehen.\"; exit 1; }\ngrep -q paste werkstatt.sh || { echo \"Verwende paste, um den Ausdruck zu bauen.\"; exit 1; }\necho \"Summe: $want – richtig!\"",
+          "checks": [],
+          "hints": [
+            "`paste -sd+` verbindet Zeilen mit `+`.",
+            "`$(( $ausdruck ))` rechnet einen Ausdruck aus einer Variable aus."
+          ],
+          "points": 5,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Zeitmessung (time_start.sh / time_stop.sh)",
+          "description": "Schreibe 2 Skripts: `time_start.sh` und `time_stop.sh`. Beim Aufruf von\n`time_stop.sh` wird die Anzahl der **Sekunden** ausgegeben, die seit dem letzten\nAufruf von `time_start.sh` vergangen sind.\n\n- Hinweis 1: `date +%s` liefert die Sekunden seit 01.01.1970 (UNIX-Zeit).\n- Hinweis 2: Speichere die Zeit in `time_start.sh` in einer Datei.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed time_start.sh time_stop.sh\ntimeout 5 bash time_start.sh >/dev/null 2>&1\nsleep 2\nout=$(timeout 5 bash time_stop.sh 2>&1)\nn=$(echo \"$out\" | grep -oE '[0-9]+' | tail -n1)\n[ -n \"$n\" ] && [ \"$n\" -ge 2 ] && [ \"$n\" -le 3 ] || { echo \"Nach 2 Sekunden Pause soll time_stop.sh 2 ausgeben. Ausgabe: $out\"; exit 1; }\necho \"Zeit gemessen: $n s\"",
+          "checks": [],
+          "hints": [],
+          "points": 5,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Challenge: Zufallszahl im Bereich (random.sh)",
+          "description": "`$RANDOM` erzeugt Zahlen zwischen 0 und 32767. Schreibe ein Skript `random.sh`,\ndem über 2 Argumente der Wertebereich vorgegeben wird: `./random.sh 10 45`\nliefert eine zufällige Zahl von 10 bis 45 (**jeweils inklusive**).",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed random.sh\nchk() {\n  lo=$1; hi=$2; seen=\"\"\n  for i in $(seq 1 60); do\n    n=$(timeout 5 bash random.sh $lo $hi 2>&1 | tail -n1)\n    [[ \"$n\" =~ ^-?[0-9]+$ ]] && [ \"$n\" -ge $lo ] && [ \"$n\" -le $hi ] || { echo \"'./random.sh $lo $hi' lieferte '$n' – nicht im Bereich $lo bis $hi.\"; exit 1; }\n    seen=\"$seen $n\"\n  done\n  echo \"$seen\"\n}\ns=$(chk 1 3) || { echo \"$s\"; exit 1; }\nfor v in 1 2 3; do echo \" $s \" | grep -q \" $v \" || { echo \"'./random.sh 1 3' liefert nie $v – sind die Grenzen inklusive?\"; exit 1; }; done\ns=$(chk 10 45) || { echo \"$s\"; exit 1; }\n[ \"$(timeout 5 bash random.sh 7 7 | tail -n1)\" = 7 ] || { echo \"'./random.sh 7 7' soll 7 liefern.\"; exit 1; }\necho \"Zufall im Griff!\"",
+          "checks": [],
+          "hints": [
+            "Wie viele Zahlen liegen zwischen 10 und 45 inklusive?",
+            "`RANDOM % n` liefert 0 bis n-1."
+          ],
+          "points": 5,
+          "requiresPrevious": false,
+          "allowInternet": false
+        }
+      ]
+    },
+    {
+      "title": "Bash 04 · test und Exit-Status (Übung)",
+      "slug": "bash-04-test-ue",
+      "description": "Übungen zu `test`, `[ ]`, `&&` und `||`.\n\nIm Übungsordner liegen `klein.txt` (50 Bytes), `gross.txt` (500 Bytes) und\n`klassenkassa.csv` (Name, Datum, Betrag, Zweck).\n\n> **Hinweis zur Box:** Du arbeitest in einem echten Debian-Linux, aber **ohne\n> Internet** und ohne `sudo`. Dateien, die sonst heruntergeladen werden, liegen\n> schon in deinem Übungsordner. Skripte schreibst du mit `nano` oder `vim`.",
+      "shell": "BASH",
+      "kind": "EXERCISE",
+      "difficulty": 2,
+      "setupScript": "head -c 50 /dev/zero | tr '\\0' 'k' > klein.txt\nhead -c 500 /dev/zero | tr '\\0' 'g' > gross.txt\ncat > klassenkassa.csv <<'EOF'\nMaximilian,21.09.2023,3,Bus\nSophia,22.09.2023,15,Werkstatt\nJonas,21.09.2023,3,Bus\nLena,18.09.2023,13,Werkstatt\nLukas,15.09.2023,2,Kino\nEmma,22.09.2023,42,Werkstatt\nNico,18.09.2023,23,Werkstatt\nJana,20.10.2023,11,Bücher\nTimo,25.11.2023,5,Walter\nLaura,05.11.2023,20,Kopierkosten\nLeonie,06.11.2023,20,Kopierkosten\nFelix,14.10.2023,21,Kino\nSarah,15.09.2023,33,Werkstatt\nJanina,30.10.2023,5,Werkstatt\nAdrian,02.10.2023,7,Kino\nlena,24.11.2023,1,Bus\nSophia,20.11.2023,2,Kino\nFelix,11.11.2023,10,Walter\nJana,22.09.2023,8,Bus\nMaximilian,05.10.2023,21,Kino\nJana,17.10.2023,22,Bus\nSarah,08.11.2023,18,Kopierkosten\nEmma,26.10.2023,10,Walter\nleNa,18.09.2023,9,Kopierkosten\nLeonie,04.10.2023,25,Werkstatt\nFelix,24.10.2023,21,Bus\nSarah,11.09.2023,3,Kopierkosten\nJanina,02.10.2023,10,Walter\nAdrian,02.11.2023,5,Kino\nLenA,24.10.2023,3,Kino\nAnna,15.10.2024,8,Walter\nMax,22.09.2024,16,Bücher\nSophie,02.11.2024,5,Kopierkosten\nFelix,18.09.2024,12,Bus\nLaura,28.10.2024,3,Werkstatt\nLeon,12.10.2024,19,Kino\nEmma,21.11.2024,7,Bus\nTim,10.11.2024,14,Kopierkosten\nLeNa,26.09.2024,6,Kino\nJan,30.11.2024,2,Walter\nSophia,17.09.2024,9,Bus\nBenjamin,25.11.2024,15,Werkstatt\nHannah,08.10.2024,4,Kopierkosten\nPaul,14.11.2024,11,Walter\nMia,29.09.2024,2,Kino\nJulian,05.11.2024,18,Werkstatt\nEmily,23.10.2024,7,Bus\nLiam,20.09.2024,13,Kino\nAmelia,11.11.2024,6,Werkstatt\nDavid,27.10.2024,19,Kopierkosten\nElla,03.10.2024,12,Walter\nLuca,26.11.2024,5,Bus\nSophie,10.09.2024,10,Kino\nLeon,21.10.2024,2,Walter\nMila,16.11.2024,14,Kopierkosten\nElias,04.10.2024,8,Bus\nIsabella,30.11.2024,16,Kino\nAlexander,19.09.2024,4,Walter\nEmma,06.11.2024,11,Kopierkosten\nFinn,22.10.2024,7,Werkstatt\nAnna,15.10.2024,8,Walter\nMax,22.09.2024,16,Bücher\nSophie,02.11.2024,5,Kopierkosten\nFelix,18.09.2024,12,Bus\nLaura,28.10.2024,3,Werkstatt\nLeon,12.10.2024,19,Kino\nEmma,21.11.2024,7,Bus\nTim,10.11.2024,14,Kopierkosten\nleNA,26.09.2024,6,Kino\nJan,30.11.2024,2,Walter\nSophia,17.09.2024,9,Bus\nBenjamin,25.11.2024,15,Werkstatt\nHannah,08.10.2024,4,Kopierkosten\nPaul,14.11.2024,11,Walter\nMia,29.09.2024,2,Kino\nJulian,05.11.2024,18,Werkstatt\nEmily,23.10.2024,7,Bus\nLiam,20.09.2024,13,Kino\nAmelia,11.11.2024,6,Werkstatt\nDavid,27.10.2024,19,Kopierkosten\nElla,03.10.2024,12,Walter\nLuca,26.11.2024,5,Bus\nSophie,10.09.2024,10,Kino\nNina,09.11.2024,14,Walter\nTom,16.09.2024,6,Werkstatt\nIsabel,20.10.2024,3,Bus\nErik,05.11.2024,18,Kopierkosten\nLea,27.09.2024,9,Kino\nJonas,14.10.2024,12,Bücher\nSophie,22.11.2024,5,Werkstatt\nFinn,08.11.2024,11,Kino\nMara,25.09.2024,16,Bus\nTimothy,13.10.2024,7,Kopierkosten\nJulia,03.11.2024,2,Walter\nVincent,19.09.2024,10,Werkstatt\nElena,26.10.2024,6,Kino\nLars,09.11.2024,14,Bücher\nSophie,15.10.2024,8,Kopierkosten\nPaul,28.09.2024,4,Bus\nMia,07.11.2024,19,Walter\nAnton,24.10.2024,12,Werkstatt\nEmilia,10.09.2024,7,Kino\nLukas,29.11.2024,3,Kopierkosten\nLena,16.09.2024,11,Bücher\nOscar,03.11.2024,9,Walter\nEmma,22.11.2024,7,Kino\nDavid,14.09.2024,15,Werkstatt\nLina,05.10.2024,3,Walter\nMarius,18.11.2024,18,Kopierkosten\nLaura,27.09.2024,9,Kino\nSimon,10.11.2024,12,Bücher\nClara,21.10.2024,5,Werkstatt\nJulian,03.11.2024,11,Bus\nHanna,28.09.2024,16,Kopierkosten\nNoah,12.10.2024,7,Walter\nSophie,26.11.2024,2,Kino\nLuca,17.09.2024,14,Werkstatt\nEmma,01.11.2024,6,Kopierkosten\nLiam,19.10.2024,11,Bus\nLena,08.11.2024,18,Werkstatt\nFelix,24.09.2024,4,Kino\nMia,13.10.2024,10,Kopierkosten\nMax,30.11.2024,7,Walter\nElla,09.11.2024,12,Werkstatt\nAlexander,22.09.2024,5,Bus\nSophie,05.11.2024,19,Kopierkosten\nErik,17.11.2024,14,Werkstatt\nHannah,06.10.2024,6,Kopierkosten\nLeon,28.11.2024,3,Bus\nMila,10.09.2024,18,Walter\nFinn,23.10.2024,9,Kino\nSophia,12.11.2024,12,Werkstatt\nNoah,01.10.2024,4,Kopierkosten\nlEna,15.11.2024,16,Bus\nBen,29.09.2024,7,Walter\nClara,11.10.2024,13,Werkstatt\nJonas,26.11.2024,5,Kopierkosten\nMia,09.11.2024,11,Kino\nMax,20.10.2024,18,Bus\nEmily,03.11.2024,6,Werkstatt\nLuca,14.09.2024,12,Kopierkosten\nElena,07.11.2024,3,Walter\nDavid,24.10.2024,16,Kino\nSophie,13.09.2024,8,Werkstatt\nLiam,05.11.2024,19,Kopierkosten\nEmma,22.10.2024,7,Bus\nEOF",
+      "setupInternet": false,
+      "tags": [
+        "bash",
+        "sytb",
+        "uebung",
+        "test",
+        "exit-status",
+        "csv"
+      ],
+      "visibility": "SHARED",
+      "steps": [
+        {
+          "title": "Datei zu groß (groesse.sh)",
+          "description": "Schreibe ein Skript `groesse.sh` mit einer Datei als Argument. Es gibt\n`Datei ist zu groß` aus, wenn die Datei **mehr als 100 Bytes** hat.\n\nDie Dateigröße ermittelst du mit `stat --printf=\"%s\" datei`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nt=$(mktemp -d); trap 'rm -rf \"$t\"' EXIT\n\nneed groesse.sh\nhead -c 101 /dev/zero > \"$t/g\"; head -c 100 /dev/zero > \"$t/k\"\ntimeout 5 bash groesse.sh \"$t/g\" 2>&1 | grep -q 'Datei ist zu groß' || { echo \"Bei 101 Bytes soll 'Datei ist zu groß' kommen.\"; exit 1; }\ntimeout 5 bash groesse.sh gross.txt 2>&1 | grep -q 'Datei ist zu groß' || { echo \"Bei gross.txt soll 'Datei ist zu groß' kommen.\"; exit 1; }\ntimeout 5 bash groesse.sh \"$t/k\" 2>&1 | grep -q 'zu groß' && { echo \"Bei genau 100 Bytes ist die Datei nicht zu groß.\"; exit 1; }\necho \"Größe erkannt!\"",
+          "checks": [],
+          "hints": [],
+          "points": 3,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "V1.1: Größe OK",
+          "description": "Erweitere `groesse.sh`: Hat die Datei **nicht mehr** als 100 Bytes, wird\n`Größe OK` ausgegeben.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nt=$(mktemp -d); trap 'rm -rf \"$t\"' EXIT\n\nneed groesse.sh\nhead -c 100 /dev/zero > \"$t/k\"; head -c 101 /dev/zero > \"$t/g\"\ntimeout 5 bash groesse.sh \"$t/k\" 2>&1 | grep -q 'Größe OK' || { echo \"Bei 100 Bytes soll 'Größe OK' kommen.\"; exit 1; }\ntimeout 5 bash groesse.sh klein.txt 2>&1 | grep -q 'Größe OK' || { echo \"Bei klein.txt soll 'Größe OK' kommen.\"; exit 1; }\nout=$(timeout 5 bash groesse.sh \"$t/g\" 2>&1)\necho \"$out\" | grep -q 'Datei ist zu groß' && ! echo \"$out\" | grep -q 'Größe OK' || { echo \"Bei 101 Bytes soll nur 'Datei ist zu groß' kommen. Ausgabe: $out\"; exit 1; }\necho \"Beide Fälle passen!\"",
+          "checks": [],
+          "hints": [],
+          "points": 2,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Dir Creator (dircreator.sh)",
+          "description": "Schreibe ein Skript `dircreator.sh`, das den Namen eines Verzeichnisses bekommt.\nDas Verzeichnis wird angelegt, wenn es noch nicht existiert. Gibt es das\nVerzeichnis schon, wird eine **Warnung** und der **Inhalt** des Verzeichnisses\nangezeigt.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nt=$(mktemp -d); trap 'rm -rf \"$t\"' EXIT\n\nneed dircreator.sh\ncp dircreator.sh \"$t\"/; cd \"$t\"\nn=d$RANDOM\ntimeout 5 bash ./dircreator.sh $n >/dev/null 2>&1\n[ -d $n ] || { echo \"'./dircreator.sh $n' hat den Ordner nicht angelegt.\"; exit 1; }\ntouch $n/inhalt-$n.txt\nout=$(timeout 5 bash ./dircreator.sh $n 2>&1)\necho \"$out\" | grep -q \"inhalt-$n.txt\" || { echo \"Wenn es den Ordner schon gibt, soll sein Inhalt angezeigt werden. Ausgabe: $out\"; exit 1; }\n[ \"$(echo \"$out\" | grep -vc \"inhalt-$n.txt\")\" -ge 1 ] || { echo \"Es fehlt die Warnung, dass der Ordner schon existiert.\"; exit 1; }\necho \"Funktioniert!\"",
+          "checks": [],
+          "hints": [],
+          "points": 4,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Challenge: Klassenkassa filtern (filter_list.sh)",
+          "description": "Schreibe ein Skript `filter_list.sh`, das aus einer Liste die passenden Einträge\nausgibt. Suchkriterium ist der **Betrag** (3. Spalte).\n\nParameter: Textdatei, Betrag min, Betrag max (jeweils inklusive)\n\n```sh\n$ ./filter_list.sh klassenkassa.csv 10 12\n```",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed filter_list.sh\nfor r in \"10 12\" \"1 2\" \"15 15\"; do\n  set -- $r\n  want=$(awk -F, -v a=$1 -v b=$2 '$3>=a && $3<=b' klassenkassa.csv | sort)\n  got=$(timeout 10 bash filter_list.sh klassenkassa.csv $1 $2 2>&1 | tr -d '\\r' | grep -v '^$' | sort)\n  [ \"$got\" = \"$want\" ] || { echo \"'./filter_list.sh klassenkassa.csv $1 $2' liefert nicht die richtigen Zeilen ($(echo \"$want\" | grep -c .) erwartet).\"; exit 1; }\ndone\necho \"Gut gefiltert!\"",
+          "checks": [],
+          "hints": [
+            "`while read zeile; do …; done < datei` liest Zeile für Zeile.",
+            "`cut -d, -f3`"
+          ],
+          "points": 5,
+          "requiresPrevious": false,
+          "allowInternet": false
+        }
+      ]
+    },
+    {
+      "title": "Bash 05 · Bedingungen (if) (Übung)",
+      "slug": "bash-05-if-ue",
+      "description": "Übungen zu `if`, `else` und Vergleichen.\n\n> **Hinweis zur Box:** Du arbeitest in einem echten Debian-Linux, aber **ohne\n> Internet** und ohne `sudo`. Dateien, die sonst heruntergeladen werden, liegen\n> schon in deinem Übungsordner. Skripte schreibst du mit `nano` oder `vim`.",
+      "shell": "BASH",
+      "kind": "EXERCISE",
+      "difficulty": 2,
+      "setupScript": "true",
+      "setupInternet": false,
+      "tags": [
+        "bash",
+        "sytb",
+        "uebung",
+        "if",
+        "bedingungen",
+        "read"
+      ],
+      "visibility": "SHARED",
+      "steps": [
+        {
+          "title": "Maximum (max.sh)",
+          "description": "Schreibe ein Skript `max.sh`, das 2 Zahlen als Argumente übernimmt und die\n**größere** der beiden ausgibt. Prüfe mit `1 2`, `2 2` und `2 1`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed max.sh\na=$((RANDOM%900+100)); b=$((RANDOM%900+100))\nfor p in \"1 2\" \"2 2\" \"2 1\" \"$a $b\" \"-5 -9\"; do\n  set -- $p; m=$(( $1 > $2 ? $1 : $2 ))\n  out=$(timeout 5 bash max.sh $1 $2 2>&1 | tail -n1 | grep -oE -- '-?[0-9]+' | tail -n1)\n  [ \"$out\" = \"$m\" ] || { echo \"'./max.sh $1 $2' soll $m ausgeben, war: $out\"; exit 1; }\ndone\necho \"Maximum gefunden!\"",
+          "checks": [],
+          "hints": [],
+          "points": 3,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Gerade / ungerade (gerade.sh)",
+          "description": "Schreibe ein Skript `gerade.sh`, das prüft, ob die übergebene Zahl `gerade` oder\n`ungerade` ist, und das Wort ausgibt.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed gerade.sh\nfor n in 1 2 7 10 $((RANDOM*2)) $((RANDOM*2+1)); do\n  out=$(timeout 5 bash gerade.sh $n 2>&1)\n  if (( n % 2 == 0 )); then\n    echo \"$out\" | grep -qiw gerade && ! echo \"$out\" | grep -qi ungerade || { echo \"$n ist gerade. Ausgabe war: $out\"; exit 1; }\n  else\n    echo \"$out\" | grep -qi ungerade || { echo \"$n ist ungerade. Ausgabe war: $out\"; exit 1; }\n  fi\ndone\necho \"Richtig erkannt!\"",
+          "checks": [],
+          "hints": [],
+          "points": 3,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Directory anlegen oder neu anlegen (makedir.sh)",
+          "description": "Schreibe ein Skript `makedir.sh`, das mit einem Argument aufgerufen wird:\n`./makedir.sh xyz`\n\n- Existiert das Verzeichnis `xyz` **nicht**, wird es angelegt; darin die Datei\n  `xyz.txt` mit dem Inhalt `xyz`.\n- Existiert es **bereits**, wird gefragt, ob es gelöscht werden darf – mit der\n  Anzahl der Dateien darin:\n\n  ```\n  Soll das Directory \"xyz\" (mit 5 Files) gelöscht werden? [j|n]:\n  ```\n\n  - `j`: Das Verzeichnis wird gelöscht und wie oben neu angelegt.\n  - `n`: Das Skript wird beendet.\n\nHinweis: Verwende `read`. Gib die Frage mit `echo -n` aus – `read -p` zeigt sie\nnur an, wenn die Eingabe von der Tastatur kommt (die Prüfung schickt die Antwort\nper Pipe).",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nt=$(mktemp -d); trap 'rm -rf \"$t\"' EXIT\n\nneed makedir.sh\ncp makedir.sh \"$t\"/; cd \"$t\"\nn=x$RANDOM\necho n | timeout 5 bash ./makedir.sh $n >/dev/null 2>&1\n[ -d $n ] && [ \"$(cat $n/$n.txt 2>/dev/null)\" = \"$n\" ] || { echo \"'./makedir.sh $n' soll $n/$n.txt mit Inhalt $n anlegen.\"; exit 1; }\ntouch $n/a $n/b $n/c\nout=$(echo n | timeout 5 bash ./makedir.sh $n 2>&1)\necho \"$out\" | grep -q 4 || { echo \"Die Frage soll die Anzahl der Files (hier 4) nennen. Ausgabe: $out\"; exit 1; }\n[ -f $n/a ] || { echo \"Bei Antwort n darf nichts gelöscht werden.\"; exit 1; }\necho j | timeout 5 bash ./makedir.sh $n >/dev/null 2>&1\n[ ! -e $n/a ] && [ \"$(cat $n/$n.txt 2>/dev/null)\" = \"$n\" ] || { echo \"Bei Antwort j soll das Verzeichnis gelöscht und neu (nur mit $n.txt) angelegt werden.\"; exit 1; }\necho \"Alles richtig!\"",
+          "checks": [],
+          "hints": [
+            "`read -p \"Frage: \" antwort` liest eine Eingabe.",
+            "`ls dir | wc -l` zählt Einträge."
+          ],
+          "points": 6,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Challenge: Zeilen nummerieren (number.sh)",
+          "description": "Schreibe ein Skript `number.sh`, das die Zeilen einer Datei **nummeriert** und\ndie **Datei verändert** (nicht ausgibt). Das Tool `nl` hilft dabei.\n\n```sh\n$ cat test.txt\nbbb eins\nccc zwei\naaa drei\n$ ./number.sh test.txt\n$ cat test.txt\n1 bbb eins\n2 ccc zwei\n3 aaa drei\n```\n\nExistiert die Datei nicht, ist sie nicht lesbar oder leer, wird ein\n**Fehlertext** ausgegeben. `exit` beendet das Skript sofort.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nt=$(mktemp -d); trap 'rm -rf \"$t\"' EXIT\n\nneed number.sh\ncp number.sh \"$t\"/; cd \"$t\"\nprintf 'bbb eins\\nccc zwei\\naaa drei\\n' > test.txt\nout=$(timeout 5 bash ./number.sh test.txt 2>&1)\ngot=$(sed -E 's/^[[:space:]]*([0-9]+)[[:space:]]+/\\1 /' test.txt)\n[ \"$got\" = \"$(printf '1 bbb eins\\n2 ccc zwei\\n3 aaa drei')\" ] || { echo \"test.txt wurde nicht richtig nummeriert:\"; cat test.txt; exit 1; }\n[ -z \"$out\" ] || { echo \"number.sh soll die Datei verändern, nicht ausgeben. Ausgabe: $out\"; exit 1; }\n: > leer.txt\n[ -n \"$(timeout 5 bash ./number.sh leer.txt 2>&1)\" ] || { echo \"Bei einer leeren Datei fehlt der Fehlertext.\"; exit 1; }\n[ -n \"$(timeout 5 bash ./number.sh fehlt.txt 2>&1)\" ] || { echo \"Bei einer fehlenden Datei fehlt der Fehlertext.\"; exit 1; }\n[ ! -e fehlt.txt ] || { echo \"number.sh darf fehlende Dateien nicht anlegen.\"; exit 1; }\necho \"Nummeriert!\"",
+          "checks": [],
+          "hints": [
+            "`nl datei > tmp; mv tmp datei` – direkt `> datei` würde sie vorher leeren!"
+          ],
+          "points": 4,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Challenge: number.sh mit stdin",
+          "description": "Erweitere `number.sh`: Wird **keine Datei** angegeben, liest es von **stdin**\nund gibt die nummerierten Zeilen aus:\n\n```sh\n$ sort test.txt | ./number.sh\n1 aaa drei\n2 bbb eins\n3 ccc zwei\n```\n\nHinweis: `/dev/stdin` kann wie ein Dateiname verwendet werden.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed number.sh\nout=$(printf 'aaa drei\\nbbb eins\\nccc zwei\\n' | timeout 5 bash number.sh 2>&1 | sed -E 's/^[[:space:]]*([0-9]+)[[:space:]]+/\\1 /')\n[ \"$out\" = \"$(printf '1 aaa drei\\n2 bbb eins\\n3 ccc zwei')\" ] || { echo \"Mit stdin kam nicht die nummerierte Ausgabe:\"; echo \"$out\"; exit 1; }\necho \"stdin funktioniert!\"",
+          "checks": [],
+          "hints": [],
+          "points": 3,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Challenge: number.sh -?",
+          "description": "Mit der Option `-?` gibt `number.sh` einen Hilfetext aus:\n\n```\nnumber.sh: number lines of input\nusage: number.sh [FILE]\nFILE ... path to readable file of nonzero length\nif FILE is omitted data is read from standard input\n```",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed number.sh\nout=$(timeout 5 bash number.sh '-?' </dev/null 2>&1)\necho \"$out\" | grep -q 'usage: number.sh \\[FILE\\]' || { echo \"'./number.sh -?' soll den Hilfetext (mit 'usage: number.sh [FILE]') ausgeben. Ausgabe: $out\"; exit 1; }\necho \"Hilfe da!\"",
+          "checks": [],
+          "hints": [
+            "`[ \"$1\" = \"-?\" ]` – die Anführungszeichen sind wichtig."
+          ],
+          "points": 2,
+          "requiresPrevious": false,
+          "allowInternet": false
+        }
+      ]
+    },
+    {
+      "title": "Bash 06 · Schleifen 1 (Übung)",
+      "slug": "bash-06-schleifen-ue",
+      "description": "Übungen zu `for` und `while`. Im Übungsordner liegen `input.txt` und `lager.csv`.\n\n> **Hinweis zur Box:** Du arbeitest in einem echten Debian-Linux, aber **ohne\n> Internet** und ohne `sudo`. Dateien, die sonst heruntergeladen werden, liegen\n> schon in deinem Übungsordner. Skripte schreibst du mit `nano` oder `vim`.",
+      "shell": "BASH",
+      "kind": "EXERCISE",
+      "difficulty": 2,
+      "setupScript": "echo \"42 21 57 68 33 1 1\" > input.txt\ncat > lager.csv <<'EOF'\nId, Stk,Datum,Bezeichnung,Ort\n1,23,03.12.2021,Schraube M8x20,6\n2,5,05.03.2018,3-fach Verteilter 5m,23\n3,2,27.11.2021,Festplatte 6TB,38\n4,15,04.06.2019,Tastatur,28\n5,50,20.12.2021,Schraube M8x20,7\n6,17,23.09.2020,PC i7,5\n7,25,15.01.2022,Schraube M8x20,8\nEOF",
+      "setupInternet": false,
+      "tags": [
+        "bash",
+        "sytb",
+        "uebung",
+        "schleifen",
+        "for",
+        "stdin"
+      ],
+      "visibility": "SHARED",
+      "steps": [
+        {
+          "title": "Summe und Maximum (summax.sh)",
+          "description": "Schreibe ein Skript `summax.sh`, das **beliebig viele** positive Zahlen als\nArgumente übernimmt und Summe und größte Zahl ausgibt:\n\n```\n$ ./summax.sh 3 9 2\nSumme: 14\nMaximum: 9\n```",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed summax.sh\nset -- $((RANDOM%100)) $((RANDOM%100)) $((RANDOM%100)) $((RANDOM%100)) 5\ns=0; m=0; for z in \"$@\"; do s=$((s+z)); ((z>m)) && m=$z; done\nout=$(timeout 5 bash summax.sh \"$@\" 2>&1)\necho \"$out\" | grep -Eq \"Summe:[[:space:]]*$s\\b\" && echo \"$out\" | grep -Eq \"Maximum:[[:space:]]*$m\\b\" || { echo \"'./summax.sh $*' soll 'Summe: $s' und 'Maximum: $m' ausgeben. Ausgabe: $out\"; exit 1; }\necho \"Richtig!\"",
+          "checks": [],
+          "hints": [],
+          "points": 4,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Minimum (min.sh)",
+          "description": "Schreibe ein Skript `min.sh`, das den Namen einer Datei als Argument bekommt. Die\nDatei enthält positive Zahlen, getrennt durch Leerzeichen/Zeilenumbrüche (z. B.\n`input.txt`: `42 21 57 68 33 1 1`). Das Skript gibt die **kleinste** Zahl aus.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nt=$(mktemp -d); trap 'rm -rf \"$t\"' EXIT\n\nneed min.sh\n[ \"$(timeout 5 bash min.sh input.txt 2>&1 | tail -n1)\" = 1 ] || { echo \"'./min.sh input.txt' soll 1 ausgeben.\"; exit 1; }\na=$((RANDOM%500+50)); b=$((RANDOM%40+9)); printf '%s %s\\n%s 300\\n' $a $((b+7)) $b > \"$t/zahlen\"\n[ \"$(timeout 5 bash min.sh \"$t/zahlen\" 2>&1 | tail -n1)\" = \"$b\" ] || { echo \"Für eine Datei mit '$a $((b+7)) $b 300' soll $b herauskommen.\"; exit 1; }\necho \"Minimum gefunden!\"",
+          "checks": [],
+          "hints": [],
+          "points": 4,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Summe und Durchschnitt von stdin (avg.sh)",
+          "description": "Schreibe ein Skript `avg.sh`, das beliebig viele Zahlen von **stdin** liest und\nSumme und (ganzzahligen) Durchschnitt ausgibt. Wie man von stdin liest, ist zu\nrecherchieren.\n\n```\n$ echo 3 5 7 2 4 | ./avg.sh\nSumme: 21\nDurchschnitt: 4\n```",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed avg.sh\nout=$(echo 3 5 7 2 4 | timeout 5 bash avg.sh 2>&1)\necho \"$out\" | grep -Eq 'Summe:[[:space:]]*21\\b' && echo \"$out\" | grep -Eq 'Durchschnitt:[[:space:]]*4\\b' || { echo \"'echo 3 5 7 2 4 | ./avg.sh' soll Summe: 21 und Durchschnitt: 4 ausgeben. Ausgabe: $out\"; exit 1; }\nout=$(printf '10\\n20\\n30 40\\n' | timeout 5 bash avg.sh 2>&1)\necho \"$out\" | grep -Eq 'Summe:[[:space:]]*100\\b' && echo \"$out\" | grep -Eq 'Durchschnitt:[[:space:]]*25\\b' || { echo \"Zahlen auf mehreren Zeilen (10, 20, 30 40) sollen Summe: 100 / Durchschnitt: 25 ergeben. Ausgabe: $out\"; exit 1; }\necho \"Richtig!\"",
+          "checks": [],
+          "hints": [
+            "`cat` ohne Argument liest stdin – also `$(cat)`."
+          ],
+          "points": 4,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Durchschnitt im Lager",
+          "description": "Verwende `avg.sh`, um den Durchschnitt der Spalte **Stk** in `lager.csv` zu\nermitteln. Bereite die Daten mit `cut` und `tail` vor und speichere die Ausgabe\nvon `avg.sh` in `lager_avg.txt`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed lager_avg.txt\nwant=$(( ( $(tail -n +2 lager.csv | cut -d, -f2 | paste -sd+) ) / $(tail -n +2 lager.csv | wc -l) ))\ngrep -Eq \"Durchschnitt:[[:space:]]*$want\\b\" lager_avg.txt || { echo \"In lager_avg.txt fehlt 'Durchschnitt: $want' – Kopfzeile weggelassen?\"; exit 1; }\necho \"Richtig!\"",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "avg\\.sh",
+              "successOnly": false,
+              "message": "Probiere den Befehl im Terminal selbst aus."
+            }
+          ],
+          "hints": [
+            "`tail -n +2` lässt die erste Zeile weg."
+          ],
+          "points": 3,
+          "requiresPrevious": false,
+          "allowInternet": false
+        }
+      ]
+    },
+    {
+      "title": "Bash 06 · Schleifen 2 (Übung)",
+      "slug": "bash-06-schleifen-2-ue",
+      "description": "Weitere Übungen zu Schleifen.\n\n> **Hinweis zur Box:** Du arbeitest in einem echten Debian-Linux, aber **ohne\n> Internet** und ohne `sudo`. Dateien, die sonst heruntergeladen werden, liegen\n> schon in deinem Übungsordner. Skripte schreibst du mit `nano` oder `vim`.",
+      "shell": "BASH",
+      "kind": "EXERCISE",
+      "difficulty": 3,
+      "setupScript": "true",
+      "setupInternet": false,
+      "tags": [
+        "bash",
+        "sytb",
+        "uebung",
+        "schleifen",
+        "primzahlen"
+      ],
+      "visibility": "SHARED",
+      "steps": [
+        {
+          "title": "Armstrong-Zahlen dreistellig (armstrong3.sh)",
+          "description": "Eine **dreistellige Armstrong-Zahl** ist eine Zahl, bei der die Summe der Ziffern\nhoch drei wieder die Zahl ergibt, z. B. `371 = 3³ + 7³ + 1³`.\n\nSchreibe `armstrong3.sh`, das alle Armstrong-Zahlen von 100 bis 999 ausgibt.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed armstrong3.sh\ngot=$(timeout 20 bash armstrong3.sh 2>&1 | grep -oE '[0-9]+' | tr '\\n' ' ')\n[ \"$got\" = \"153 370 371 407 \" ] || { echo \"Erwartet werden 4 Zahlen. Ausgabe: $got\"; exit 1; }\necho \"Alle gefunden!\"",
+          "checks": [],
+          "hints": [
+            "Ziffern: `n / 100`, `n / 10 % 10`, `n % 10`."
+          ],
+          "points": 4,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Armstrong-Zahlen vierstellig (armstrong4.sh)",
+          "description": "Bei einer **vierstelligen Armstrong-Zahl** werden die Ziffern hoch 4 genommen,\nz. B. `1634 = 1⁴ + 6⁴ + 3⁴ + 4⁴`. Schreibe `armstrong4.sh` für 1000 bis 9999.\n(Es gibt genau 3.)",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed armstrong4.sh\ngot=$(timeout 25 bash armstrong4.sh 2>&1 | grep -oE '[0-9]+' | tr '\\n' ' ')\n[ \"$got\" = \"1634 8208 9474 \" ] || { echo \"Erwartet werden 3 Zahlen. Ausgabe: $got\"; exit 1; }\necho \"Alle gefunden!\"",
+          "checks": [],
+          "hints": [],
+          "points": 4,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Primzahl (prim.sh)",
+          "description": "Schreibe ein Skript `prim.sh`, das prüft, ob die übergebene Zahl eine Primzahl\nist, und `<n> ist eine Primzahl` bzw. `<n> ist keine Primzahl` ausgibt.\nZusätzlich soll der Exit-Status `0` (Primzahl) bzw. `1` (keine) sein.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed prim.sh\nfor n in 2 3 13 97 7919; do\n  out=$(timeout 5 bash prim.sh $n 2>&1); rc=$?\n  echo \"$out\" | grep -q \"$n ist eine Primzahl\" && [ $rc -eq 0 ] || { echo \"$n ist eine Primzahl (Exit-Status 0). Ausgabe: $out (Exit $rc)\"; exit 1; }\ndone\nfor n in 1 4 91 1001 7917; do\n  out=$(timeout 5 bash prim.sh $n 2>&1); rc=$?\n  echo \"$out\" | grep -q \"$n ist keine Primzahl\" && [ $rc -ne 0 ] || { echo \"$n ist keine Primzahl (Exit-Status 1). Ausgabe: $out (Exit $rc)\"; exit 1; }\ndone\necho \"Prima!\"",
+          "checks": [],
+          "hints": [
+            "Es reicht, Teiler bis zur Wurzel zu prüfen: `i*i <= n`.",
+            "`exit 1` setzt den Exit-Status."
+          ],
+          "points": 4,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Primzahlen zählen (primzahlen.sh)",
+          "description": "Schreibe ein weiteres Skript `primzahlen.sh`, das durch **Aufrufen von\n`prim.sh`** die Anzahl der Primzahlen von 1 bis 1000 ermittelt und ausgibt.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed primzahlen.sh prim.sh\ngrep -q 'prim.sh' primzahlen.sh || { echo \"primzahlen.sh soll prim.sh aufrufen.\"; exit 1; }\nout=$(timeout 25 bash primzahlen.sh 2>&1 | tail -n1)\necho \"$out\" | grep -Eq '(^|[^0-9])168([^0-9]|$)' || { echo \"Es gibt 168 Primzahlen bis 1000. Letzte Ausgabezeile: $out\"; exit 1; }\necho \"168 – richtig!\"",
+          "checks": [],
+          "hints": [
+            "Der Exit-Status von prim.sh sagt dir, ob es eine Primzahl war."
+          ],
+          "points": 4,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "ls on steroids (lsx.sh)",
+          "description": "Schreibe ein Skript `lsx.sh`, das ein Verzeichnis als Argument bekommt und jeden\nEintrag darin ausgibt (eine Zeile pro Eintrag):\n\n- Ist der Eintrag eine **Datei**, wird zusätzlich ihre **Größe** in Bytes\n  ausgegeben.\n- Ist er ein **Verzeichnis**, wird die **Anzahl der Einträge** darin ausgegeben.\n- Existiert das Verzeichnis nicht, gibt das Skript **nichts** aus.\n\n```\n$ ./lsx.sh projekt\nbericht.txt 1234\nbilder 3\n```",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nt=$(mktemp -d); trap 'rm -rf \"$t\"' EXIT\n\nneed lsx.sh\nmkdir -p \"$t/d/sub1\" \"$t/d/sub2\"\ns=$((RANDOM%900+100)); head -c $s /dev/zero > \"$t/d/datei.bin\"; head -c 7 /dev/zero > \"$t/d/klein.txt\"\ntouch \"$t/d/sub1/a\" \"$t/d/sub1/b\" \"$t/d/sub1/c\"\nout=$(timeout 5 bash lsx.sh \"$t/d\" 2>&1)\nline() { echo \"$out\" | grep -F \"$1\" | head -n1; }\nfor e in \"datei.bin:$s\" \"klein.txt:7\" \"sub1:3\" \"sub2:0\"; do\n  name=${e%%:*}; n=${e##*:}\n  l=$(line \"$name\")\n  [ -n \"$l\" ] || { echo \"Der Eintrag $name fehlt. Ausgabe:\"; echo \"$out\"; exit 1; }\n  echo \"${l#*$name}\" | grep -Eq \"(^|[^0-9])$n([^0-9]|$)\" || { echo \"Bei $name soll $n stehen. Zeile: $l\"; exit 1; }\ndone\n[ -z \"$(timeout 5 bash lsx.sh \"$t/gibtsnicht\" 2>&1)\" ] || { echo \"Bei einem nicht existierenden Verzeichnis soll nichts ausgegeben werden.\"; exit 1; }\necho \"ls on steroids!\"",
+          "checks": [],
+          "hints": [
+            "`for e in \"$1\"/*` läuft über alle Einträge.",
+            "`stat --printf=\"%s\"` liefert die Größe."
+          ],
+          "points": 5,
+          "requiresPrevious": false,
+          "allowInternet": false
+        }
+      ]
+    },
+    {
+      "title": "Bash 08 · Funktionen (Übung)",
+      "slug": "bash-08-funktionen-ue",
+      "description": "Übungen zu Funktionen.\n\n## adduser selbst implementiert\n\nIm echten System würdest du direkt `/etc/passwd` und `/etc/shadow` ändern (als\nroot, z. B. in deiner Kali-VM). In der Box gibt es kein root – deshalb arbeitest\ndu auf einer **Kopie** im Ordner `sysroot/`:\n\n```\nsysroot/\n├── etc/passwd\n├── etc/shadow\n└── home/\n```\n\nDein Skript verwendet also `sysroot/etc/passwd` statt `/etc/passwd` usw.\n\n> **Tipp:** Lege am Anfang eine Variable an, z. B. `ROOT=sysroot`, und verwende\n> `$ROOT/etc/passwd`. Mit `ROOT=` (leer) läuft dasselbe Skript als root auf einem\n> echten System.\n\n> **Hinweis zur Box:** Du arbeitest in einem echten Debian-Linux, aber **ohne\n> Internet** und ohne `sudo`. Dateien, die sonst heruntergeladen werden, liegen\n> schon in deinem Übungsordner. Skripte schreibst du mit `nano` oder `vim`.",
+      "shell": "BASH",
+      "kind": "EXERCISE",
+      "difficulty": 3,
+      "setupScript": "mkdir -p sysroot/etc sysroot/home/sytb\ncat > sysroot/etc/passwd <<'EOF'\nroot:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\nbin:x:2:2:bin:/bin:/usr/sbin/nologin\nsys:x:3:3:sys:/dev:/usr/sbin/nologin\nwww-data:x:33:33:www-data:/var/www:/usr/sbin/nologin\nnobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin\nkali:x:1000:1000:Kali,,,:/home/kali:/bin/bash\nsytb:x:1002:1002:,,,:/home/sytb:/bin/bash\nEOF\ncat > sysroot/etc/shadow <<'EOF'\nroot:*:19000:0:99999:7:::\ndaemon:*:19000:0:99999:7:::\nbin:*:19000:0:99999:7:::\nsys:*:19000:0:99999:7:::\nwww-data:*:19000:0:99999:7:::\nnobody:*:19000:0:99999:7:::\nkali:!:19000:0:99999:7:::\nsytb:!:19000:0:99999:7:::\nEOF\nchmod 700 sysroot/home/sytb",
+      "setupInternet": false,
+      "tags": [
+        "bash",
+        "sytb",
+        "uebung",
+        "funktionen",
+        "benutzer"
+      ],
+      "visibility": "SHARED",
+      "steps": [
+        {
+          "title": "Funktion passwd (adduser.sh)",
+          "description": "Schreibe ein Skript `adduser.sh`, das Benutzer anlegt, **ohne** `useradd` oder\n`adduser` zu verwenden. Beim Aufruf können mehrere Benutzernamen angegeben werden:\n`./adduser.sh user1 user2`\n\nSchreibe dazu eine **Funktion `passwd`**, die für einen Benutzer eine Zeile an\n`sysroot/etc/passwd` anhängt, z. B. für `sytb`:\n\n```\nsytb:x:1002:1002:,,,:/home/sytb:/bin/bash\n```\n\n- Die Nummer (UID = GID) muss **eindeutig** sein: nimm die größte vorhandene UID\n  ab 1000 plus 1.\n- Lege das Home-Verzeichnis `sysroot/home/<name>` an. **Andere Benutzer dürfen\n  keinen Zugriff** haben (`chmod`). Auf einem echten System gehört es mit `chown`\n  noch dem neuen Benutzer – das geht in der Box nicht.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nt=$(mktemp -d); trap 'rm -rf \"$t\"' EXIT\n\nneed adduser.sh\ngrep -Eq '^[[:space:]]*(function[[:space:]]+)?passwd[[:space:]]*\\(\\)' adduser.sh || { echo \"In adduser.sh fehlt die Funktion passwd().\"; exit 1; }\ngrep -v '^[[:space:]]*#' adduser.sh | grep -Eq '(^|[^a-z_.])(useradd|adduser)[[:space:]]' && { echo \"useradd/adduser darf nicht verwendet werden.\"; exit 1; }\ncp -a sysroot adduser.sh \"$t\"/; cd \"$t\"\nmax=$(awk -F: '$3>=1000 && $3<60000 {print $3}' sysroot/etc/passwd | sort -n | tail -n1)\na=anna$RANDOM; b=bert$RANDOM\nprintf 'j\\nj\\nj\\nj\\n' | timeout 5 bash ./adduser.sh $a $b >/dev/null 2>&1\nfor u in $a $b; do\n  l=$(grep \"^$u:\" sysroot/etc/passwd)\n  [ -n \"$l\" ] || { echo \"$u fehlt in sysroot/etc/passwd.\"; exit 1; }\n  echo \"$l\" | grep -Eq \"^$u:x:[0-9]+:[0-9]+:[^:]*:/home/$u:/bin/bash$\" || { echo \"Die Zeile für $u hat nicht das Format name:x:UID:GID:,,,:/home/name:/bin/bash – $l\"; exit 1; }\n  uid=$(echo \"$l\" | cut -d: -f3); gid=$(echo \"$l\" | cut -d: -f4)\n  [ \"$uid\" -gt \"$max\" ] && [ \"$uid\" = \"$gid\" ] || { echo \"UID/GID von $u muss größer als die bisher größte ($max) und gleich sein: $l\"; exit 1; }\n  [ -d sysroot/home/$u ] || { echo \"Das Home-Verzeichnis sysroot/home/$u fehlt.\"; exit 1; }\n  [ \"$(stat -c %a sysroot/home/$u | cut -c2-)\" = \"00\" ] || { echo \"Andere dürfen keinen Zugriff auf sysroot/home/$u haben (Rechte: $(stat -c %a sysroot/home/$u)).\"; exit 1; }\ndone\n[ \"$(cut -d: -f3 sysroot/etc/passwd | sort | uniq -d)\" = \"\" ] || { echo \"Eine UID kommt doppelt vor.\"; exit 1; }\necho \"Benutzer angelegt!\"",
+          "checks": [],
+          "hints": [
+            "`awk -F: '{print $3}'` oder `cut -d: -f3` liefert die UIDs.",
+            "`sort -n | tail -n1` – die größte."
+          ],
+          "points": 6,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Funktion shadow",
+          "description": "Schreibe in `adduser.sh` eine **Funktion `shadow`**, die für den Benutzer ein\nPasswort in `sysroot/etc/shadow` einträgt. Für jeden Benutzer wird gefragt\n(`read`, eine Antwort pro Zeile):\n\n```\nPasswort wie Benutzername? [j|n]:\n```\n\n- `j`: Das Passwort ist der Benutzername.\n- `n`: Das Passwort wird danach eingegeben (eine Zeile).\n\nDie Zeile in `shadow` hat das Format `name:HASH:19000:0:99999:7:::`. Den Hash\nerzeugst du mit `openssl passwd -6 \"$passwort\"`.\n\nAuf einem echten System kann sich der Benutzer danach anmelden.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nt=$(mktemp -d); trap 'rm -rf \"$t\"' EXIT\n\nneed adduser.sh\ngrep -Eq '^[[:space:]]*(function[[:space:]]+)?shadow[[:space:]]*\\(\\)' adduser.sh || { echo \"In adduser.sh fehlt die Funktion shadow().\"; exit 1; }\ncp -a sysroot adduser.sh \"$t\"/; cd \"$t\"\na=anna$RANDOM; b=bert$RANDOM\nprintf 'j\\nn\\ngeheim123\\n' | timeout 5 bash ./adduser.sh $a $b >/dev/null 2>&1\nchk() {\n  l=$(grep \"^$1:\" sysroot/etc/shadow)\n  [ -n \"$l\" ] || { echo \"$1 fehlt in sysroot/etc/shadow.\"; exit 1; }\n  h=$(echo \"$l\" | cut -d: -f2)\n  salt=$(echo \"$h\" | cut -d'$' -f3)\n  case \"$h\" in '$6$'*|'$5$'*|'$1$'*) ;; *) echo \"Das Passwortfeld von $1 ist kein Hash ($h).\"; exit 1;; esac\n  alg=$(echo \"$h\" | cut -d'$' -f2)\n  [ \"$(openssl passwd -$alg -salt \"$salt\" \"$2\")\" = \"$h\" ] || { echo \"Das Passwort von $1 sollte '$2' sein.\"; exit 1; }\n  [ \"$(echo \"$l\" | awk -F: '{print NF}')\" = 9 ] || { echo \"Die shadow-Zeile von $1 braucht 9 Felder (name:HASH:19000:0:99999:7:::).\"; exit 1; }\n}\nchk $a $a\nchk $b geheim123\ngrep -q \"^root:\" sysroot/etc/shadow || { echo \"Die bestehenden Einträge in shadow dürfen nicht verloren gehen.\"; exit 1; }\necho \"Passwörter gesetzt!\"",
+          "checks": [],
+          "hints": [
+            "`read -s` blendet die Eingabe aus.",
+            "Die Felder nach dem Hash kannst du fix eintragen."
+          ],
+          "points": 6,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Primzahl mit Funktionen (primzahl.sh)",
+          "description": "Baue das Primzahl-Skript aus *Schleifen 2* um: Die Prüfung ist jetzt eine\n**Funktion**, und es gibt nur noch **ein** Skript `primzahl.sh`.\n\nDas Skript bietet eine einfache Auswahl (Eingabe mit `read`):\n\n```\n1) Ist eine Zahl eine Primzahl?\n2) Alle Primzahlen von 1 bis 3000 anzeigen\nAuswahl:\n```\n\n- Bei `1` wird eine Zahl eingelesen und `<n> ist eine Primzahl` bzw.\n  `<n> ist keine Primzahl` ausgegeben.\n- Bei `2` werden alle Primzahlen von 1 bis 3000 ausgegeben.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed primzahl.sh\ngrep -Eq '^[[:space:]]*(function[[:space:]]+)?[A-Za-z_][A-Za-z0-9_]*[[:space:]]*\\(\\)' primzahl.sh || { echo \"primzahl.sh enthält keine Funktion.\"; exit 1; }\nfor n in 97 2 2999; do printf '1\\n%s\\n' $n | timeout 5 bash primzahl.sh 2>&1 | grep -q \"$n ist eine Primzahl\" || { echo \"Auswahl 1 mit $n soll '$n ist eine Primzahl' ausgeben.\"; exit 1; }; done\nfor n in 91 1 2997; do printf '1\\n%s\\n' $n | timeout 5 bash primzahl.sh 2>&1 | grep -q \"$n ist keine Primzahl\" || { echo \"Auswahl 1 mit $n soll '$n ist keine Primzahl' ausgeben.\"; exit 1; }; done\nout=$(printf '2\\n' | timeout 25 bash primzahl.sh 2>&1)\nwords=$(echo \"$out\" | grep -oE '\\b[0-9]+\\b' | sort -un)\nfor p in 2 3 5 1009 2003 2999; do echo \"$words\" | grep -qx $p || { echo \"Bei Auswahl 2 fehlt die Primzahl $p.\"; exit 1; }; done\nfor c in 9 91 1001 2001 2997; do echo \"$words\" | grep -qx $c && { echo \"Bei Auswahl 2 kommt $c vor – das ist keine Primzahl.\"; exit 1; }; done\n[ \"$(echo \"$words\" | awk '$1>=4 && $1<=3000' | wc -l)\" -ge 428 ] || { echo \"Bei Auswahl 2 fehlen Primzahlen (es gibt 430 bis 3000).\"; exit 1; }\necho \"Prima mit Funktionen!\"",
+          "checks": [],
+          "hints": [
+            "`if ist_prim $n; then …` verwendet den Rückgabewert direkt.",
+            "Teiler nur bis zur Wurzel prüfen: `i*i <= n`."
+          ],
+          "points": 6,
+          "requiresPrevious": false,
+          "allowInternet": false
+        }
+      ]
+    }
+  ]
+}

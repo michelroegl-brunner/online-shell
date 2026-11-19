@@ -1,0 +1,646 @@
+{
+  "format": "online-shell-exercises",
+  "version": 1,
+  "exercises": [
+    {
+      "title": "Bash 01 · Skripte (Lektion)",
+      "slug": "bash-01-skripte",
+      "description": "**Skripte** sind Programme, die von einem **Interpreter** ausgeführt werden – es gibt\nkeinen Compiler. Eine Shell führt eingetippte Befehle sofort aus und ist damit\nbereits ein Interpreter.\n\nShell-Befehle können in eine **Textdatei** geschrieben und dann ausgeführt werden.\nDas Ergebnis ist dasselbe, als würde man sie direkt in der Shell eingeben.\n\n## Hello-World-Skript\n\nDie Datei `hello.sh`:\n\n```sh\n# Hello World Skript\necho Hello World\n```\n\nAufruf – `sh` startet dabei eine weitere Shell, die das Skript abarbeitet:\n\n```sh\n$ sh hello.sh\n```\n\nDas Programm, das das Skript ausführen soll, kann auch in die **erste Zeile**\ngeschrieben werden (**Shebang** `#!`):\n\n```sh\n#!/bin/sh\n# Hello World Skript\necho Hello World\n```\n\nDamit man das Skript direkt starten kann, muss das **eXecute-Flag** gesetzt sein:\n\n```sh\n$ chmod u+x hello.sh\n$ ./hello.sh\nHello World\n```\n\nWarum `./`? Die Shell sucht Programme nur in den Ordnern aus `$PATH` – schau dir\n`echo $PATH` an. Der aktuelle Ordner gehört nicht dazu.\n\n## Argumente\n\nFür Kommandozeilenargumente gibt es spezielle Variablen:\n\n| Variable | Bedeutung |\n| -------- | --------- |\n| `$0` | Name des Skripts |\n| `$1` – `$9` | die ersten 9 Argumente |\n| `$#` | Anzahl der übergebenen Argumente |\n\n```sh\n#!/bin/sh\necho $#\necho $0\necho $1\necho $2\necho $3\n```\n\n```sh\n$ ./args.sh eins zwei drei vier\n```\n\n## Argumentliste\n\n`$@` ist die Liste aller übergebenen Argumente – ideal für eine Schleife:\n\n```sh\nfor arg in \"$@\"\ndo\n  echo \"$arg\"\ndone\n```\n\nMit den Anführungszeichen um `\"$@\"` bleibt ein Argument wie `\"a b\"` **ein**\nArgument.\n\n> **Hinweis zur Box:** Du arbeitest in einem echten Debian-Linux, aber **ohne\n> Internet** und ohne `sudo`. Dateien, die sonst heruntergeladen werden, liegen\n> schon in deinem Übungsordner. Skripte schreibst du mit `nano` oder `vim`.",
+      "shell": "BASH",
+      "kind": "LESSON",
+      "difficulty": 1,
+      "setupScript": "true",
+      "setupInternet": false,
+      "tags": [
+        "bash",
+        "sytb",
+        "lektion",
+        "skripte",
+        "argumente"
+      ],
+      "visibility": "SHARED",
+      "steps": [
+        {
+          "title": "Hello World mit sh",
+          "description": "Lege die Datei `hello.sh` mit dem Kommentar `# Hello World Skript` und dem Befehl\n`echo Hello World` an und führe sie mit `sh hello.sh` aus.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed hello.sh\nout=$(timeout 5 sh hello.sh 2>&1)\n[ \"$out\" = \"Hello World\" ] || { echo \"sh hello.sh soll genau 'Hello World' ausgeben, war: $out\"; exit 1; }\necho \"Läuft!\"",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "(^|\\s)sh\\s+(\\./)?hello\\.sh",
+              "successOnly": false,
+              "message": "Probiere den Befehl im Terminal selbst aus."
+            }
+          ],
+          "hints": [
+            "`nano hello.sh` öffnet einen Editor, Speichern mit Strg+O, Beenden mit Strg+X."
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "Shebang und eXecute-Flag",
+          "description": "Ergänze `hello.sh` um die Shebang-Zeile `#!/bin/sh` (ganz oben), mache die Datei\nmit `chmod` ausführbar und starte sie mit `./hello.sh`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed hello.sh\nhead -n1 hello.sh | grep -Eq '^#!/(usr/)?bin/(env )?(ba)?sh' || { echo \"Die erste Zeile von hello.sh muss die Shebang-Zeile #!/bin/sh sein.\"; exit 1; }\n[ -x hello.sh ] || { echo \"hello.sh ist noch nicht ausführbar (chmod).\"; exit 1; }\nout=$(timeout 5 ./hello.sh 2>&1)\n[ \"$out\" = \"Hello World\" ] || { echo \"./hello.sh soll 'Hello World' ausgeben, war: $out\"; exit 1; }\necho \"Direkt startbar!\"",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "\\./hello\\.sh",
+              "successOnly": false,
+              "message": "Probiere den Befehl im Terminal selbst aus."
+            }
+          ],
+          "hints": [
+            "`chmod u+x datei` setzt das eXecute-Flag für den Besitzer.",
+            "`ls -l` zeigt die Rechte (`x`)."
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "Warum ./ ?",
+          "description": "Speichere die Ausgabe von `echo $PATH` in der Datei `path.txt` und schau sie dir an:\nIst dein Übungsordner dabei?",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed path.txt\ngrep -q '/usr/bin' path.txt || { echo \"In path.txt steht nicht der Inhalt von \\$PATH.\"; exit 1; }\necho \"Genau – der aktuelle Ordner ist nicht im PATH, deshalb ./\"",
+          "checks": [],
+          "hints": [
+            "`echo $PATH > path.txt`"
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "Argumente $#, $0, $1 …",
+          "description": "Schreibe das Skript `args.sh` aus der Lektion (gibt `$#`, `$0`, `$1`, `$2`, `$3`\nje in einer Zeile aus) und rufe es mit `./args.sh eins zwei drei vier` auf.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed args.sh\na=w$RANDOM; b=x$RANDOM; c=y$RANDOM\nout=$(timeout 5 bash args.sh \"$a\" \"$b\" \"$c\" z 2>&1)\nl() { echo \"$out\" | sed -n \"${1}p\"; }\n[ \"$(l 1)\" = 4 ] || { echo \"Zeile 1 soll die Anzahl der Argumente (\\$#) sein. Ausgabe: $out\"; exit 1; }\nl 2 | grep -q 'args.sh' || { echo \"Zeile 2 soll den Skriptnamen (\\$0) zeigen. Ausgabe: $out\"; exit 1; }\n[ \"$(l 3)\" = \"$a\" ] && [ \"$(l 4)\" = \"$b\" ] && [ \"$(l 5)\" = \"$c\" ] || { echo \"Zeilen 3–5 sollen \\$1, \\$2 und \\$3 sein. Ausgabe: $out\"; exit 1; }\necho \"Argumente verstanden!\"",
+          "checks": [],
+          "hints": [
+            "Vergiss `chmod u+x args.sh` nicht."
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "Alle Argumente mit $@",
+          "description": "Schreibe das Skript `alle.sh`, das mit einer `for`-Schleife über `\"$@\"` jedes\nArgument in einer eigenen Zeile ausgibt.\n\n```sh\n$ ./alle.sh eins \"zwei drei\" vier\neins\nzwei drei\nvier\n```",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed alle.sh\nout=$(timeout 5 bash alle.sh eins \"zwei drei\" vier 2>&1)\nwant=$(printf 'eins\\nzwei drei\\nvier')\n[ \"$out\" = \"$want\" ] || { echo \"Erwartet wurde:\"; echo \"$want\"; echo \"Ausgabe war:\"; echo \"$out\"; echo \"(Tipp: \\\"\\$@\\\" in Anführungszeichen)\"; exit 1; }\necho \"Perfekt!\"",
+          "checks": [],
+          "hints": [
+            "`for arg in \"$@\"; do echo \"$arg\"; done`"
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        }
+      ]
+    },
+    {
+      "title": "Bash 02 · Command Substitution (Lektion)",
+      "slug": "bash-02-cmdsubst",
+      "description": "Mit **Command Substitution** wird die Ausgabe eines Programms als Wert verwendet.\nDie Syntax ist `$(befehl)`.\n\n## Beispiel 1: Datum\n\n```sh\n$ echo \"Das aktuelle Datum ist $(date)\"\n$ echo \"Heute $(date -I) in einer Woche ist $(date --date='+1 week' -I)\"\n```\n\nWenn die Anzahl der Wochen in einer Variable steht:\n\n```sh\nWEEKS=10\nDATE2=$(date --date=\"+$WEEKS week\" -I)\necho \"Heute $(date -I) in $WEEKS Wochen ist der $DATE2\"\n```\n\nBei Command Substitution dürfen `\"` sogar verschachtelt werden:\n\n```sh\necho \"Heute $(date -I) in $WEEKS Wochen ist der $(date --date=\"+$WEEKS week\" -I)\"\n```\n\n## Beispiel 2: Einträge zählen\n\n```sh\n$ ls /etc | wc -l\n$ myvar=$( ls /etc | wc -l )\n$ echo \"Es sind $myvar Einträge im dir /etc\"\n$ echo \"Es sind $( ls /etc | wc -l ) Einträge im dir /etc\"\n```\n\n## Newlines werden zu Leerzeichen\n\n```sh\n$ ls            # Ausgabe in die Konsole: mehrere Spalten\nfile1   file2   file3\n$ ls | cat      # Ausgabe nicht in die Konsole: eine pro Zeile\nfile1\nfile2\nfile3\n$ echo $( ls )  # $(): Leerzeichen statt Newlines\nfile1 file2 file3\n```\n\n`ls` verhält sich anders (Spalten), wenn die Ausgabe direkt in die Konsole geht.\n\n> **Hinweis zur Box:** Du arbeitest in einem echten Debian-Linux, aber **ohne\n> Internet** und ohne `sudo`. Dateien, die sonst heruntergeladen werden, liegen\n> schon in deinem Übungsordner. Skripte schreibst du mit `nano` oder `vim`.",
+      "shell": "BASH",
+      "kind": "LESSON",
+      "difficulty": 1,
+      "setupScript": "mkdir -p dateien && touch dateien/file1 dateien/file2 dateien/file3",
+      "setupInternet": false,
+      "tags": [
+        "bash",
+        "sytb",
+        "lektion",
+        "command-substitution",
+        "date"
+      ],
+      "visibility": "SHARED",
+      "steps": [
+        {
+          "title": "Das aktuelle Datum",
+          "description": "Schreibe mit `echo` und `$(date)` den Satz `Das aktuelle Datum ist …` in die Datei\n`datum.txt`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed datum.txt\ngrep -Eq '^Das aktuelle Datum ist .*[0-9]{4}' datum.txt || { echo \"datum.txt soll 'Das aktuelle Datum ist <Ausgabe von date>' enthalten.\"; exit 1; }\necho \"Richtig!\"",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "\\$\\(\\s*date",
+              "successOnly": false,
+              "message": "Probiere den Befehl im Terminal selbst aus."
+            }
+          ],
+          "hints": [
+            "`echo \"Das aktuelle Datum ist $(date)\" > datum.txt`"
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "In einer Woche",
+          "description": "Schreibe den Satz `Heute <Datum> in einer Woche ist <Datum>` (Datumsformat\n`JJJJ-MM-TT`, also `date -I`) in die Datei `woche.txt`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed woche.txt\nwant=\"Heute $(date -I) in einer Woche ist $(date --date='+1 week' -I)\"\n[ \"$(cat woche.txt)\" = \"$want\" ] || { echo \"woche.txt soll genau so aussehen: $want\"; exit 1; }\necho \"Stimmt!\"",
+          "checks": [],
+          "hints": [
+            "`date --date='+1 week' -I`"
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "Einträge in /etc zählen",
+          "description": "Schreibe den Satz `Es sind <Anzahl> Einträge im dir /etc` in die Datei\n`anzahl.txt` – die Anzahl ermittelst du mit `ls /etc | wc -l`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed anzahl.txt\nwant=\"Es sind $(ls /etc | wc -l) Einträge im dir /etc\"\n[ \"$(cat anzahl.txt)\" = \"$want\" ] || { echo \"anzahl.txt soll genau so aussehen: $want\"; exit 1; }\necho \"Gezählt!\"",
+          "checks": [],
+          "hints": [
+            "Die ganze Pipeline kommt in `$( … )`."
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "Newlines werden Leerzeichen",
+          "description": "Im Ordner `dateien/` liegen drei Dateien. Schreibe die Dateinamen mit\n`echo $(ls dateien)` – also **in einer Zeile** – in die Datei `liste.txt`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed liste.txt\n[ \"$(cat liste.txt)\" = \"file1 file2 file3\" ] || { echo \"liste.txt soll genau 'file1 file2 file3' enthalten.\"; exit 1; }\necho \"Genau – aus Newlines werden Leerzeichen.\"",
+          "checks": [],
+          "hints": [
+            "`echo $(ls dateien) > liste.txt`"
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        }
+      ]
+    },
+    {
+      "title": "Bash 03 · Arithmetik (Lektion)",
+      "slug": "bash-03-arithmetik",
+      "description": "Für Berechnungen in Bash-Skripten gibt es mehrere Möglichkeiten: `let`, `expr`\nund die Bash-Arithmetik. Mehr dazu im\n[Bash Scripting Tutorial – Arithmetic](https://ryanstutorials.net/bash-scripting-tutorial/bash-arithmetic.php).\n\n## let\n\nMit `let` wird das Ergebnis einer **Variablen** zugewiesen:\n\n```sh\nlet a=5+4\nlet b=100-$a\n```\n\nOhne Anführungszeichen sind **keine Leerzeichen** erlaubt; mit schon:\n\n```sh\nlet \"a = 5 + 4\"\nlet \"a = $1 * 2\"\n```\n\n## expr\n\n`expr` **gibt das Ergebnis aus**, statt es zu speichern. Leerzeichen sind nötig:\n\n```sh\nexpr 5 + 4\necho $(expr 5 + 4)\n```\n\nAchtung: `*` ist für die Shell ein Wildcard – maskiere es mit `\\*`:\n\n```sh\n$ expr 2 * 3\nexpr: syntax error\n$ expr 2 \\* 3\n6\n```\n\n## Bash-Arithmetik `$(( ))`\n\n> Double parentheses is the preferred method.\n\n```sh\na=$(( 4 + 5 ))\necho $a          # 9\na=$((3+5))       # Leerzeichen sind egal\nb=$(( a + 3 ))   # Variablen ohne $\n```\n\nOhne `$` – wenn das Ergebnis nicht weiterverwendet wird – sind C-ähnliche\nAusdrücke möglich:\n\n```sh\n((a=2*a))\n((a++))\n((a=a+4))\n```\n\n| Operator | Operation |\n| -------- | --------- |\n| `+ -` | Addition, Subtraktion |\n| `++ --` | Inkrement, Dekrement |\n| `* / %` | Multiplikation, Division (ganzzahlig), Rest |\n| `**` | Potenz |\n\n> **Hinweis zur Box:** Du arbeitest in einem echten Debian-Linux, aber **ohne\n> Internet** und ohne `sudo`. Dateien, die sonst heruntergeladen werden, liegen\n> schon in deinem Übungsordner. Skripte schreibst du mit `nano` oder `vim`.",
+      "shell": "BASH",
+      "kind": "LESSON",
+      "difficulty": 1,
+      "setupScript": "true",
+      "setupInternet": false,
+      "tags": [
+        "bash",
+        "sytb",
+        "lektion",
+        "arithmetik",
+        "let",
+        "expr"
+      ],
+      "visibility": "SHARED",
+      "steps": [
+        {
+          "title": "let",
+          "description": "Berechne mit `let \"a = 5 + 4\"` und speichere danach den Wert von `a` in\n`let.txt`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed let.txt\n[ \"$(tr -d '[:space:]' < let.txt)\" = 9 ] || { echo \"In let.txt soll 9 stehen.\"; exit 1; }\necho \"Richtig!\"",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "(^|[;&|]\\s*)let\\s",
+              "successOnly": false,
+              "message": "Probiere den Befehl im Terminal selbst aus."
+            }
+          ],
+          "hints": [
+            "`let \"a = 5 + 4\"; echo $a > let.txt`"
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "expr",
+          "description": "Berechne `2 * 3` mit `expr` und leite die Ausgabe in `expr.txt` um. (Denk an das\nMaskieren von `*`.)",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed expr.txt\n[ \"$(tr -d '[:space:]' < expr.txt)\" = 6 ] || { echo \"In expr.txt soll 6 stehen.\"; exit 1; }\necho \"Richtig maskiert!\"",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "\\bexpr\\s",
+              "successOnly": false,
+              "message": "Probiere den Befehl im Terminal selbst aus."
+            }
+          ],
+          "hints": [
+            "`expr 2 \\* 3 > expr.txt`"
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "Potenz mit $(( ))",
+          "description": "Berechne **2 hoch 10** mit `$(( ))` und dem Operator `**`; schreibe das Ergebnis\nin `potenz.txt`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed potenz.txt\n[ \"$(tr -d '[:space:]' < potenz.txt)\" = 1024 ] || { echo \"In potenz.txt soll 1024 stehen.\"; exit 1; }\necho \"Stimmt!\"",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "\\*\\*",
+              "successOnly": false,
+              "message": "Probiere den Befehl im Terminal selbst aus."
+            }
+          ],
+          "hints": [
+            "`echo $(( 2 ** 10 )) > potenz.txt`"
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "Rest einer Division",
+          "description": "Wie viel bleibt bei `17 / 5` übrig? Berechne den **Rest** mit `$(( ))` und\nschreibe ihn in `rest.txt`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed rest.txt\n[ \"$(tr -d '[:space:]' < rest.txt)\" = 2 ] || { echo \"In rest.txt soll der Rest von 17 / 5 stehen.\"; exit 1; }\necho \"Genau – der Modulo-Operator %.\"",
+          "checks": [],
+          "hints": [
+            "Der Rest-Operator ist `%`."
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        }
+      ]
+    },
+    {
+      "title": "Bash 04 · test und Exit-Status (Lektion)",
+      "slug": "bash-04-test",
+      "description": "Jedes Linux-Programm liefert beim Beenden einen **Exit-Status** – in der Variable\n`$?`:\n\n- `0` bedeutet fehlerfreie Ausführung,\n- jeder andere Wert ist ein Fehlercode.\n\n`test` ist ein Befehl, der das Ergebnis eines **Vergleichs** als Exit-Status\nliefert. Er ist die Grundlage für `if`-Anweisungen.\n\n```sh\n$ test 'xyz' = 'xyz'; echo $?\n0\n$ test 'xyz' = 'xy'; echo $?\n1\n```\n\n- `$?` ist 0: entspricht **true**\n- `$?` ist 1: entspricht **false**\n\nAchtung, die Leerzeichen sind wichtig! `test 'xyz'='xy'` ist immer 0 – das ist\nnur **ein** (nicht leerer) String.\n\nDie Schreibweise mit `[ ]` macht dasselbe wie `test` – **Leerzeichen neben den\nKlammern**:\n\n```sh\n$ [ 'xyz' = 'xyz' ]; echo $?\n0\n```\n\n## && und ||\n\n- `&&`: rechte Seite wird bei `$? = 0` ausgeführt\n- `||`: rechte Seite wird bei `$? != 0` ausgeführt\n\n```sh\n$ test 100 -gt 99 && echo \"Yes, that's true.\"\nYes, that's true.\n$ test 98 -gt 99 || echo \"No, that's false.\"\nNo, that's false.\n$ test 100 -gt 99 && echo \"Yes, that's true.\" || echo \"No, that's false.\"\nYes, that's true.\n```\n\n## Vergleiche\n\nVollständige Übersicht: `man test`.\n\n| Operator | Bedeutung |\n| -------: | :-------- |\n| `!` AUSDRUCK | Negation |\n| `-n` STRING | STRING ist nicht leer |\n| STRING1 `=` STRING2 | Strings gleich |\n| STRING1 `!=` STRING2 | Strings ungleich |\n| ZAHL1 `-eq` ZAHL2 | Zahlen gleich |\n| ZAHL1 `-gt` ZAHL2 | größer |\n| ZAHL1 `-lt` ZAHL2 | kleiner |\n| `-d` DATEI | existiert und ist ein Verzeichnis |\n| `-e` DATEI | existiert |\n| A `-a` B | logisches Und |\n| A `-o` B | logisches Oder |\n\n> **Hinweis zur Box:** Du arbeitest in einem echten Debian-Linux, aber **ohne\n> Internet** und ohne `sudo`. Dateien, die sonst heruntergeladen werden, liegen\n> schon in deinem Übungsordner. Skripte schreibst du mit `nano` oder `vim`.",
+      "shell": "BASH",
+      "kind": "LESSON",
+      "difficulty": 1,
+      "setupScript": "true",
+      "setupInternet": false,
+      "tags": [
+        "bash",
+        "sytb",
+        "lektion",
+        "test",
+        "exit-status"
+      ],
+      "visibility": "SHARED",
+      "steps": [
+        {
+          "title": "Exit-Status von test",
+          "description": "Vergleiche mit `test` die Strings `xyz` und `xy` und schreibe danach den\nExit-Status `$?` in `status.txt`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed status.txt\n[ \"$(tr -d '[:space:]' < status.txt)\" = 1 ] || { echo \"In status.txt soll der Exit-Status des Vergleichs stehen (die Strings sind ungleich).\"; exit 1; }\necho \"Richtig – 1 heißt false.\"",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "(\\btest\\s|\\[\\s)",
+              "successOnly": false,
+              "message": "Probiere den Befehl im Terminal selbst aus."
+            }
+          ],
+          "hints": [
+            "`test 'xyz' = 'xy'; echo $? > status.txt`"
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "&& mit [ ]",
+          "description": "Prüfe mit `[ ]`, ob 100 größer als 99 ist, und schreibe **nur dann** mit `&&` den\nText `Yes, that's true.` in die Datei `ja.txt`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed ja.txt\n[ \"$(cat ja.txt)\" = \"Yes, that's true.\" ] || { echo \"ja.txt soll genau: Yes, that's true. enthalten.\"; exit 1; }\necho \"Passt!\"",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "\\]\\s*&&",
+              "successOnly": false,
+              "message": "Probiere den Befehl im Terminal selbst aus."
+            }
+          ],
+          "hints": [
+            "`[ 100 -gt 99 ] && echo \"Yes, that's true.\" > ja.txt`"
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "|| mit [ ]",
+          "description": "Prüfe mit `[ ]`, ob 98 größer als 99 ist, und schreibe mit `||` den Text\n`No, that's false.` in die Datei `nein.txt`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed nein.txt\n[ \"$(cat nein.txt)\" = \"No, that's false.\" ] || { echo \"nein.txt soll genau: No, that's false. enthalten.\"; exit 1; }\necho \"Passt!\"",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "\\]\\s*\\|\\|",
+              "successOnly": false,
+              "message": "Probiere den Befehl im Terminal selbst aus."
+            }
+          ],
+          "hints": [],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "Existiert ein Verzeichnis?",
+          "description": "Prüfe mit `test -d`, ob es das Verzeichnis `/etc/gibtsnicht` gibt, und schreibe\nden Exit-Status in `dir.txt`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed dir.txt\n[ \"$(tr -d '[:space:]' < dir.txt)\" = 1 ] || { echo \"In dir.txt soll der Exit-Status von test -d /etc/gibtsnicht stehen.\"; exit 1; }\necho \"Genau!\"",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "-d\\s",
+              "successOnly": false,
+              "message": "Probiere den Befehl im Terminal selbst aus."
+            }
+          ],
+          "hints": [],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        }
+      ]
+    },
+    {
+      "title": "Bash 05 · Bedingungen (if) (Lektion)",
+      "slug": "bash-05-if",
+      "description": "Mehr dazu im [Bash Scripting Tutorial – If Statements](https://ryanstutorials.net/bash-scripting-tutorial/bash-if-statements.php).\n\n## if\n\n```sh\nif [ $1 -gt 100 ]\nthen\n  echo \"Hey that's a large number.\"\n  pwd\nfi\n\nif [ \"$wort\" == \"AHITS\" ]   # Stringvergleich\nthen\n  echo \"Das Wort war AHITS\"\nfi\n```\n\n> **Wichtig:** Vor und nach den Klammern `[` `]` müssen Leerzeichen stehen.\n\nDie eckigen Klammern sind ein Verweis auf den Befehl `test` – alle seine\nVergleichsoperatoren funktionieren.\n\n## else\n\n`-n` prüft, ob eine Variable (nicht leer) vorhanden ist:\n\n```sh\nif [ -n \"$3\" ]\nthen\n  echo \"Parameter #3 is $3\"\nelse\n  echo \"Parameter #3 fehlt\"\nfi\n```\n\n## Logisches Und / Oder\n\n```sh\n# Datei lesbar (-r) UND größer als 0 Bytes (-s)\nif [ -r \"$1\" ] && [ -s \"$1\" ]\n\n# einer von zwei Benutzern\nif [ \"$USER\" = 'bob' ] || [ \"$USER\" = 'andy' ]\n```\n\n## Shell-Arithmetik\n\nVergleiche gehen auch mit `(( ))` – Variablen ohne `$`, Ausdrücke wie in C.\nDas funktioniert **nur mit Zahlen**.\n\n```sh\nx=42\ny=10\nif (( x > y ))\nthen\n  echo \"x > y\"\nfi\n```\n\n| Operator | Bedeutung |\n| -------- | --------- |\n| `<= >= < >` | kleiner gleich, größer gleich, kleiner, größer |\n| `== !=` | gleich, ungleich |\n| `!` | logisches Nicht |\n| `&&` | logisches Und |\n| `\\|\\|` | logisches Oder |\n\n> **Hinweis zur Box:** Du arbeitest in einem echten Debian-Linux, aber **ohne\n> Internet** und ohne `sudo`. Dateien, die sonst heruntergeladen werden, liegen\n> schon in deinem Übungsordner. Skripte schreibst du mit `nano` oder `vim`.",
+      "shell": "BASH",
+      "kind": "LESSON",
+      "difficulty": 1,
+      "setupScript": "true",
+      "setupInternet": false,
+      "tags": [
+        "bash",
+        "sytb",
+        "lektion",
+        "if",
+        "bedingungen"
+      ],
+      "visibility": "SHARED",
+      "steps": [
+        {
+          "title": "Eine große Zahl (gross.sh)",
+          "description": "Schreibe `gross.sh`: Ist `$1` größer als 100, gibt es `Hey that's a large\nnumber.` aus – sonst nichts.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed gross.sh\ntimeout 5 bash gross.sh 150 2>&1 | grep -q \"Hey that's a large number.\" || { echo \"'./gross.sh 150' soll Hey that's a large number. ausgeben.\"; exit 1; }\n[ -z \"$(timeout 5 bash gross.sh 50 2>&1)\" ] || { echo \"'./gross.sh 50' soll nichts ausgeben.\"; exit 1; }\necho \"Richtig!\"",
+          "checks": [],
+          "hints": [],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "if/else (param3.sh)",
+          "description": "Schreibe `param3.sh`: Gibt es einen 3. Parameter, wird `Parameter #3 is <Wert>`\nausgegeben, sonst `Parameter #3 fehlt`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed param3.sh\n[ \"$(timeout 5 bash param3.sh a b drei 2>&1)\" = \"Parameter #3 is drei\" ] || { echo \"'./param3.sh a b drei' soll 'Parameter #3 is drei' ausgeben.\"; exit 1; }\n[ \"$(timeout 5 bash param3.sh a b 2>&1)\" = \"Parameter #3 fehlt\" ] || { echo \"'./param3.sh a b' soll 'Parameter #3 fehlt' ausgeben.\"; exit 1; }\necho \"Richtig!\"",
+          "checks": [],
+          "hints": [],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "Logisches Und (lesbar.sh)",
+          "description": "Schreibe `lesbar.sh`: Ist die Datei `$1` lesbar **und** nicht leer, wird `OK`\nausgegeben, sonst `NICHT OK`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nt=$(mktemp -d); trap 'rm -rf \"$t\"' EXIT\n\nneed lesbar.sh\necho x > \"$t/voll\"; : > \"$t/leer\"\n[ \"$(timeout 5 bash lesbar.sh \"$t/voll\" 2>&1)\" = OK ] || { echo \"Bei einer Datei mit Inhalt soll OK kommen.\"; exit 1; }\n[ \"$(timeout 5 bash lesbar.sh \"$t/leer\" 2>&1)\" = \"NICHT OK\" ] || { echo \"Bei einer leeren Datei soll NICHT OK kommen.\"; exit 1; }\n[ \"$(timeout 5 bash lesbar.sh \"$t/fehlt\" 2>&1)\" = \"NICHT OK\" ] || { echo \"Bei einer fehlenden Datei soll NICHT OK kommen.\"; exit 1; }\necho \"Richtig!\"",
+          "checks": [],
+          "hints": [],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "Vergleich mit (( )) (vergleich.sh)",
+          "description": "Schreibe `vergleich.sh`, das mit `(( ))` zwei Zahlen vergleicht:\n`./vergleich.sh 42 10` gibt `42 > 10` aus, sonst `42 <= 10` (also je nach\nZahlen).",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed vergleich.sh\n[ \"$(timeout 5 bash vergleich.sh 42 10 2>&1)\" = \"42 > 10\" ] || { echo \"'./vergleich.sh 42 10' soll '42 > 10' ausgeben.\"; exit 1; }\n[ \"$(timeout 5 bash vergleich.sh 3 10 2>&1)\" = \"3 <= 10\" ] || { echo \"'./vergleich.sh 3 10' soll '3 <= 10' ausgeben.\"; exit 1; }\ngrep -q '((' vergleich.sh || { echo \"Verwende (( )) für den Vergleich.\"; exit 1; }\necho \"Richtig!\"",
+          "checks": [],
+          "hints": [],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        }
+      ]
+    },
+    {
+      "title": "Bash 06 · Schleifen (Lektion)",
+      "slug": "bash-06-schleifen",
+      "description": "Mehr dazu im [Bash Scripting Tutorial – Loops](https://ryanstutorials.net/bash-scripting-tutorial/bash-loops.php).\n\n## for\n\nDie `for`-Schleife durchläuft alle Elemente einer Liste:\n\n```sh\nfor var in liste\ndo\n  befehl\ndone\n```\n\nDie Liste kann `$@` sein, eine Reihe von Zahlen oder ein Text mit Leerzeichen:\n\n```sh\nfor i in 1 2 3 10 12\ndo\n  echo i: $i\ndone\n\nnames='Stan Kyle Cartman'\nfor name in $names\ndo\n  echo $name\ndone\n```\n\n**Bereiche** `{von..bis}` – geschweifte Klammern, keine Leerzeichen, genau 2\nPunkte – oder mit `seq`:\n\n```sh\nfor value in {3..5}\ndo\n  echo $value\ndone\n\nfor x in $(seq 1 10)\ndo\n  echo \"hallo $x\"\ndone\n```\n\n**Wildcards** – alle `.conf`-Dateien in `/etc`:\n\n```sh\ncd /etc\nfor f in *.conf\ndo\n  echo $f\ndone\n```\n\n**Wörter aus einer Datei** mit Command Substitution:\n\n```sh\nfor word in $(cat data.txt)\ndo\n  echo $word\ndone\n```\n\n**Mit Schleifenzähler** (wie in C):\n\n```sh\nfor (( i=0; i<3; i++ ))\ndo\n  echo $i\ndone\n```\n\n## while\n\nBedingung mit `test` bzw. `[ ]`:\n\n```sh\nINPUT_STRING=hello\nwhile [ \"$INPUT_STRING\" != \"bye\" ]\ndo\n  echo \"Please type something in (bye to quit)\"\n  read INPUT_STRING\n  echo \"You typed: $INPUT_STRING\"\ndone\n```\n\nZählschleife – die Bedingung geht auch mit Bash-Arithmetik `while (( counter <= 10 ))`:\n\n```sh\ncounter=1\nwhile [ $counter -le 10 ]\ndo\n  echo $counter\n  ((counter++))\ndone\necho \"All done\"\n```\n\n> **Hinweis zur Box:** Du arbeitest in einem echten Debian-Linux, aber **ohne\n> Internet** und ohne `sudo`. Dateien, die sonst heruntergeladen werden, liegen\n> schon in deinem Übungsordner. Skripte schreibst du mit `nano` oder `vim`.",
+      "shell": "BASH",
+      "kind": "LESSON",
+      "difficulty": 1,
+      "setupScript": "true",
+      "setupInternet": false,
+      "tags": [
+        "bash",
+        "sytb",
+        "lektion",
+        "schleifen",
+        "for",
+        "while"
+      ],
+      "visibility": "SHARED",
+      "steps": [
+        {
+          "title": "for über $@ (params.sh)",
+          "description": "Schreibe `params.sh`, das für jedes Argument eine Zeile `Param: <Argument>`\nausgibt.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed params.sh\nout=$(timeout 5 bash params.sh 1 zwei 3 2>&1)\n[ \"$out\" = \"$(printf 'Param: 1\\nParam: zwei\\nParam: 3')\" ] || { echo \"'./params.sh 1 zwei 3' soll drei Zeilen 'Param: …' ausgeben. Ausgabe: $out\"; exit 1; }\necho \"Richtig!\"",
+          "checks": [],
+          "hints": [],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "Schleife mit seq",
+          "description": "Schreibe mit einer `for`-Schleife und `seq` die Zeilen `hallo 1` bis `hallo 10`\nin die Datei `hallo.txt` (Tipp: `done > hallo.txt`).",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed hallo.txt\n[ \"$(cat hallo.txt)\" = \"$(for x in $(seq 1 10); do echo \"hallo $x\"; done)\" ] || { echo \"hallo.txt soll die Zeilen hallo 1 bis hallo 10 enthalten.\"; exit 1; }\necho \"Richtig!\"",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "\\bfor\\s",
+              "successOnly": false,
+              "message": "Probiere den Befehl im Terminal selbst aus."
+            }
+          ],
+          "hints": [],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "Wildcards",
+          "description": "Schreibe die Namen (nur Dateinamen, ohne `/etc/`) aller `.conf`-Dateien in `/etc`\nmit einer `for`-Schleife in die Datei `conf.txt`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed conf.txt\n[ \"$(cat conf.txt)\" = \"$(cd /etc && printf '%s\\n' *.conf)\" ] || { echo \"conf.txt soll die Namen aller *.conf-Dateien in /etc enthalten (einer pro Zeile, ohne Pfad).\"; exit 1; }\necho \"Richtig!\"",
+          "checks": [],
+          "hints": [
+            "`basename /etc/x.conf` liefert `x.conf`.",
+            "Oder: `(cd /etc; for f in *.conf; do echo $f; done) > conf.txt`"
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "Countdown mit for (( ))",
+          "description": "Gib mit einer Schleife `for (( … ))` die Zahlen **10 bis 1** (absteigend, eine pro\nZeile) aus und speichere sie in `countdown.txt`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed countdown.txt\n[ \"$(cat countdown.txt)\" = \"$(seq 10 -1 1)\" ] || { echo \"countdown.txt soll die Zahlen 10 bis 1 enthalten.\"; exit 1; }\necho \"Liftoff!\"",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "for\\s*\\(\\(",
+              "successOnly": false,
+              "message": "Probiere den Befehl im Terminal selbst aus."
+            }
+          ],
+          "hints": [],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "while",
+          "description": "Gib mit einer `while`-Schleife alle **Zweierpotenzen kleiner als 1000** (1, 2, 4,\n… 512) aus und speichere sie in `potenzen.txt`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed potenzen.txt\n[ \"$(cat potenzen.txt)\" = \"$(printf '%s\\n' 1 2 4 8 16 32 64 128 256 512)\" ] || { echo \"potenzen.txt soll 1, 2, 4, … 512 enthalten (eine Zahl pro Zeile).\"; exit 1; }\necho \"Richtig!\"",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "\\bwhile\\s",
+              "successOnly": false,
+              "message": "Probiere den Befehl im Terminal selbst aus."
+            }
+          ],
+          "hints": [],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        }
+      ]
+    },
+    {
+      "title": "Bash 07 · SSH und SCP (Lektion)",
+      "slug": "bash-07-ssh-scp",
+      "description": "## SSH\n\nMit einem **SSH-Tunnel** werden Daten über unsichere Netzwerke **verschlüsselt**\ntransportiert. Angreifer können die Daten mitschneiden, aber nicht im Klartext\nlesen. SSH kann auch Anwendungen absichern, VPNs bauen und Dienste hinter\nFirewalls erreichbar machen.\n\nEin SSH-Tunnel hat immer zwei Enden:\n\n- **Client**: der Rechner/die Applikation, die sich zu einem entfernten Rechner\n  verbinden will.\n- **Server**: läuft als Dienst (Daemon) auf dem entfernten System und nimmt\n  Verbindungen an (Port 22).\n\n### SSH-Client\n\n- Linux-Shell: `ssh user@host`\n  - `user`: mit diesem Benutzer meldet sich der Client am Server an\n  - `host`: IP-Adresse oder FQDN des Servers\n- Windows: in der PowerShell ist `ssh` seit Windows 10 (1709) eingebaut, früher\n  `putty.exe`.\n\nBefehle können auch direkt **remote ausgeführt** werden:\n\n```sh\nssh [user]@[server] '[befehl]'\nssh root@123.123.123.123 'uname -a'\n```\n\n### Ordner\n\nSSH speichert Informationen über bekannte Hosts und Schlüssel im Ordner `.ssh`:\n\n- Client unter Windows: `C:\\Users\\<Benutzer>\\.ssh`\n- Server unter Linux: `/home/<Benutzer>/.ssh`\n\n## SCP\n\nMit **Secure Copy** (`scp`) werden Dateien und Ordner über SSH zu einem bzw. von\neinem entfernten Rechner kopiert:\n\n1. Verbindung aufbauen (SSH, Port 22)\n2. Authentifizierung (Passwort oder SSH-Schlüssel)\n3. Dateiübertragung\n4. Abschluss\n\n### lokal → remote\n\n```sh\nscp Quelldatei user@host:Verzeichnis/Zieldatei\n```\n\nDas Ziel sollte immer ein **absoluter Pfad** sein, z. B. `/home/user/test.txt`.\n\n### remote → lokal\n\n```sh\nscp user@host:Verzeichnis/Quelldatei Zieldatei\n```\n\nAlle Verzeichnisse müssen **bereits existieren**. Ganze Ordner kopierst du\n**rekursiv** mit `scp -r`.\n\n> **Hinweis zur Box:** Die Box hat **kein Netzwerk** – ssh und scp kannst du hier\n> nicht ausprobieren. Schreibe die Befehle deshalb in Dateien; probiere sie\n> danach im Labor auf einem echten Server aus.",
+      "shell": "BASH",
+      "kind": "LESSON",
+      "difficulty": 1,
+      "setupScript": "true",
+      "setupInternet": false,
+      "tags": [
+        "bash",
+        "sytb",
+        "lektion",
+        "ssh",
+        "scp",
+        "netzwerk"
+      ],
+      "visibility": "SHARED",
+      "steps": [
+        {
+          "title": "Anmelden",
+          "description": "Schreibe in `ssh1.txt` den Befehl, mit dem du dich als Benutzer `admin` am\nServer `10.10.10.11` anmeldest.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed ssh1.txt\ngrep -Eq '^[[:space:]]*ssh[[:space:]]+admin@10\\.10\\.10\\.11[[:space:]]*$' ssh1.txt || { echo \"Der Befehl in ssh1.txt stimmt noch nicht.\"; exit 1; }\necho \"Richtig!\"",
+          "checks": [],
+          "hints": [],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "Befehl remote ausführen",
+          "description": "Schreibe in `ssh2.txt` den Befehl, der als `root` auf `123.123.123.123` den\nBefehl `uname -a` ausführt (in einfachen Anführungszeichen).",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed ssh2.txt\ngrep -Eq \"^[[:space:]]*ssh[[:space:]]+root@123\\.123\\.123\\.123[[:space:]]+['\\\"]uname -a['\\\"][[:space:]]*$\" ssh2.txt || { echo \"Der Befehl in ssh2.txt stimmt noch nicht.\"; exit 1; }\necho \"Richtig!\"",
+          "checks": [],
+          "hints": [],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "Datei hochladen",
+          "description": "Schreibe in `scp1.txt` den Befehl, der die lokale Datei `bericht.txt` als\nBenutzer `admin` auf `10.10.10.11` in das Verzeichnis `/home/admin/backup/`\nkopiert.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed scp1.txt\ngrep -Eq '^[[:space:]]*scp[[:space:]]+bericht\\.txt[[:space:]]+admin@10\\.10\\.10\\.11:/home/admin/backup(/|/bericht\\.txt)?[[:space:]]*$' scp1.txt || { echo \"Der Befehl in scp1.txt stimmt noch nicht (Ziel als absoluter Pfad).\"; exit 1; }\necho \"Richtig!\"",
+          "checks": [],
+          "hints": [],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "Datei herunterladen",
+          "description": "Schreibe in `scp2.txt` den Befehl, der die Datei `/var/log/syslog` vom Server\n`10.10.10.11` (Benutzer `admin`) in die lokale Datei `syslog.txt` kopiert.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed scp2.txt\ngrep -Eq '^[[:space:]]*scp[[:space:]]+admin@10\\.10\\.10\\.11:/var/log/syslog[[:space:]]+(\\./)?syslog\\.txt[[:space:]]*$' scp2.txt || { echo \"Der Befehl in scp2.txt stimmt noch nicht.\"; exit 1; }\necho \"Richtig!\"",
+          "checks": [],
+          "hints": [],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "Ordner rekursiv kopieren",
+          "description": "Schreibe in `scp3.txt` den Befehl, der den Ordner `projects/` **inklusive\nUnterverzeichnissen** als `admin` auf `10.10.10.11` nach `/home/admin/backup/`\nkopiert.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed scp3.txt\ngrep -Eq '^[[:space:]]*scp[[:space:]]+(-[a-zA-Z]*r[a-zA-Z]*[[:space:]]+)projects/?[[:space:]]+admin@10\\.10\\.10\\.11:/home/admin/backup/?[[:space:]]*$' scp3.txt || { echo \"Der Befehl in scp3.txt stimmt noch nicht – denk an die Option für rekursives Kopieren.\"; exit 1; }\necho \"Richtig!\"",
+          "checks": [],
+          "hints": [
+            "`man scp` – suche nach *recursive*."
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        }
+      ]
+    },
+    {
+      "title": "Bash 08 · Funktionen (Lektion)",
+      "slug": "bash-08-funktionen",
+      "description": "## Funktionen definieren und aufrufen\n\n```sh\nmyfunction()\n{\n  echo Hello World\n}\n\nmyfunction\nmyfunction\n```\n\nBeim Aufruf stehen **keine** `()`.\n\n## Übergabeparameter\n\nParameter sind wie Kommandozeilenargumente über `$1`, `$2`, … erreichbar. Sie\nsind **lokal** in der Funktion – unabhängig von den `$1`, `$2` des Skripts.\n\n```sh\necho $1\necho $2\n\nmyfunction()\n{\n  echo $1 $2\n}\n\nmyfunction Guten Morgen\nmyfunction Liebe 3AHITS\n\necho $1\necho $2\n```\n\n`./functions.sh eins zwei` gibt aus:\n\n```\neins\nzwei\nGuten Morgen\nLiebe 3AHITS\neins\nzwei\n```\n\n## Rückgabewert\n\nRückgabewerte sind **ein Byte** groß (0–255) und funktionieren wie Exit-Codes:\n\n- `0`: Funktion erfolgreich\n- `1`–`255`: Funktion fehlgeschlagen\n\nZurückgegeben wird mit `return`, abgefragt mit `$?`:\n\n```sh\nadduser()\n{\n  USER=$1\n  PASSWORD=$2\n  shift; shift            # $1 und $2 entfernen\n  COMMENTS=$@             # der Rest\n  useradd -c \"${COMMENTS}\" $USER\n  if [ \"$?\" -ne \"0\" ]; then\n    echo \"Useradd failed\"\n    return 1\n  fi\n  echo ${USER}:${PASSWORD} | chpasswd\n  if [ \"$?\" -ne \"0\" ]; then\n    echo \"Setting password failed\"\n    return 2\n  fi\n  echo \"Added user $USER ($COMMENTS) with pass $PASSWORD\"\n}\n\nadduser $1 $2\nADDUSER_RETURN_CODE=$?\nif [ \"$ADDUSER_RETURN_CODE\" -eq \"1\" ]; then\n  echo \"Something went wrong with useradd\"\nelif [ \"$ADDUSER_RETURN_CODE\" -eq \"2\" ]; then\n  echo \"Something went wrong with passwd\"\nfi\n```\n\n### Andere Rückgabewerte\n\nSollen andere Werte (z. B. Text oder große Zahlen) zurückgegeben werden, gibt die\nFunktion sie mit `echo` aus – der Aufrufer holt sie mit `$( )`:\n\n```sh\nUserID()\n{\n  id=$(( RANDOM % 1000 + 1000 ))\n  echo $id\n}\nnumber=$(UserID)\n```\n\n> **Hinweis zur Box:** Du arbeitest in einem echten Debian-Linux, aber **ohne\n> Internet** und ohne `sudo`. Dateien, die sonst heruntergeladen werden, liegen\n> schon in deinem Übungsordner. Skripte schreibst du mit `nano` oder `vim`.",
+      "shell": "BASH",
+      "kind": "LESSON",
+      "difficulty": 1,
+      "setupScript": "true",
+      "setupInternet": false,
+      "tags": [
+        "bash",
+        "sytb",
+        "lektion",
+        "funktionen",
+        "return"
+      ],
+      "visibility": "SHARED",
+      "steps": [
+        {
+          "title": "Erste Funktion (hello_fn.sh)",
+          "description": "Schreibe `hello_fn.sh` mit der Funktion `myfunction`, die `Hello World` ausgibt,\nund rufe sie **zweimal** auf.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed hello_fn.sh\ngrep -Eq '^[[:space:]]*(function[[:space:]]+)?myfunction[[:space:]]*\\(\\)' hello_fn.sh || { echo \"In hello_fn.sh fehlt die Funktion myfunction().\"; exit 1; }\n[ \"$(timeout 5 bash hello_fn.sh 2>&1)\" = \"$(printf 'Hello World\\nHello World')\" ] || { echo \"hello_fn.sh soll zweimal Hello World ausgeben.\"; exit 1; }\necho \"Richtig!\"",
+          "checks": [],
+          "hints": [],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "Parameter sind lokal (functions.sh)",
+          "description": "Schreibe `functions.sh` aus der Lektion (Parameter in der Funktion) und rufe es\nmit `./functions.sh eins zwei` auf.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed functions.sh\na=a$RANDOM; b=b$RANDOM\nout=$(timeout 5 bash functions.sh $a $b 2>&1)\n[ \"$out\" = \"$(printf '%s\\n' $a $b 'Guten Morgen' 'Liebe 3AHITS' $a $b)\" ] || { echo \"'./functions.sh $a $b' soll ausgeben: $a, $b, Guten Morgen, Liebe 3AHITS, $a, $b. Ausgabe:\"; echo \"$out\"; exit 1; }\necho \"Richtig – die Parameter sind lokal.\"",
+          "checks": [],
+          "hints": [],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "return (gross_fn.sh)",
+          "description": "Schreibe `gross_fn.sh` mit einer Funktion `ist_gross`, die **0 zurückgibt**\n(`return`), wenn ihr Parameter größer als 100 ist, sonst 1. Das Skript ruft sie\nmit `$1` auf und gibt je nach `$?` `groß` oder `klein` aus.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed gross_fn.sh\ngrep -q 'return' gross_fn.sh || { echo \"Verwende return in der Funktion.\"; exit 1; }\ngrep -Eq 'ist_gross[[:space:]]*\\(\\)' gross_fn.sh || { echo \"Es fehlt die Funktion ist_gross().\"; exit 1; }\n[ \"$(timeout 5 bash gross_fn.sh 500 2>&1)\" = \"groß\" ] || { echo \"'./gross_fn.sh 500' soll groß ausgeben.\"; exit 1; }\n[ \"$(timeout 5 bash gross_fn.sh 7 2>&1)\" = \"klein\" ] || { echo \"'./gross_fn.sh 7' soll klein ausgeben.\"; exit 1; }\necho \"Richtig!\"",
+          "checks": [],
+          "hints": [],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "Wert über echo zurückgeben (quadrat.sh)",
+          "description": "Schreibe `quadrat.sh` mit einer Funktion `quadrat`, die das Quadrat ihres\nParameters mit `echo` zurückgibt. Das Skript speichert das Ergebnis mit\n`ergebnis=$(quadrat $1)` und gibt `Quadrat: <ergebnis>` aus.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed quadrat.sh\ngrep -Eq '\\$\\([[:space:]]*quadrat' quadrat.sh || { echo \"Hole das Ergebnis mit \\$(quadrat …).\"; exit 1; }\nn=$((RANDOM%300+20))\n[ \"$(timeout 5 bash quadrat.sh $n 2>&1)\" = \"Quadrat: $((n*n))\" ] || { echo \"'./quadrat.sh $n' soll 'Quadrat: $((n*n))' ausgeben.\"; exit 1; }\necho \"Richtig – größer als 255 geht nur so!\"",
+          "checks": [],
+          "hints": [],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        }
+      ]
+    }
+  ]
+}

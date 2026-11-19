@@ -11,8 +11,16 @@ docker compose -p online-shell -f deploy/docker-compose.yml --env-file /opt/onli
 `*.solutions.md` files hold the reference solutions (for teachers, not imported).
 
 `lessons/` holds guided, ungraded **lessons** in the same format (`"kind": "LESSON"`;
-without `kind` an entry is a normal exercise). Import them the same way, e.g.
-`content/lessons/bash-funktionen.json` (Bash functions, German).
+without `kind` an entry is a normal exercise). Import them the same way.
+
+**Bash (SYTB, German)** – built from the SYTB-3 lab notes (`01_scripts` … `09_funktionen`):
+`content/lessons/bash-sytb.json` holds the lessons `bash-01-skripte` … `bash-08-funktionen`,
+`content/exercises/bash-sytb.json` the matching exercises (`…-ue`, one per lesson; loops have two,
+SSH/SCP has none because the box can't reach a server). All are `SHARED` (library). Reference
+solutions: `content/exercises/bash-sytb.solutions.md`. Downloads from the notes (word list,
+`klassenkassa.csv`, `lager.csv`) are created by the setup scripts; the adduser exercise works on a
+`sysroot/` copy of `/etc/passwd` + `/etc/shadow` because students aren't root. The WSL chapter is
+left out (Windows host administration, not doable in a box).
 
 `content/lessons/git.json` holds five Git lessons (German, Bash shell), meant to be done in order:
 first repository → branches & merge → merge conflicts → remotes (clone/push/pull, with a local
