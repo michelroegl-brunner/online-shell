@@ -194,6 +194,7 @@ export function CheatSheetEditor({
             <SelectContent>
               <SelectItem value="BASH">Bash</SelectItem>
               <SelectItem value="PWSH">PowerShell 7</SelectItem>
+              <SelectItem value="C">C</SelectItem>
             </SelectContent>
           </Select>
         </Field>

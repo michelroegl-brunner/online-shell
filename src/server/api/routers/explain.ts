@@ -14,6 +14,7 @@ import { windowState } from "~/server/assignments/window";
 import { exerciseDir } from "~/server/exercises/run";
 import { runner } from "~/server/runner";
 import type { Prisma } from "../../../../generated/prisma";
+import { terminalShell } from "~/lib/shell";
 
 /**
  * Explanations for a student's failed commands (from the command log).
@@ -143,7 +144,8 @@ export const explainRouter = createTRPCRouter({
         select: { id: true, at: true, command: true, exitCode: true },
       });
       const chron = rows.reverse();
-      const shell = item.exercise.shell;
+      // C exercises: the terminal is bash.
+      const shell = terminalShell(item.exercise.shell);
 
       // Functions defined (successfully) before each command.
       const known: string[][] = [];

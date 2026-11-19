@@ -20,6 +20,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { Textarea } from "~/components/ui/textarea";
 import {
+  C_STARTER_SETUP,
   exerciseInput,
   type ExerciseInput,
   slugify,
@@ -256,6 +257,7 @@ export function ExerciseEditor({
             <SelectContent>
               <SelectItem value="BASH">Bash</SelectItem>
               <SelectItem value="PWSH">PowerShell 7</SelectItem>
+              <SelectItem value="C">C (gcc, code editor + bash)</SelectItem>
             </SelectContent>
           </Select>
         </Field>
@@ -401,6 +403,31 @@ export function ExerciseEditor({
               </span>
             </span>
           </label>
+          {form.shell === "C" && (
+            <div className="flex flex-wrap items-center gap-2 rounded-md border border-sky-400/30 bg-sky-400/5 p-3 text-sm">
+              <span className="flex-1">
+                C exercise: students get a code editor for the <code>.c</code> /{" "}
+                <code>.h</code> files in the folder. Write the starter code here
+                (e.g. <code>main.c</code>), and check the program with{" "}
+                <b>C test cases</b> in the steps.
+              </span>
+              {!readOnly && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    set(
+                      "setupScript",
+                      `${form.setupScript.trimEnd()}\n\n${C_STARTER_SETUP}`.trimStart(),
+                    )
+                  }
+                >
+                  Add main.c starter
+                </Button>
+              )}
+            </div>
+          )}
           <Script
             readOnly={readOnly}
             value={form.setupScript}

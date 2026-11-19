@@ -8,6 +8,7 @@ import { pastePolicyFor } from "~/server/assignments/paste";
 import { exerciseDir } from "~/server/exercises/run";
 import { internetForItem } from "./learn";
 import { runner } from "~/server/runner";
+import { SHELL_KINDS } from "~/lib/shell";
 
 export const boxRouter = createTRPCRouter({
   /**
@@ -20,7 +21,7 @@ export const boxRouter = createTRPCRouter({
   attach: protectedProcedure
     .input(
       z.object({
-        shell: z.enum(["BASH", "PWSH"]).default("BASH"),
+        shell: z.enum(SHELL_KINDS).default("BASH"),
         exercise: z.string().regex(SLUG_RE).optional(),
         /** Assignment item: online while its current step allows it. */
         itemId: z.string().max(100).optional(),

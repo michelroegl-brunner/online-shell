@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { SLUG_RE } from "~/lib/exercise";
+import { SHELL_KINDS } from "~/lib/shell";
 
 // Shared (client + server) cheat sheet validation. No server-only imports:
 // the admin editor validates with the same schema.
@@ -11,7 +12,7 @@ export const cheatSheetInput = z.object({
     .string()
     .max(60)
     .regex(SLUG_RE, "Lowercase letters, digits and dashes only"),
-  shell: z.enum(["BASH", "PWSH"]),
+  shell: z.enum(SHELL_KINDS),
   /** Shown on exercises that have at least one of these tags. */
   tags: z
     .array(z.string().trim().toLowerCase().min(1).max(40))

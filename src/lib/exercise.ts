@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { stepChecks } from "./checks";
 import { variableDefs } from "./variables";
+import { SHELL_KINDS } from "~/lib/shell";
 
 // Shared (client + server) exercise validation.
 
@@ -56,7 +57,7 @@ export const exerciseInput = z.object({
     .regex(SLUG_RE, "Lowercase letters, digits and dashes only"),
   /** Markdown intro shown above the steps */
   description: z.string().max(50_000),
-  shell: z.enum(["BASH", "PWSH"]),
+  shell: z.enum(SHELL_KINDS),
   /** Optional in imports (older bundles): defaults to a normal exercise. */
   kind: z.enum(EXERCISE_KINDS).default("EXERCISE"),
   difficulty: z.number().int().min(1).max(5),
@@ -90,6 +91,17 @@ export const EMPTY_STEP: StepInput = {
   requiresPrevious: true,
   allowInternet: false,
 };
+
+/** Setup snippet for C exercises: a starter main.c for the code editor. */
+export const C_STARTER_SETUP = `# Starter code for the student's editor (they edit main.c).
+cat > main.c <<'EOF'
+#include <stdio.h>
+
+int main(void) {
+    // TODO: your code here
+    return 0;
+}
+EOF`;
 
 /** Starting point for "New exercise": a chained exercise with 3 steps. */
 export const EXERCISE_TEMPLATE: ExerciseInput = {

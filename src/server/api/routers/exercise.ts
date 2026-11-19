@@ -19,6 +19,7 @@ import {
 import { runStepChecks } from "~/server/exercises/checks";
 import { exerciseDir, runSetup } from "~/server/exercises/run";
 import type { Prisma } from "../../../../generated/prisma";
+import { SHELL_KINDS } from "~/lib/shell";
 
 type Viewer = { id: string; role: string };
 
@@ -112,7 +113,7 @@ export const exerciseRouter = createTRPCRouter({
       z
         .object({
           q: z.string().trim().max(100).optional(),
-          shell: z.enum(["BASH", "PWSH"]).optional(),
+          shell: z.enum(SHELL_KINDS).optional(),
           kind: z.enum(EXERCISE_KINDS).optional(),
           mine: z.boolean().optional(),
           archived: z.boolean().optional(),
@@ -172,7 +173,7 @@ export const exerciseRouter = createTRPCRouter({
       z
         .object({
           q: z.string().trim().max(100).optional(),
-          shell: z.enum(["BASH", "PWSH"]).optional(),
+          shell: z.enum(SHELL_KINDS).optional(),
           tag: z.string().trim().toLowerCase().max(40).optional(),
           /** Hide my own shared exercises. */
           othersOnly: z.boolean().optional(),

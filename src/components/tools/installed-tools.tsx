@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import { Input } from "~/components/ui/input";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { terminalShell, type ShellKind } from "~/lib/shell";
 
 const MAX_SHOWN = 600;
 
@@ -19,7 +20,7 @@ export function InstalledTools({
   shell,
   className,
 }: {
-  shell: "BASH" | "PWSH";
+  shell: ShellKind;
   className?: string;
 }) {
   const [q, setQ] = useState("");
@@ -41,7 +42,7 @@ export function InstalledTools({
       <div className="flex flex-wrap items-center gap-2">
         <span className="flex items-center gap-1.5 text-sm font-medium">
           <Wrench className="size-4" /> Installed in the{" "}
-          {shell === "PWSH" ? "PowerShell" : "Bash"} box
+          {terminalShell(shell) === "PWSH" ? "PowerShell" : "Bash"} box
         </span>
         <div className="ml-auto flex rounded-md border p-0.5 text-xs">
           {(["binaries", "packages"] as const).map((v) => (

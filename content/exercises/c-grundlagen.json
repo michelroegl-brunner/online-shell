@@ -1,0 +1,692 @@
+{
+  "format": "online-shell-exercises",
+  "version": 1,
+  "exercises": [
+    {
+      "shell": "C",
+      "kind": "EXERCISE",
+      "setupInternet": false,
+      "variables": [],
+      "visibility": "SHARED",
+      "title": "C 01 · Hallo Welt",
+      "slug": "c-01-hallo-welt",
+      "difficulty": 1,
+      "tags": [
+        "c",
+        "grundlagen",
+        "printf"
+      ],
+      "description": "Dein erstes C-Programm: kompilieren, starten, etwas ausgeben.\n\n> **So arbeitest du:** Oben ist der **Code-Editor** (speichert von selbst),\n> unten das Terminal. **Run** (oder `Strg+Enter`) kompiliert alle `.c`-Dateien\n> und startet `./main` – im Terminal siehst du den `gcc`-Befehl dazu.\n> Wartet dein Programm auf Eingabe, tippst du sie im Terminal ein.",
+      "setupScript": "cat > main.c <<'EOF'\n#include <stdio.h>\n\nint main(void) {\n    // Gib hier \"Hallo Welt!\" aus\n    return 0;\n}\nEOF",
+      "steps": [
+        {
+          "description": "Ändere `main.c` so, dass das Programm genau\n\n```\nHallo Welt!\n```\n\nausgibt (mit Zeilenumbruch `\\n` am Ende). Probiere es mit **Run** aus, dann **Check**.",
+          "checkScript": "",
+          "hints": [
+            "`printf(\"…\\n\");` gibt Text aus – `\\n` ist der Zeilenumbruch."
+          ],
+          "points": 10,
+          "requiresPrevious": true,
+          "allowInternet": false,
+          "title": "Hallo Welt!",
+          "checks": [
+            {
+              "type": "c_tests",
+              "files": "main.c",
+              "flags": "-std=c11 -Wall -Wextra",
+              "noWarnings": false,
+              "timeout": 2,
+              "cases": [
+                {
+                  "name": "",
+                  "args": "",
+                  "stdin": "",
+                  "match": "exact",
+                  "hidden": false,
+                  "exitCode": null,
+                  "expected": "Hallo Welt!"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "description": "Gib zusätzlich – in einer **zweiten** Zeile – `Ich lerne C.` aus:\n\n```\nHallo Welt!\nIch lerne C.\n```",
+          "checkScript": "",
+          "hints": [],
+          "points": 10,
+          "requiresPrevious": true,
+          "allowInternet": false,
+          "title": "Mehrere Zeilen",
+          "checks": [
+            {
+              "type": "c_tests",
+              "files": "main.c",
+              "flags": "-std=c11 -Wall -Wextra",
+              "noWarnings": false,
+              "timeout": 2,
+              "cases": [
+                {
+                  "name": "",
+                  "args": "",
+                  "stdin": "",
+                  "match": "exact",
+                  "hidden": false,
+                  "exitCode": null,
+                  "expected": "Hallo Welt!\nIch lerne C."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "shell": "C",
+      "kind": "EXERCISE",
+      "setupInternet": false,
+      "variables": [],
+      "visibility": "SHARED",
+      "title": "C 02 · Rechnen mit Eingaben",
+      "slug": "c-02-rechnen",
+      "difficulty": 1,
+      "tags": [
+        "c",
+        "grundlagen",
+        "scanf",
+        "int",
+        "double"
+      ],
+      "description": "Zahlen mit `scanf` einlesen und damit rechnen. Die Prüfung startet dein Programm mehrmals mit verschiedenen Eingaben.\n\n> **So arbeitest du:** Oben ist der **Code-Editor** (speichert von selbst),\n> unten das Terminal. **Run** (oder `Strg+Enter`) kompiliert alle `.c`-Dateien\n> und startet `./main` – im Terminal siehst du den `gcc`-Befehl dazu.\n> Wartet dein Programm auf Eingabe, tippst du sie im Terminal ein.",
+      "setupScript": "cat > main.c <<'EOF'\n#include <stdio.h>\n\nint main(void) {\n    int a, b;\n    // Lies zwei ganze Zahlen ein und gib ihre Summe aus\n\n    return 0;\n}\nEOF",
+      "steps": [
+        {
+          "description": "Lies zwei ganze Zahlen ein und gib ihre Summe so aus:\n\n```\nEingabe: 3 4\nAusgabe: Summe: 7\n```\n\nIm Terminal: **Run**, dann `3 4` tippen und Enter.\nGib **nichts anderes** aus (keine Eingabeaufforderung wie „Zahl eingeben:“).",
+          "checkScript": "",
+          "hints": [
+            "`scanf(\"%d %d\", &a, &b);` liest zwei Zahlen – das `&` ist wichtig.",
+            "`printf(\"Summe: %d\\n\", a + b);`"
+          ],
+          "points": 10,
+          "requiresPrevious": true,
+          "allowInternet": false,
+          "title": "Summe",
+          "checks": [
+            {
+              "type": "c_tests",
+              "files": "main.c",
+              "flags": "-std=c11 -Wall -Wextra",
+              "noWarnings": false,
+              "timeout": 2,
+              "cases": [
+                {
+                  "name": "",
+                  "args": "",
+                  "stdin": "3 4\n",
+                  "match": "exact",
+                  "hidden": false,
+                  "exitCode": null,
+                  "expected": "Summe: 7"
+                },
+                {
+                  "name": "",
+                  "args": "",
+                  "stdin": "-5 12\n",
+                  "match": "exact",
+                  "hidden": false,
+                  "exitCode": null,
+                  "expected": "Summe: 7"
+                },
+                {
+                  "name": "",
+                  "args": "",
+                  "stdin": "1000000 2000000\n",
+                  "match": "exact",
+                  "hidden": true,
+                  "exitCode": null,
+                  "expected": "Summe: 3000000"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "description": "Gib nach der Summe auch Differenz, Produkt und den **genauen** Quotienten (2 Nachkommastellen) aus:\n\n```\nEingabe: 7 2\nAusgabe:\nSumme: 9\nDifferenz: 5\nProdukt: 14\nQuotient: 3.50\n```\n\nIst die zweite Zahl `0`, steht statt der Quotientenzeile `Quotient: nicht definiert`.",
+          "checkScript": "",
+          "hints": [
+            "`7 / 2` ist in C `3` (Ganzzahldivision). Rechne mit `(double)a / b`.",
+            "`printf(\"Quotient: %.2f\\n\", …);` – `%.2f` gibt 2 Nachkommastellen aus."
+          ],
+          "points": 10,
+          "requiresPrevious": true,
+          "allowInternet": false,
+          "title": "Alle Grundrechnungsarten",
+          "checks": [
+            {
+              "type": "c_tests",
+              "files": "main.c",
+              "flags": "-std=c11 -Wall -Wextra",
+              "noWarnings": false,
+              "timeout": 2,
+              "cases": [
+                {
+                  "name": "",
+                  "args": "",
+                  "stdin": "7 2\n",
+                  "match": "exact",
+                  "hidden": false,
+                  "exitCode": null,
+                  "expected": "Summe: 9\nDifferenz: 5\nProdukt: 14\nQuotient: 3.50"
+                },
+                {
+                  "name": "",
+                  "args": "",
+                  "stdin": "-9 4\n",
+                  "match": "exact",
+                  "hidden": false,
+                  "exitCode": null,
+                  "expected": "Summe: -5\nDifferenz: -13\nProdukt: -36\nQuotient: -2.25"
+                },
+                {
+                  "name": "Division durch 0",
+                  "args": "",
+                  "stdin": "5 0\n",
+                  "match": "exact",
+                  "hidden": false,
+                  "exitCode": null,
+                  "expected": "Summe: 5\nDifferenz: 5\nProdukt: 0\nQuotient: nicht definiert"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "shell": "C",
+      "kind": "EXERCISE",
+      "setupInternet": false,
+      "variables": [],
+      "visibility": "SHARED",
+      "title": "C 03 · Schleifen",
+      "slug": "c-03-schleifen",
+      "difficulty": 2,
+      "tags": [
+        "c",
+        "grundlagen",
+        "for",
+        "while",
+        "if"
+      ],
+      "description": "`for`-Schleifen und Bedingungen.\n\n> **So arbeitest du:** Oben ist der **Code-Editor** (speichert von selbst),\n> unten das Terminal. **Run** (oder `Strg+Enter`) kompiliert alle `.c`-Dateien\n> und startet `./main` – im Terminal siehst du den `gcc`-Befehl dazu.\n> Wartet dein Programm auf Eingabe, tippst du sie im Terminal ein.",
+      "setupScript": "cat > main.c <<'EOF'\n#include <stdio.h>\n\nint main(void) {\n    int n;\n    if (scanf(\"%d\", &n) != 1) {\n        return 1;\n    }\n    // ...\n    return 0;\n}\nEOF",
+      "steps": [
+        {
+          "description": "Lies eine Zahl `n` ein und gib die Summe `1 + 2 + … + n` aus:\n\n```\nEingabe: 4\nAusgabe: 10\n```\n\nFür `n < 1` ist die Summe `0`.",
+          "checkScript": "",
+          "hints": [
+            "`for (int i = 1; i <= n; i++) { summe += i; }`"
+          ],
+          "points": 10,
+          "requiresPrevious": true,
+          "allowInternet": false,
+          "title": "Summe 1 bis n",
+          "checks": [
+            {
+              "type": "c_tests",
+              "files": "main.c",
+              "flags": "-std=c11 -Wall -Wextra",
+              "noWarnings": false,
+              "timeout": 2,
+              "cases": [
+                {
+                  "name": "",
+                  "args": "",
+                  "stdin": "4\n",
+                  "match": "exact",
+                  "hidden": false,
+                  "exitCode": null,
+                  "expected": "10"
+                },
+                {
+                  "name": "",
+                  "args": "",
+                  "stdin": "1\n",
+                  "match": "exact",
+                  "hidden": false,
+                  "exitCode": null,
+                  "expected": "1"
+                },
+                {
+                  "name": "",
+                  "args": "",
+                  "stdin": "0\n",
+                  "match": "exact",
+                  "hidden": false,
+                  "exitCode": null,
+                  "expected": "0"
+                },
+                {
+                  "name": "",
+                  "args": "",
+                  "stdin": "1000\n",
+                  "match": "exact",
+                  "hidden": true,
+                  "exitCode": null,
+                  "expected": "500500"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "description": "Ersetze die Ausgabe: Gib für jede Zahl von `1` bis `n` eine Zeile aus –\n`Fizz`, wenn sie durch 3 teilbar ist, `Buzz` bei 5, `FizzBuzz` bei beidem, sonst die Zahl:\n\n```\nEingabe: 6\nAusgabe:\n1\n2\nFizz\n4\nBuzz\nFizz\n```",
+          "checkScript": "",
+          "hints": [
+            "`i % 3 == 0` prüft, ob `i` durch 3 teilbar ist.",
+            "Prüfe den Fall „durch 15 teilbar“ **zuerst**."
+          ],
+          "points": 10,
+          "requiresPrevious": true,
+          "allowInternet": false,
+          "title": "FizzBuzz",
+          "checks": [
+            {
+              "type": "c_tests",
+              "files": "main.c",
+              "flags": "-std=c11 -Wall -Wextra",
+              "noWarnings": false,
+              "timeout": 2,
+              "cases": [
+                {
+                  "name": "",
+                  "args": "",
+                  "stdin": "6\n",
+                  "match": "exact",
+                  "hidden": false,
+                  "exitCode": null,
+                  "expected": "1\n2\nFizz\n4\nBuzz\nFizz"
+                },
+                {
+                  "name": "",
+                  "args": "",
+                  "stdin": "15\n",
+                  "match": "exact",
+                  "hidden": false,
+                  "exitCode": null,
+                  "expected": "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz"
+                },
+                {
+                  "name": "",
+                  "args": "",
+                  "stdin": "100\n",
+                  "match": "regex",
+                  "hidden": true,
+                  "exitCode": null,
+                  "expected": "^Buzz$"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "shell": "C",
+      "kind": "EXERCISE",
+      "setupInternet": false,
+      "variables": [],
+      "visibility": "SHARED",
+      "title": "C 04 · Kommandozeilen-Argumente",
+      "slug": "c-04-argumente",
+      "difficulty": 2,
+      "tags": [
+        "c",
+        "grundlagen",
+        "argc",
+        "argv",
+        "strings"
+      ],
+      "description": "`main(int argc, char *argv[])` bekommt die Argumente des Programmaufrufs: `./main Anna Ben` → `argc == 3`, `argv[1]` ist `\"Anna\"`.\n\nIm Terminal startest du mit Argumenten so: `crun -- Anna Ben` (oder `./main Anna Ben`).\n\n> **So arbeitest du:** Oben ist der **Code-Editor** (speichert von selbst),\n> unten das Terminal. **Run** (oder `Strg+Enter`) kompiliert alle `.c`-Dateien\n> und startet `./main` – im Terminal siehst du den `gcc`-Befehl dazu.\n> Wartet dein Programm auf Eingabe, tippst du sie im Terminal ein.",
+      "setupScript": "cat > main.c <<'EOF'\n#include <stdio.h>\n\nint main(int argc, char *argv[]) {\n    // ...\n    return 0;\n}\nEOF",
+      "steps": [
+        {
+          "description": "Begrüße jede Person, die als Argument übergeben wird, in einer eigenen Zeile. Ohne Argumente gib `Niemand da.` aus und beende das Programm mit Rückgabewert `1`.\n\n```\n$ ./main Anna Ben\nHallo Anna!\nHallo Ben!\n$ ./main\nNiemand da.\n```",
+          "checkScript": "",
+          "hints": [
+            "`argv[0]` ist der Programmname – die Namen beginnen bei `argv[1]`.",
+            "`for (int i = 1; i < argc; i++) printf(\"Hallo %s!\\n\", argv[i]);`"
+          ],
+          "points": 10,
+          "requiresPrevious": true,
+          "allowInternet": false,
+          "title": "Alle begrüßen",
+          "checks": [
+            {
+              "type": "c_tests",
+              "files": "main.c",
+              "flags": "-std=c11 -Wall -Wextra",
+              "noWarnings": false,
+              "timeout": 2,
+              "cases": [
+                {
+                  "name": "",
+                  "args": "Anna Ben",
+                  "stdin": "",
+                  "match": "exact",
+                  "hidden": false,
+                  "exitCode": null,
+                  "expected": "Hallo Anna!\nHallo Ben!"
+                },
+                {
+                  "name": "",
+                  "args": "'Max Muster'",
+                  "stdin": "",
+                  "match": "exact",
+                  "hidden": false,
+                  "exitCode": null,
+                  "expected": "Hallo Max Muster!"
+                },
+                {
+                  "name": "ohne Argumente",
+                  "args": "",
+                  "stdin": "",
+                  "match": "exact",
+                  "hidden": false,
+                  "exitCode": 1,
+                  "expected": "Niemand da."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "description": "Gib danach zusätzlich den längsten Namen aus (bei Gleichstand den ersten):\n\n```\n$ ./main Anna Bernhard Eva\nHallo Anna!\nHallo Bernhard!\nHallo Eva!\nLängster Name: Bernhard\n```",
+          "checkScript": "",
+          "hints": [
+            "`strlen(argv[i])` aus `<string.h>` liefert die Länge."
+          ],
+          "points": 10,
+          "requiresPrevious": true,
+          "allowInternet": false,
+          "title": "Längster Name",
+          "checks": [
+            {
+              "type": "c_tests",
+              "files": "main.c",
+              "flags": "-std=c11 -Wall -Wextra",
+              "noWarnings": false,
+              "timeout": 2,
+              "cases": [
+                {
+                  "name": "",
+                  "args": "Anna Bernhard Eva",
+                  "stdin": "",
+                  "match": "exact",
+                  "hidden": false,
+                  "exitCode": null,
+                  "expected": "Hallo Anna!\nHallo Bernhard!\nHallo Eva!\nLängster Name: Bernhard"
+                },
+                {
+                  "name": "",
+                  "args": "Ida Tom",
+                  "stdin": "",
+                  "match": "exact",
+                  "hidden": false,
+                  "exitCode": null,
+                  "expected": "Hallo Ida!\nHallo Tom!\nLängster Name: Ida"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "shell": "C",
+      "kind": "EXERCISE",
+      "setupInternet": false,
+      "variables": [],
+      "visibility": "SHARED",
+      "title": "C 05 · Arrays",
+      "slug": "c-05-arrays",
+      "difficulty": 3,
+      "tags": [
+        "c",
+        "grundlagen",
+        "arrays",
+        "statistik"
+      ],
+      "description": "Zahlen in einem Array speichern und auswerten. Die Eingabe beginnt mit der Anzahl `n` (höchstens 100), danach folgen `n` ganze Zahlen.\n\n> **So arbeitest du:** Oben ist der **Code-Editor** (speichert von selbst),\n> unten das Terminal. **Run** (oder `Strg+Enter`) kompiliert alle `.c`-Dateien\n> und startet `./main` – im Terminal siehst du den `gcc`-Befehl dazu.\n> Wartet dein Programm auf Eingabe, tippst du sie im Terminal ein.",
+      "setupScript": "cat > main.c <<'EOF'\n#include <stdio.h>\n\n#define MAX 100\n\nint main(void) {\n    int zahlen[MAX];\n    int n;\n    if (scanf(\"%d\", &n) != 1 || n < 1 || n > MAX) {\n        printf(\"Ungültige Anzahl\\n\");\n        return 1;\n    }\n    // Zahlen einlesen ...\n\n    return 0;\n}\nEOF",
+      "steps": [
+        {
+          "description": "Gib Minimum, Maximum und den Durchschnitt (2 Nachkommastellen) aus:\n\n```\nEingabe: 5  3 9 1 4 7\nAusgabe:\nMin: 1\nMax: 9\nSchnitt: 4.80\n```",
+          "checkScript": "",
+          "hints": [
+            "Starte mit `min = max = zahlen[0]` und vergleiche dann alle anderen.",
+            "Durchschnitt: `(double)summe / n`."
+          ],
+          "points": 10,
+          "requiresPrevious": true,
+          "allowInternet": false,
+          "title": "Minimum, Maximum, Durchschnitt",
+          "checks": [
+            {
+              "type": "c_tests",
+              "files": "main.c",
+              "flags": "-std=c11 -Wall -Wextra",
+              "noWarnings": false,
+              "timeout": 2,
+              "cases": [
+                {
+                  "name": "",
+                  "args": "",
+                  "stdin": "5\n3 9 1 4 7\n",
+                  "match": "exact",
+                  "hidden": false,
+                  "exitCode": null,
+                  "expected": "Min: 1\nMax: 9\nSchnitt: 4.80"
+                },
+                {
+                  "name": "",
+                  "args": "",
+                  "stdin": "1\n-4\n",
+                  "match": "exact",
+                  "hidden": false,
+                  "exitCode": null,
+                  "expected": "Min: -4\nMax: -4\nSchnitt: -4.00"
+                },
+                {
+                  "name": "",
+                  "args": "",
+                  "stdin": "3\n-1 -2 -3\n",
+                  "match": "exact",
+                  "hidden": true,
+                  "exitCode": null,
+                  "expected": "Min: -3\nMax: -1\nSchnitt: -2.00"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "description": "Gib danach die Zahlen **rückwärts** und dann **aufsteigend sortiert** aus (durch ein Leerzeichen getrennt):\n\n```\nEingabe: 5  3 9 1 4 7\nAusgabe:\nMin: 1\nMax: 9\nSchnitt: 4.80\nRueckwaerts: 7 4 1 9 3\nSortiert: 1 3 4 7 9\n```",
+          "checkScript": "",
+          "hints": [
+            "Sortieren ohne Bibliothek: Bubblesort – zwei verschachtelte Schleifen, benachbarte Elemente tauschen.",
+            "Kein Leerzeichen am Zeilenende? Egal – Leerzeichen am Ende werden ignoriert."
+          ],
+          "points": 10,
+          "requiresPrevious": true,
+          "allowInternet": false,
+          "title": "Rückwärts und sortiert",
+          "checks": [
+            {
+              "type": "c_tests",
+              "files": "main.c",
+              "flags": "-std=c11 -Wall -Wextra",
+              "noWarnings": false,
+              "timeout": 2,
+              "cases": [
+                {
+                  "name": "",
+                  "args": "",
+                  "stdin": "5\n3 9 1 4 7\n",
+                  "match": "exact",
+                  "hidden": false,
+                  "exitCode": null,
+                  "expected": "Min: 1\nMax: 9\nSchnitt: 4.80\nRueckwaerts: 7 4 1 9 3\nSortiert: 1 3 4 7 9"
+                },
+                {
+                  "name": "",
+                  "args": "",
+                  "stdin": "4\n2 2 -1 0\n",
+                  "match": "exact",
+                  "hidden": false,
+                  "exitCode": null,
+                  "expected": "Min: -1\nMax: 2\nSchnitt: 0.75\nRueckwaerts: 0 -1 2 2\nSortiert: -1 0 2 2"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "shell": "C",
+      "kind": "EXERCISE",
+      "setupInternet": false,
+      "variables": [],
+      "visibility": "SHARED",
+      "title": "C 06 · Funktionen und mehrere Dateien",
+      "slug": "c-06-funktionen",
+      "difficulty": 3,
+      "tags": [
+        "c",
+        "grundlagen",
+        "funktionen",
+        "header",
+        "make"
+      ],
+      "description": "Eigene Funktionen schreiben und auf mehrere Dateien aufteilen. Neue Dateien legst du im Editor mit dem **+**-Symbol an.\n\n> **So arbeitest du:** Oben ist der **Code-Editor** (speichert von selbst),\n> unten das Terminal. **Run** (oder `Strg+Enter`) kompiliert alle `.c`-Dateien\n> und startet `./main` – im Terminal siehst du den `gcc`-Befehl dazu.\n> Wartet dein Programm auf Eingabe, tippst du sie im Terminal ein.",
+      "setupScript": "cat > main.c <<'EOF'\n#include <stdio.h>\n\n// int ggt(int a, int b) { ... }\n\nint main(void) {\n    int a, b;\n    if (scanf(\"%d %d\", &a, &b) != 2) {\n        return 1;\n    }\n    // printf(\"ggT: %d\\n\", ggt(a, b));\n    return 0;\n}\nEOF",
+      "steps": [
+        {
+          "description": "Schreibe eine Funktion `int ggt(int a, int b)`, die den größten gemeinsamen Teiler zweier positiver Zahlen berechnet (Euklid), und gib ihn aus:\n\n```\nEingabe: 12 18\nAusgabe: ggT: 6\n```",
+          "checkScript": "",
+          "hints": [
+            "Euklid: solange `b != 0`: `r = a % b; a = b; b = r;` – dann ist `a` der ggT."
+          ],
+          "points": 10,
+          "requiresPrevious": true,
+          "allowInternet": false,
+          "title": "ggT als Funktion",
+          "checks": [
+            {
+              "type": "c_tests",
+              "files": "main.c",
+              "flags": "-std=c11 -Wall -Wextra",
+              "noWarnings": false,
+              "timeout": 2,
+              "cases": [
+                {
+                  "name": "",
+                  "args": "",
+                  "stdin": "12 18\n",
+                  "match": "exact",
+                  "hidden": false,
+                  "exitCode": null,
+                  "expected": "ggT: 6"
+                },
+                {
+                  "name": "",
+                  "args": "",
+                  "stdin": "17 5\n",
+                  "match": "exact",
+                  "hidden": false,
+                  "exitCode": null,
+                  "expected": "ggT: 1"
+                },
+                {
+                  "name": "",
+                  "args": "",
+                  "stdin": "100 75\n",
+                  "match": "exact",
+                  "hidden": true,
+                  "exitCode": null,
+                  "expected": "ggT: 25"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "description": "Verschiebe `ggt` in eine eigene Datei `mathe.c` und schreibe den Prototyp in `mathe.h`. `main.c` bindet nur noch `#include \"mathe.h\"` ein.\n\nErgänze in `mathe.c` außerdem `int kgv(int a, int b)` (kleinstes gemeinsames Vielfaches) und gib beides aus:\n\n```\nEingabe: 4 6\nAusgabe:\nggT: 2\nkgV: 12\n```\n\n**Run** kompiliert alle `.c`-Dateien im Ordner zusammen – im Terminal siehst du, wie: `gcc … -o main main.c mathe.c`.",
+          "checkScript": "",
+          "hints": [
+            "`mathe.h` enthält nur `int ggt(int a, int b);` und `int kgv(int a, int b);`.",
+            "kgV = a / ggT(a, b) * b"
+          ],
+          "points": 10,
+          "requiresPrevious": true,
+          "allowInternet": false,
+          "title": "Eigene Datei: mathe.c / mathe.h",
+          "checks": [
+            {
+              "type": "file_exists",
+              "path": "mathe.c",
+              "kind": "file"
+            },
+            {
+              "type": "file_exists",
+              "path": "mathe.h",
+              "kind": "file"
+            },
+            {
+              "type": "file_content",
+              "path": "main.c",
+              "match": "regex",
+              "value": "#include[[:space:]]*\"mathe\\.h\"",
+              "message": "main.c soll mathe.h einbinden."
+            },
+            {
+              "type": "file_content",
+              "path": "mathe.c",
+              "match": "regex",
+              "value": "int[[:space:]]+kgv[[:space:]]*\\(",
+              "message": "In mathe.c fehlt die Funktion kgv."
+            },
+            {
+              "type": "c_tests",
+              "files": "main.c mathe.c",
+              "flags": "-std=c11 -Wall -Wextra",
+              "noWarnings": false,
+              "timeout": 2,
+              "cases": [
+                {
+                  "name": "",
+                  "args": "",
+                  "stdin": "4 6\n",
+                  "match": "exact",
+                  "hidden": false,
+                  "exitCode": null,
+                  "expected": "ggT: 2\nkgV: 12"
+                },
+                {
+                  "name": "",
+                  "args": "",
+                  "stdin": "21 6\n",
+                  "match": "exact",
+                  "hidden": false,
+                  "exitCode": null,
+                  "expected": "ggT: 3\nkgV: 42"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

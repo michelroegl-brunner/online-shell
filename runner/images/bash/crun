@@ -1,0 +1,32 @@
+#!/bin/bash
+# crun — compile the C program in this folder and run it.
+#   crun                 all *.c files here → ./main, then run ./main
+#   crun a.c b.c         only these files
+#   crun -- 3 4          pass arguments to the program (after --)
+# Prints the gcc command it runs, so you can type it yourself later.
+# CFLAGS overrides the default flags.
+files=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --) shift; break ;;
+    *) files+=("$1"); shift ;;
+  esac
+done
+if [ ${#files[@]} -eq 0 ]; then
+  shopt -s nullglob
+  files=(*.c)
+fi
+if [ ${#files[@]} -eq 0 ]; then
+  echo "crun: no .c files in $(pwd)" >&2
+  exit 1
+fi
+flags=${CFLAGS:--std=c11 -Wall -Wextra -g}
+# shellcheck disable=SC2086
+cmd=(gcc $flags -o main "${files[@]}" -lm)
+printf '\033[2m$ %s\033[0m\n' "${cmd[*]}"
+"${cmd[@]}" || exit $?
+printf '\033[2m$ ./main%s\033[0m\n' "${*:+ $*}"
+./main "$@"
+rc=$?
+[ $rc -ne 0 ] && printf '\033[2m(exit code %d)\033[0m\n' "$rc"
+exit $rc

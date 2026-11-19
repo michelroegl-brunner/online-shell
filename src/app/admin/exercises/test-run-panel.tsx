@@ -21,6 +21,7 @@ import {
 } from "~/components/ui/select";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { type ShellKind } from "~/lib/shell";
 
 type Result = {
   label: string;
@@ -46,7 +47,7 @@ export function TestRunPanel({
 }: {
   exerciseId: string;
   slug: string;
-  shell: "BASH" | "PWSH";
+  shell: ShellKind;
   /** A step has internet access: the test terminal gets it too. */
   internet: boolean;
   /** Saved steps, in order. */

@@ -1,4 +1,4 @@
-# Student box for Bash exercises.
+# Student box for Bash and C exercises (gcc, make, gdb, valgrind).
 # The runner starts it with: no network (a step with internet access
 # connects it to the internet network for a while), read-only rootfs,
 # tmpfs /tmp + /run, a per-student volume at /home/student, dropped caps, no-new-privileges.
@@ -12,6 +12,7 @@ RUN apt-get update \
       less nano vim tree jq file procps psmisc bc zip unzip tar gzip \
       man-db manpages ca-certificates git \
       wget curl iputils-ping dnsutils netcat-openbsd \
+      gcc libc6-dev make gdb valgrind manpages-dev \
  && rm -rf /var/lib/apt/lists/*
 
 # Git defaults for the lessons: `main` as first branch, vim for commit/merge
@@ -23,6 +24,8 @@ RUN git config --system init.defaultBranch main \
  && git config --system pull.rebase false
 
 COPY --chmod=755 oshell-git /usr/local/bin/oshell-git
+# C exercises: compile + run (the editor's Run button types `crun`).
+COPY --chmod=755 crun /usr/local/bin/crun
 
 # Non-root student user (uid 1000). Home is replaced by the per-student
 # volume; Docker copies this image's /home/student into a NEW empty volume,

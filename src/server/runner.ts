@@ -3,10 +3,18 @@ import "server-only";
 import { SignJWT } from "jose";
 
 import { env } from "~/env";
+import { terminalShell, type ShellKind } from "~/lib/shell";
 
 /** Client for the runner service (runner/). See runner/src/index.ts. */
 
-export type ShellKind = "BASH" | "PWSH";
+export type { ShellKind };
+
+/**
+ * The runner only knows BASH and PWSH boxes; C exercises run in the bash
+ * box (see src/lib/shell.ts), so every shell is mapped before it's sent.
+ */
+const box = (s: ShellKind | undefined) =>
+  s === undefined ? undefined : terminalShell(s);
 
 export type ExtrasStatus = {
   status: "idle" | "building" | "failed";
@@ -16,7 +24,7 @@ export type ExtrasStatus = {
   startedAt: number | null;
   finishedAt: number | null;
   error: string | null;
-  images: { shell: ShellKind; image: string; fresh: boolean }[];
+  images: { shell: "BASH" | "PWSH"; image: string; fresh: boolean }[];
 };
 
 const secret = new TextEncoder().encode(env.RUNNER_SECRET);
@@ -42,7 +50,7 @@ async function call<T>(method: string, path: string, body?: unknown) {
 export const runner = {
   /** Without `shell`, any running box is reused as it is. */
   ensureBox: (userId: string, shell?: ShellKind) =>
-    call<{ box: string }>("POST", "/boxes", { userId, shell }),
+    call<{ box: string }>("POST", "/boxes", { userId, shell: box(shell) }),
 
   /** Raw response: a file's bytes, or a .tar.gz of a folder (x-oshell-kind). */
   download: (userId: string, path: string, signal?: AbortSignal) =>
@@ -74,7 +82,10 @@ export const runner = {
       stdout: string;
       stderr: string;
       timedOut: boolean;
-    }>("POST", `/boxes/${encodeURIComponent(userId)}/exec`, opts),
+    }>("POST", `/boxes/${encodeURIComponent(userId)}/exec`, {
+      ...opts,
+      shell: box(opts.shell),
+    }),
 
   /** Connect the box to the internet or take it offline again. */
   setInternet: (userId: string, online: boolean) =>
@@ -88,7 +99,7 @@ export const runner = {
   tools: (shell: ShellKind) =>
     call<{ image: string; binaries: string[]; packages: string[] }>(
       "GET",
-      `/images/${shell}/tools`,
+      `/images/${terminalShell(shell)}/tools`,
     ),
 
   /** Admin's extra apt packages and the image build status. */
@@ -154,7 +165,7 @@ export const runner = {
     internet = false,
   ) {
     const token = await new SignJWT({
-      shell,
+      shell: terminalShell(shell),
       ...(internet ? { internet: true } : {}),
       ...(cwd ? { cwd } : {}),
       // paste:false → the runner rate-limits / drops paste-like input.

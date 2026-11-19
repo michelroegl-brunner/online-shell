@@ -19,6 +19,7 @@ import { formatDateTime } from "~/lib/format";
 import { cn } from "~/lib/utils";
 import { getCurrentUser } from "~/server/auth/current-user";
 import { api } from "~/trpc/server";
+import { SHELL_TAG } from "~/lib/shell";
 
 export default async function AssignmentPage({
   params,
@@ -135,7 +136,7 @@ export default async function AssignmentPage({
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
                       {lesson && <LessonBadge />}
                       <Badge variant="secondary" className="font-mono">
-                        {item.shell === "BASH" ? "bash" : "pwsh"}
+                        {SHELL_TAG[item.shell]}
                       </Badge>
                       {item.tags.slice(0, 4).map((t) => (
                         <Badge key={t} variant="outline" className="text-xs">

@@ -19,6 +19,7 @@ import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { TERMINAL_LINE_HEIGHT, terminalFontFamily } from "./font";
+import { type ShellKind } from "~/lib/shell";
 
 type Status = "connecting" | "ready" | "closed" | "error";
 
@@ -30,6 +31,15 @@ export type ShellTerminalHandle = {
    * notice was shown); "offline": the shell isn't connected.
    */
   sendText: (text: string) => "sent" | "blocked" | "offline";
+  /**
+   * C editor's Run button: the runner interrupts what runs and types the
+   * fixed command `crun` (allowed even when pasting is off).
+   */
+  run: () => "sent" | "offline";
+  /** Is pasting off right now (no-paste assignment)? */
+  isPasteBlocked: () => boolean;
+  /** A paste elsewhere (code editor) was blocked: tell student + teacher. */
+  pasteWasBlocked: (reason: "paste" | "drop", bytes: number) => void;
 };
 
 /**
@@ -45,7 +55,7 @@ export function ShellTerminal({
   onCommand,
   ref,
 }: {
-  shell?: "BASH" | "PWSH";
+  shell?: ShellKind;
   /** Exercise slug: start the shell in ~/exercises/<slug>. */
   exercise?: string;
   /**
@@ -324,8 +334,20 @@ export function ShellTerminal({
         term.focus();
         return "sent";
       },
+      run: () => {
+        const ws = wsRef.current;
+        if (ws?.readyState !== WebSocket.OPEN) return "offline";
+        ws.send(JSON.stringify({ type: "run", what: "crun" }));
+        termRef.current?.focus();
+        return "sent";
+      },
+      isPasteBlocked: () => pasteBlockedRef.current,
+      pasteWasBlocked: (reason, bytes) => {
+        notifyPasteBlocked();
+        reportPasteAttempt(reason, bytes);
+      },
     }),
-    [notifyPasteBlocked],
+    [notifyPasteBlocked, reportPasteAttempt],
   );
 
   const reconnect = useCallback(() => {

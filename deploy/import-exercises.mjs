@@ -17,7 +17,9 @@ const { PrismaPg } = require("@prisma/adapter-pg");
 const [file, email, ...flags] = process.argv.slice(2);
 const overwrite = flags.includes("--overwrite");
 if (!file || !email) {
-  console.error("usage: node deploy/import-exercises.mjs <bundle.json> <author-email> [--overwrite]");
+  console.error(
+    "usage: node deploy/import-exercises.mjs <bundle.json> <author-email> [--overwrite]",
+  );
   process.exit(2);
 }
 if (!process.env.DATABASE_URL) {
@@ -27,25 +29,42 @@ if (!process.env.DATABASE_URL) {
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const bundle = JSON.parse(readFileSync(file, "utf8"));
-if (bundle.format !== "online-shell-exercises" || bundle.version !== 1 || !Array.isArray(bundle.exercises)) {
+if (
+  bundle.format !== "online-shell-exercises" ||
+  bundle.version !== 1 ||
+  !Array.isArray(bundle.exercises)
+) {
   console.error("not an online-shell-exercises v1 bundle");
   process.exit(2);
 }
 for (const ex of bundle.exercises) {
   const ok =
-    typeof ex.title === "string" && SLUG_RE.test(ex.slug ?? "") &&
-    ["BASH", "PWSH"].includes(ex.shell) && [undefined, "EXERCISE", "LESSON"].includes(ex.kind) &&
-    Array.isArray(ex.steps) && ex.steps.length > 0 &&
-    ex.steps.every((s) => typeof s.title === "string" && typeof s.checkScript === "string" && Number.isInteger(s.points));
+    typeof ex.title === "string" &&
+    SLUG_RE.test(ex.slug ?? "") &&
+    ["BASH", "PWSH", "C"].includes(ex.shell) &&
+    [undefined, "EXERCISE", "LESSON"].includes(ex.kind) &&
+    Array.isArray(ex.steps) &&
+    ex.steps.length > 0 &&
+    ex.steps.every(
+      (s) =>
+        typeof s.title === "string" &&
+        typeof s.checkScript === "string" &&
+        Number.isInteger(s.points),
+    );
   if (!ok) {
     console.error(`invalid exercise: ${ex.slug ?? ex.title}`);
     process.exit(2);
   }
 }
 
-const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
+const db = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+});
 try {
-  const author = await db.user.findUnique({ where: { email: email.toLowerCase() }, select: { id: true, role: true } });
+  const author = await db.user.findUnique({
+    where: { email: email.toLowerCase() },
+    select: { id: true, role: true },
+  });
   if (!author || author.role === "STUDENT") {
     console.error(`no teacher/admin with email ${email} (sign in once first)`);
     process.exit(1);
@@ -81,12 +100,20 @@ try {
     };
     const existing = await db.exercise.findUnique({
       where: { slug: ex.slug },
-      select: { id: true, authorId: true, steps: { orderBy: { order: "asc" }, select: { id: true } } },
+      select: {
+        id: true,
+        authorId: true,
+        steps: { orderBy: { order: "asc" }, select: { id: true } },
+      },
     });
 
     if (!existing) {
       await db.exercise.create({
-        data: { ...fields, authorId: author.id, steps: { create: ex.steps.map(pickStep) } },
+        data: {
+          ...fields,
+          authorId: author.id,
+          steps: { create: ex.steps.map(pickStep) },
+        },
       });
       console.log(`created  ${ex.slug} (${ex.steps.length} steps)`);
       continue;
@@ -104,10 +131,19 @@ try {
       ...ex.steps.map((s, order) => {
         const stepId = existing.steps[order]?.id;
         return stepId
-          ? db.exerciseStep.update({ where: { id: stepId }, data: pickStep(s, order) })
-          : db.exerciseStep.create({ data: { ...pickStep(s, order), exerciseId: existing.id } });
+          ? db.exerciseStep.update({
+              where: { id: stepId },
+              data: pickStep(s, order),
+            })
+          : db.exerciseStep.create({
+              data: { ...pickStep(s, order), exerciseId: existing.id },
+            });
       }),
-      db.exerciseStep.deleteMany({ where: { id: { in: existing.steps.slice(ex.steps.length).map((s) => s.id) } } }),
+      db.exerciseStep.deleteMany({
+        where: {
+          id: { in: existing.steps.slice(ex.steps.length).map((s) => s.id) },
+        },
+      }),
     ]);
     console.log(`updated  ${ex.slug} (${ex.steps.length} steps)`);
   }

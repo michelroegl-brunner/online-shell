@@ -20,8 +20,9 @@ import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ShellBadge } from "../exercises/exercise-list";
 import { BuiltinImport } from "./builtin-import";
+import { type ShellKind } from "~/lib/shell";
 
-type ShellFilter = "ALL" | "BASH" | "PWSH";
+type ShellFilter = "ALL" | ShellKind;
 
 export function CheatSheetList() {
   const router = useRouter();
@@ -69,6 +70,7 @@ export function CheatSheetList() {
               ["ALL", "All"],
               ["BASH", "Bash"],
               ["PWSH", "PowerShell"],
+              ["C", "C"],
             ] as const
           ).map(([v, label]) => (
             <button

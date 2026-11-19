@@ -22,6 +22,13 @@ solutions: `content/exercises/bash-sytb.solutions.md`. Downloads from the notes 
 `sysroot/` copy of `/etc/passwd` + `/etc/shadow` because students aren't root. The WSL chapter is
 left out (Windows host administration, not doable in a box).
 
+**C (German)** – `content/exercises/c-grundlagen.json`: six C exercises (`"shell": "C"`, code editor +
+terminal) from Hallo Welt to functions in several files (`c-01-hallo-welt` … `c-06-funktionen`), checked
+with **C test cases** (stdin/arguments → expected output, some hidden). All `SHARED`. Reference
+solutions: `content/exercises/c-grundlagen.solutions.md` (every test case passes against them).
+Cheat sheet: `content/cheatsheets/c-grundlagen.md`. Needs gcc in the student image
+(`runner/images/bash/Dockerfile`).
+
 `content/lessons/git.json` holds five Git lessons (German, Bash shell), meant to be done in order:
 first repository → branches & merge → merge conflicts → remotes (clone/push/pull, with a local
 bare repo `server/projekt.git` standing in for GitHub, since the box has no network) → undoing

@@ -36,12 +36,13 @@ import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ExerciseSelection } from "./exercise-selection";
 import { fromLocalInput, toLocalInput } from "./format";
+import { type ShellKind } from "~/lib/shell";
 
 export type EditorItem = {
   exerciseId: string;
   title: string;
   slug: string;
-  shell: "BASH" | "PWSH";
+  shell: ShellKind;
   /** Lessons are worth 0 points (no points field). */
   kind: "EXERCISE" | "LESSON";
   defaultPoints: number;

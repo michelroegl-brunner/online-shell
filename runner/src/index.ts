@@ -282,7 +282,8 @@ const server = createServer((req, res) => {
 // ── terminal WebSocket: /attach?token=…&cols=…&rows=… ──
 // Protocol: binary frames = terminal bytes (both directions);
 // text frames client→server = JSON control ({type:"resize",cols,rows} /
-//   {type:"paste-attempt",reason,bytes} when the browser blocked a paste);
+//   {type:"paste-attempt",reason,bytes} when the browser blocked a paste /
+//   {type:"run",what:"crun"} from the C editor's Run button);
 // text frames server→client = JSON status ({type:"ready"} / {type:"exit"}),
 //   plus watch/take-over notices (see watch.ts).
 
@@ -374,7 +375,13 @@ const controlMsg = z.discriminatedUnion("type", [
   // Take over (watch.ts): the student answers a teacher's request / ends it.
   z.object({ type: z.literal("control-response"), allow: z.boolean() }),
   z.object({ type: z.literal("control-revoke") }),
+  // C editor's Run button: interrupt what runs, then type a FIXED command
+  // (never client text, so this is no way around the paste rules).
+  z.object({ type: z.literal("run"), what: z.literal("crun") }),
 ]);
+
+/** Commands the "run" control message may type, by name. */
+const RUN_COMMANDS = { crun: "crun\r" } as const;
 
 async function attach(
   ws: WebSocket,
@@ -478,6 +485,14 @@ async function attach(
         controlResponse(session, msg.allow);
       } else if (msg.type === "control-revoke") {
         controlRevoke(session);
+      } else if (msg.type === "run") {
+        touch(userId);
+        // Ctrl+C first (a running program / a half-typed line); the tty
+        // drops pending input on SIGINT, so type the command a bit later.
+        stream.write("\x03");
+        setTimeout(() => {
+          if (ws.readyState === ws.OPEN) stream.write(RUN_COMMANDS[msg.what]);
+        }, 150);
       } else if (pasteBlocked()) report.add(msg.reason, msg.bytes);
     } catch {
       /* ignore unknown control messages */

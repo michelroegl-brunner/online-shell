@@ -23,6 +23,7 @@ import { cn } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { Segmented, ShellBadge } from "../exercises/exercise-list";
 import type { EditorItem } from "./assignment-editor";
+import { type ShellKind } from "~/lib/shell";
 
 type LibraryRow = RouterOutputs["exercise"]["list"][number];
 
@@ -312,7 +313,7 @@ function SelectedList({
 
 /* ----------------------------------------------------------------- library */
 
-type ShellFilter = "ALL" | "BASH" | "PWSH";
+type ShellFilter = "ALL" | ShellKind;
 type KindFilter = "ALL" | "EXERCISE" | "LESSON";
 
 function Library({
@@ -396,6 +397,7 @@ function Library({
             ["ALL", "All"],
             ["BASH", "bash"],
             ["PWSH", "pwsh"],
+            ["C", "c"],
           ]}
         />
         <Segmented

@@ -22,6 +22,8 @@ enum Role {
 enum ShellKind {
   BASH
   PWSH
+  /// C programs, compiled with gcc in the bash box (code editor + terminal)
+  C
 }
 
 enum Visibility {

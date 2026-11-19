@@ -8,6 +8,7 @@ import {
   teacherProcedure,
 } from "~/server/api/trpc";
 import { runner } from "~/server/runner";
+import { SHELL_KINDS } from "~/lib/shell";
 
 /**
  * Tools in the student boxes: what's installed (for exercise authors) and
@@ -29,7 +30,7 @@ async function guard<T>(fn: () => Promise<T>): Promise<T> {
 export const toolsRouter = createTRPCRouter({
   /** Executables and apt packages that new boxes of this shell get. */
   installed: teacherProcedure
-    .input(z.object({ shell: z.enum(["BASH", "PWSH"]) }))
+    .input(z.object({ shell: z.enum(SHELL_KINDS) }))
     .query(({ input }) => guard(() => runner.tools(input.shell))),
 
   /** Extra packages + build status (teachers see it, admins change it). */

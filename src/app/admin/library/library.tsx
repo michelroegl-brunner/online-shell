@@ -13,9 +13,10 @@ import { Input } from "~/components/ui/input";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ShellBadge } from "../exercises/exercise-list";
+import { type ShellKind } from "~/lib/shell";
 
 type Sort = "popular" | "new" | "title";
-type ShellFilter = "ALL" | "BASH" | "PWSH";
+type ShellFilter = "ALL" | ShellKind;
 
 export function Library() {
   const router = useRouter();
@@ -67,6 +68,7 @@ export function Library() {
             ["ALL", "All"],
             ["BASH", "Bash"],
             ["PWSH", "PowerShell"],
+            ["C", "C"],
           ]}
         />
         <Segmented

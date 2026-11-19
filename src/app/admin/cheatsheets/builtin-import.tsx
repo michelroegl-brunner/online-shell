@@ -16,6 +16,7 @@ import {
   DialogTrigger,
 } from "~/components/ui/dialog";
 import { api } from "~/trpc/react";
+import { SHELL_TAG } from "~/lib/shell";
 
 const STATUS = {
   missing: { label: "new", variant: "default" },
@@ -90,7 +91,7 @@ export function BuiltinImport() {
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-medium">{r.title}</div>
                   <div className="text-muted-foreground truncate font-mono text-xs">
-                    {r.slug} · {r.shell === "BASH" ? "bash" : "pwsh"}
+                    {r.slug} · {SHELL_TAG[r.shell]}
                   </div>
                 </div>
                 <Badge variant={STATUS[r.status].variant}>

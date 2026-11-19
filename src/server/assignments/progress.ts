@@ -4,6 +4,7 @@ import { type db as dbType } from "~/server/db";
 import { isLesson, itemMaxPoints, itemScore, stepEarned } from "./scoring";
 import { assignmentWhereVisibleTo } from "./visibility";
 import { effectiveDueAt, windowState } from "./window";
+import { type ShellKind } from "~/lib/shell";
 
 type Db = typeof dbType;
 
@@ -32,7 +33,7 @@ export type PracticeItem = {
   itemId: string;
   title: string;
   assignment: string;
-  shell: "BASH" | "PWSH";
+  shell: ShellKind;
   difficulty: number;
   stepsPassed: number;
   steps: number;

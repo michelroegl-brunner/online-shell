@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Trash2 } from "lucide-react";
+import { EyeOff, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -9,6 +9,8 @@ import {
   CHECK_TYPES,
   MATCH_MODES,
   newCheck,
+  newCTestCase,
+  type CTestCase,
   type MatchMode,
   type StepCheck,
 } from "~/lib/checks";
@@ -173,6 +175,8 @@ function CheckFields({
           />
         </>
       );
+    case "c_tests":
+      return <CTestsFields check={c} onChange={onChange} />;
     case "command_used":
       return (
         <div className="flex flex-wrap items-center gap-3">
@@ -218,5 +222,182 @@ function MatchSelect({
         </option>
       ))}
     </select>
+  );
+}
+
+function CTestsFields({
+  check: c,
+  onChange,
+}: {
+  check: Extract<StepCheck, { type: "c_tests" }>;
+  onChange: (c: StepCheck) => void;
+}) {
+  const patchCase = (i: number, t: CTestCase) =>
+    onChange({ ...c, cases: c.cases.map((x, j) => (j === i ? t : x)) });
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+        <label className="flex flex-col gap-1 text-xs">
+          <span className="text-muted-foreground">Source files</span>
+          <Input
+            className="font-mono"
+            placeholder="main.c util.c"
+            value={c.files}
+            onChange={(e) => onChange({ ...c, files: e.target.value })}
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs">
+          <span className="text-muted-foreground">
+            gcc flags (-lm is always added)
+          </span>
+          <Input
+            className="font-mono"
+            value={c.flags}
+            onChange={(e) => onChange({ ...c, flags: e.target.value })}
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs">
+          <span className="text-muted-foreground">Seconds per test</span>
+          <Input
+            type="number"
+            min={1}
+            max={10}
+            className="w-24"
+            value={c.timeout}
+            onChange={(e) =>
+              onChange({
+                ...c,
+                timeout: Math.min(10, Math.max(1, Number(e.target.value) || 1)),
+              })
+            }
+          />
+        </label>
+      </div>
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          className="accent-primary size-4"
+          checked={c.noWarnings}
+          onChange={(e) => onChange({ ...c, noWarnings: e.target.checked })}
+        />
+        Compiler warnings fail the check (-Werror)
+      </label>
+
+      <ol className="flex flex-col gap-2">
+        {c.cases.map((t, i) => (
+          <li
+            key={i}
+            className="bg-muted/30 flex flex-col gap-2 rounded-md p-2"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-muted-foreground w-14 text-xs">
+                Test {i + 1}
+              </span>
+              <Input
+                className="h-8 min-w-32 flex-1"
+                placeholder={`Name (default: Test ${i + 1})`}
+                value={t.name}
+                onChange={(e) => patchCase(i, { ...t, name: e.target.value })}
+              />
+              <Input
+                className="h-8 min-w-32 flex-1 font-mono"
+                placeholder="Arguments, e.g. 3 'two words'"
+                value={t.args}
+                onChange={(e) => patchCase(i, { ...t, args: e.target.value })}
+              />
+              <Input
+                type="number"
+                min={0}
+                max={255}
+                className="h-8 w-28"
+                placeholder="exit code"
+                title="Expected return value of main (empty = any)"
+                value={t.exitCode ?? ""}
+                onChange={(e) =>
+                  patchCase(i, {
+                    ...t,
+                    exitCode:
+                      e.target.value === ""
+                        ? null
+                        : Math.min(
+                            255,
+                            Math.max(0, Math.trunc(Number(e.target.value))),
+                          ),
+                  })
+                }
+              />
+              <label
+                className="flex items-center gap-1.5 text-xs"
+                title="The student only sees whether it passed, not the input and expected output."
+              >
+                <input
+                  type="checkbox"
+                  className="accent-primary size-4"
+                  checked={t.hidden}
+                  onChange={(e) =>
+                    patchCase(i, { ...t, hidden: e.target.checked })
+                  }
+                />
+                <EyeOff className="size-3.5" /> hidden
+              </label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                aria-label="Remove test case"
+                title="Remove test case"
+                disabled={c.cases.length === 1}
+                onClick={() =>
+                  onChange({ ...c, cases: c.cases.filter((_, j) => j !== i) })
+                }
+              >
+                <Trash2 />
+              </Button>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Textarea
+                className="min-h-16 font-mono text-sm"
+                placeholder="Input (stdin)"
+                value={t.stdin}
+                onChange={(e) => patchCase(i, { ...t, stdin: e.target.value })}
+              />
+              <div className="flex flex-col gap-1">
+                <Textarea
+                  className="min-h-16 font-mono text-sm"
+                  placeholder={
+                    t.match === "regex"
+                      ? "^Sum: [0-9]+$"
+                      : "Expected output (stdout)"
+                  }
+                  value={t.expected}
+                  onChange={(e) =>
+                    patchCase(i, { ...t, expected: e.target.value })
+                  }
+                />
+                <MatchSelect
+                  value={t.match}
+                  onChange={(match) => patchCase(i, { ...t, match })}
+                />
+              </div>
+            </div>
+          </li>
+        ))}
+      </ol>
+      {c.cases.length < 30 && (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="self-start"
+          onClick={() =>
+            onChange({ ...c, cases: [...c.cases, newCTestCase()] })
+          }
+        >
+          <Plus /> Test case
+        </Button>
+      )}
+    </div>
   );
 }

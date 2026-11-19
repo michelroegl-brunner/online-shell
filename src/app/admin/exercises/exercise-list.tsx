@@ -21,8 +21,9 @@ import {
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ImportExport } from "./import-export";
+import { SHELL_TAG, type ShellKind } from "~/lib/shell";
 
-type ShellFilter = "ALL" | "BASH" | "PWSH";
+type ShellFilter = "ALL" | ShellKind;
 type KindFilter = "ALL" | "EXERCISE" | "LESSON";
 
 export function ExerciseList() {
@@ -77,6 +78,7 @@ export function ExerciseList() {
             ["ALL", "All"],
             ["BASH", "Bash"],
             ["PWSH", "PowerShell"],
+            ["C", "C"],
           ]}
         />
         <Segmented
@@ -208,10 +210,10 @@ export function ExerciseList() {
   );
 }
 
-export function ShellBadge({ shell }: { shell: "BASH" | "PWSH" }) {
+export function ShellBadge({ shell }: { shell: ShellKind }) {
   return (
     <Badge variant="secondary" className="font-mono">
-      {shell === "BASH" ? "bash" : "pwsh"}
+      {SHELL_TAG[shell]}
     </Badge>
   );
 }

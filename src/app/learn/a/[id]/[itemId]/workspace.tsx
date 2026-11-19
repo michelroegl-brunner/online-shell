@@ -15,7 +15,7 @@ import {
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Announcements } from "~/components/learn/announcements";
@@ -23,6 +23,7 @@ import {
   CheatSheetButton,
   CheatSheetPanel,
 } from "~/components/learn/cheat-sheet-panel";
+import { CodeEditor } from "~/components/learn/code-editor";
 import { ErrorExplainer } from "~/components/learn/error-explainer";
 import { LessonBadge, WindowBadge } from "~/components/learn/badges";
 import { ExamGuard, HandInButton } from "~/components/learn/exam-guard";
@@ -35,6 +36,7 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
+import { SHELL_TAG } from "~/lib/shell";
 
 type Item = RouterOutputs["learn"]["item"];
 type Step = Item["steps"][number];
@@ -193,6 +195,23 @@ export function Workspace({ initial }: { initial: Item }) {
     }
   }
 
+  // ── C exercises: code editor beside the terminal ──
+  const isC = exercise.shell === "C";
+  const runCode = useCallback(() => {
+    if (terminal.current?.run() === "offline") {
+      toast.info("The terminal isn't connected yet — try again in a moment.");
+    }
+  }, []);
+  const isPasteBlocked = useCallback(
+    () => terminal.current?.isPasteBlocked() ?? false,
+    [],
+  );
+  const onEditorPasteBlocked = useCallback(
+    (reason: "paste" | "drop", bytes: number) =>
+      terminal.current?.pasteWasBlocked(reason, bytes),
+    [],
+  );
+
   async function showHint(step: Step) {
     try {
       await hint.mutateAsync({ itemId: item.itemId, stepId: step.id });
@@ -260,7 +279,7 @@ export function Workspace({ initial }: { initial: Item }) {
           <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-2 text-sm">
             {lesson && <LessonBadge />}
             <Badge variant="secondary" className="font-mono">
-              {exercise.shell === "BASH" ? "bash" : "pwsh"}
+              {SHELL_TAG[exercise.shell]}
             </Badge>
             {/* Lessons are ungraded: no points anywhere. */}
             {!lesson && (
@@ -456,6 +475,28 @@ export function Workspace({ initial }: { initial: Item }) {
             <div className="text-muted-foreground flex flex-1 items-center justify-center gap-2 rounded-lg border text-sm">
               <Loader2 className="size-4 animate-spin" /> Preparing your
               exercise…
+            </div>
+          ) : isC ? (
+            // C: code editor above the terminal (Run types `crun` there).
+            <div className="flex min-h-0 flex-1 flex-col gap-3">
+              <CodeEditor
+                key={termKey}
+                itemId={item.itemId}
+                editable={open && ready}
+                onRun={runCode}
+                isPasteBlocked={isPasteBlocked}
+                onPasteBlocked={onEditorPasteBlocked}
+                className="min-h-[18rem] flex-[3]"
+              />
+              <ShellTerminal
+                key={`t${termKey}`}
+                ref={terminal}
+                shell={exercise.shell}
+                exercise={exercise.slug}
+                itemId={item.itemId}
+                className="min-h-[12rem] flex-[2]"
+                onCommand={onCommand}
+              />
             </div>
           ) : (
             <ShellTerminal

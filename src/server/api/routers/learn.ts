@@ -38,6 +38,12 @@ import {
 import { type db as dbType } from "~/server/db";
 import { runStepChecks } from "~/server/exercises/checks";
 import { runSetup, type RunResult } from "~/server/exercises/run";
+import {
+  listSources,
+  MAX_SOURCE_BYTES,
+  readSource,
+  saveSource,
+} from "~/server/exercises/source";
 import { runner, type ShellKind } from "~/server/runner";
 import type { Prisma } from "../../../../generated/prisma";
 
@@ -413,6 +419,19 @@ function assertOpen(state: WindowState) {
       message: "This assignment is closed.",
     });
   }
+}
+
+/** An item of a C exercise that I may open now (code editor). */
+async function loadSourceItem(db: Db, user: Viewer, itemId: string) {
+  const loaded = await loadItem(db, user, itemId);
+  if (loaded.item.exercise.shell !== "C") {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Only C exercises have a code editor.",
+    });
+  }
+  await assertNotLockedByExam(db, user, loaded.item.assignment.id);
+  return loaded;
 }
 
 async function guardRunner<T>(fn: () => Promise<T>): Promise<T> {
@@ -1132,6 +1151,52 @@ export const learnRouter = createTRPCRouter({
         ok: res.ok,
         output: res.ok ? "" : "Resetting failed. Please tell your teacher.",
       };
+    }),
+
+  // ── C exercises: the code editor's files (as the student, in the box) ──
+
+  sourceFiles: protectedProcedure
+    .input(z.object({ itemId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const { item } = await loadSourceItem(ctx.db, ctx.user, input.itemId);
+      return guardRunner(() => listSources(ctx.user.id, item.exercise.slug));
+    }),
+
+  readSource: protectedProcedure
+    .input(z.object({ itemId: z.string(), path: z.string().max(200) }))
+    .query(async ({ ctx, input }) => {
+      const { item } = await loadSourceItem(ctx.db, ctx.user, input.itemId);
+      return guardRunner(() =>
+        readSource(ctx.user.id, item.exercise.slug, input.path),
+      );
+    }),
+
+  saveSource: protectedProcedure
+    .input(
+      z.object({
+        itemId: z.string(),
+        path: z.string().max(200),
+        text: z.string().max(MAX_SOURCE_BYTES),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const loaded = await loadSourceItem(ctx.db, ctx.user, input.itemId);
+      assertOpen(loaded.state);
+      assertNotGated(loaded);
+      if (!loaded.attempt?.setupAt) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Open the exercise first.",
+        });
+      }
+      return guardRunner(() =>
+        saveSource(
+          ctx.user.id,
+          loaded.item.exercise.slug,
+          input.path,
+          input.text,
+        ),
+      );
     }),
   /**
    * Exam: hand in. Stores the last commands, then closes the assignment for

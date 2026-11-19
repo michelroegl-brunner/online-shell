@@ -139,10 +139,35 @@ content) must pass.
 | File content | a file is exactly / contains a text, or a line matches a regex (`grep -E`) |
 | Command output | a command run as root in the folder (10 s; `pwsh` for PowerShell exercises) prints exactly / contains / matches |
 | Command used | the student's command log for this attempt has a command matching a JavaScript regex (optionally exit 0 only) |
+| C test cases | C files compile with gcc (flags editable, `-lm` added, optionally `-Werror`) and the program passes every test case: arguments + stdin → stdout is exactly / contains / matches, optionally with an expected exit code; cases can be **hidden** (student sees pass/fail only) |
 
 File and output checks become one generated bash script (values passed
 base64-encoded) that runs like a check script; "command used" is decided by
 the web app against `CommandLog` and is skipped in teacher test runs.
+**C test cases** run in a separate exec **as the student** (never root:
+it's the student's code), each case with a timeout (1–10 s, default 2) and
+output capped at 200 KB; endless loops, segfaults, aborts and division by
+zero get a readable message.
+
+### C exercises
+
+An exercise's **Shell** can be **C** (`ShellKind.C`, `src/lib/shell.ts`):
+it runs in the **bash box** (the image has `gcc`, `make`, `gdb`,
+`valgrind`; the runner never sees `C`, the web app maps it to `BASH`) and
+the student gets a **code editor** (CodeMirror,
+`src/components/learn/code-editor.tsx`) above the terminal for the `.c` /
+`.h` / `Makefile` files in the exercise folder (one sub folder deep). It
+saves into the box by itself (`learn.saveSource`, as the student) and
+before **Run**, which asks the runner to interrupt the terminal and type
+`crun` — a script in the image that compiles all `*.c` into `./main` with
+`-std=c11 -Wall -Wextra -g -lm`, prints the gcc command, and runs it. This
+works while pasting is off (the runner types a fixed command, never client
+text), and the editor itself blocks paste/drop in no-paste assignments
+(reported like a terminal paste). Starter code comes from the setup script
+(the editor's "Add main.c starter" button). Teachers see the student's
+code in the file browser (attempt page → Files). Bundle:
+`content/exercises/c-grundlagen.json`, cheat sheet
+`content/cheatsheets/c-grundlagen.md`.
 Every check can have its own failure message. Logic:
 `src/server/exercises/checks.ts`.
 

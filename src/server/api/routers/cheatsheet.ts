@@ -14,6 +14,7 @@ import { loadBuiltinSheets } from "~/server/cheatsheets/builtin";
 import { cheatSheetInput } from "~/server/cheatsheets/schema";
 import { type db as dbType } from "~/server/db";
 import type { Prisma } from "../../../../generated/prisma";
+import { SHELL_KINDS } from "~/lib/shell";
 
 /**
  * Topic cheat sheets. Teachers manage them like exercises (own + SHARED are
@@ -75,7 +76,7 @@ export const cheatsheetRouter = createTRPCRouter({
       z
         .object({
           q: z.string().trim().max(100).optional(),
-          shell: z.enum(["BASH", "PWSH"]).optional(),
+          shell: z.enum(SHELL_KINDS).optional(),
           tag: tagsFilter,
           mine: z.boolean().optional(),
           archived: z.boolean().optional(),
