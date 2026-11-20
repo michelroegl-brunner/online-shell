@@ -32,7 +32,13 @@ const lit = (s: string) => `"$(printf '%s' '${b64(s)}' | base64 -d)"`;
 /** Output bytes kept per case (base64 of it fits the runner's 64 KB cap). */
 export const C_OUTPUT_CAP = 40_000;
 const ERR_CAP = 2_000;
-const TEMP_RE = /^\/tmp\/oshell-c-[A-Za-z0-9]{8}$/;
+/**
+ * Build dir for the test binary. Not /tmp: Docker mounts tmpfs noexec, so
+ * the program couldn't run there. The home volume allows exec (crun runs
+ * ./main there too).
+ */
+const TEMP_BASE = "/home/student/.cache";
+const TEMP_RE = /^\/home\/student\/\.cache\/oshell-c-[A-Za-z0-9]{8}$/;
 
 /** Lines of a value shown in the result, indented. */
 const SHOW_LINES = 15;
@@ -65,7 +71,7 @@ export function cCompileScript(c: CTests, dir: string) {
   const flags = `${c.flags}${c.noWarnings ? " -Werror" : ""}`;
   return [
     ...prelude(dir),
-    'T="$(mktemp -d /tmp/oshell-c-XXXXXXXX)" || exit 98',
+    `mkdir -p ${TEMP_BASE} && T="$(mktemp -d ${TEMP_BASE}/oshell-c-XXXXXXXX)" || exit 98`,
     'echo "$T"',
     `timeout 30 gcc ${flags} -o "$T/prog" ${files} -lm 2>&1 || { rm -rf -- "$T"; exit 1; }`,
   ].join("\n");
