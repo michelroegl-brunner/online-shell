@@ -425,15 +425,9 @@ function assertOpen(state: WindowState) {
   }
 }
 
-/** An item of a C exercise that I may open now (code editor). */
+/** An item I may open now in the code editor (C sources or scripts). */
 async function loadSourceItem(db: Db, user: Viewer, itemId: string) {
   const loaded = await loadItem(db, user, itemId);
-  if (loaded.item.exercise.shell !== "C") {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: "Only C exercises have a code editor.",
-    });
-  }
   await assertNotLockedByExam(db, user, loaded.item.assignment.id);
   return loaded;
 }
@@ -1165,7 +1159,9 @@ export const learnRouter = createTRPCRouter({
     .input(z.object({ itemId: z.string() }))
     .query(async ({ ctx, input }) => {
       const { item } = await loadSourceItem(ctx.db, ctx.user, input.itemId);
-      return guardRunner(() => listSources(ctx.user.id, item.exercise.slug));
+      return guardRunner(() =>
+        listSources(ctx.user.id, item.exercise.shell, item.exercise.slug),
+      );
     }),
 
   readSource: protectedProcedure
@@ -1173,7 +1169,12 @@ export const learnRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const { item } = await loadSourceItem(ctx.db, ctx.user, input.itemId);
       return guardRunner(() =>
-        readSource(ctx.user.id, item.exercise.slug, input.path),
+        readSource(
+          ctx.user.id,
+          item.exercise.shell,
+          item.exercise.slug,
+          input.path,
+        ),
       );
     }),
 
@@ -1195,26 +1196,32 @@ export const learnRouter = createTRPCRouter({
           message: "Open the exercise first.",
         });
       }
-      const slug = loaded.item.exercise.slug;
+      const { slug, shell } = loaded.item.exercise;
       // No-paste assignment open: the save must look typed (server-side,
       // the editor's own paste block is only the browser).
       if (!(await pastePolicyFor(ctx.db, ctx.user)).allowed) {
         await guardRunner(() =>
-          assertTyped(ctx.user.id, slug, input.path, input.text, (chars) =>
-            recordPasteBatch({
-              userId: ctx.user.id,
-              cwd: `${HOME}/exercises/${slug}`,
-              firstAt: Date.now(),
-              lastAt: Date.now(),
-              count: 1,
-              bytes: chars,
-              reasons: { chunk: 1 },
-            }).then(() => undefined),
+          assertTyped(
+            ctx.user.id,
+            shell,
+            slug,
+            input.path,
+            input.text,
+            (chars) =>
+              recordPasteBatch({
+                userId: ctx.user.id,
+                cwd: `${HOME}/exercises/${slug}`,
+                firstAt: Date.now(),
+                lastAt: Date.now(),
+                count: 1,
+                bytes: chars,
+                reasons: { chunk: 1 },
+              }).then(() => undefined),
           ),
         );
       }
       return guardRunner(() =>
-        saveSource(ctx.user.id, slug, input.path, input.text),
+        saveSource(ctx.user.id, shell, slug, input.path, input.text),
       );
     }),
   /**

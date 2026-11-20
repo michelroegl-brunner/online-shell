@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  FileCode,
   Globe,
   Lightbulb,
   Loader2,
@@ -15,7 +16,13 @@ import {
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { toast } from "sonner";
 
 import { Announcements } from "~/components/learn/announcements";
@@ -41,6 +48,17 @@ import { SHELL_TAG } from "~/lib/shell";
 type Item = RouterOutputs["learn"]["item"];
 type Step = Item["steps"][number];
 type CheckResult = { ok: boolean; output: string };
+
+/** Script editor on/off as the student left it (null: not chosen yet). */
+function readEditorPref(key: string): boolean | null {
+  try {
+    const v = localStorage.getItem(key);
+    return v === null ? null : v === "1";
+  } catch {
+    return null;
+  }
+}
+const noSubscribe = () => () => undefined;
 
 /** Lessons: wait this long after the last Enter before checking. */
 const AUTO_CHECK_DELAY_MS = 1000;
@@ -195,13 +213,43 @@ export function Workspace({ initial }: { initial: Item }) {
     }
   }
 
-  // ── C exercises: code editor beside the terminal ──
+  // ── Code editor above the terminal ──
+  // C: always. Bash / PowerShell: a script editor the student can turn on
+  // (on by itself when a step names a script file, e.g. "… (ball.sh)");
+  // the choice is remembered per exercise in this browser.
   const isC = exercise.shell === "C";
-  const runCode = useCallback(() => {
-    if (terminal.current?.run() === "offline") {
-      toast.info("The terminal isn't connected yet — try again in a moment.");
+  const scriptExt = exercise.shell === "PWSH" ? "ps1" : "sh";
+  const namesScript =
+    !isC &&
+    !lesson &&
+    steps.some((s) =>
+      (scriptExt === "ps1" ? /\w\.ps1\b/ : /\w\.sh\b/).test(s.title),
+    );
+  const editorKey = `oshell.editor.${exercise.slug}`;
+  const storedChoice = useSyncExternalStore(
+    noSubscribe,
+    () => readEditorPref(editorKey),
+    () => null,
+  );
+  const [editorChoice, setEditorChoice] = useState<boolean | null>(null);
+  const scriptEditor = !isC && (editorChoice ?? storedChoice ?? namesScript);
+  function toggleScriptEditor() {
+    const next = !scriptEditor;
+    setEditorChoice(next);
+    try {
+      localStorage.setItem(editorKey, next ? "1" : "0");
+    } catch {
+      /* not remembered */
     }
-  }, []);
+  }
+  const runCode = useCallback(
+    (path: string) => {
+      if (terminal.current?.run(isC ? undefined : path) === "offline") {
+        toast.info("The terminal isn't connected yet — try again in a moment.");
+      }
+    },
+    [isC],
+  );
   const isPasteBlocked = useCallback(
     () => terminal.current?.isPasteBlocked() ?? false,
     [],
@@ -440,6 +488,16 @@ export function Workspace({ initial }: { initial: Item }) {
             {assignment.allowCheatSheet && ready && (
               <CheatSheetButton itemId={item.itemId} />
             )}
+            {!isC && ready && (
+              <Button
+                variant={scriptEditor ? "secondary" : "ghost"}
+                onClick={toggleScriptEditor}
+                aria-pressed={scriptEditor}
+                title={`Edit your .${scriptExt} scripts in an editor above the terminal (nano / vim keep working too)`}
+              >
+                <FileCode /> Script editor
+              </Button>
+            )}
             {current?.internet && ready && (
               <Badge
                 variant="outline"
@@ -476,38 +534,37 @@ export function Workspace({ initial }: { initial: Item }) {
               <Loader2 className="size-4 animate-spin" /> Preparing your
               exercise…
             </div>
-          ) : isC ? (
-            // C: code editor above the terminal (Run types `crun` there).
+          ) : (
+            // Code editor (C, or the script editor) above the terminal; Run
+            // types the command there. One tree, so toggling the editor
+            // keeps the terminal session.
             <div className="flex min-h-0 flex-1 flex-col gap-3">
-              <CodeEditor
-                key={termKey}
-                itemId={item.itemId}
-                editable={open && ready}
-                onRun={runCode}
-                isPasteBlocked={isPasteBlocked}
-                onPasteBlocked={onEditorPasteBlocked}
-                className="min-h-[18rem] flex-[3]"
-              />
+              {(isC || scriptEditor) && (
+                <CodeEditor
+                  key={termKey}
+                  itemId={item.itemId}
+                  shell={exercise.shell}
+                  editable={open && ready}
+                  onRun={runCode}
+                  isPasteBlocked={isPasteBlocked}
+                  onPasteBlocked={onEditorPasteBlocked}
+                  className="min-h-[18rem] flex-[3]"
+                />
+              )}
               <ShellTerminal
                 key={`t${termKey}`}
                 ref={terminal}
                 shell={exercise.shell}
                 exercise={exercise.slug}
                 itemId={item.itemId}
-                className="min-h-[12rem] flex-[2]"
+                className={
+                  isC || scriptEditor
+                    ? "min-h-[12rem] flex-[2]"
+                    : "min-h-[20rem] flex-1"
+                }
                 onCommand={onCommand}
               />
             </div>
-          ) : (
-            <ShellTerminal
-              key={termKey}
-              ref={terminal}
-              shell={exercise.shell}
-              exercise={exercise.slug}
-              itemId={item.itemId}
-              className="min-h-[20rem] flex-1"
-              onCommand={onCommand}
-            />
           )}
           {open && ready && assignment.allowCheatSheet && (
             <CheatSheetPanel

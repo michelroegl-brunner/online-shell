@@ -2,6 +2,9 @@
 
 import { indentWithTab } from "@codemirror/commands";
 import { cpp } from "@codemirror/lang-cpp";
+import { StreamLanguage } from "@codemirror/language";
+import { powerShell } from "@codemirror/legacy-modes/mode/powershell";
+import { shell } from "@codemirror/legacy-modes/mode/shell";
 import { EditorState } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, keymap } from "@codemirror/view";
@@ -11,14 +14,16 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "~/components/ui/button";
+import { type ShellKind } from "~/lib/shell";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 /**
- * Code editor of C exercises, next to the terminal: edits the .c / .h /
- * Makefile files in ~/exercises/<slug> (saved into the student's box, so
- * gcc in the terminal sees them). Saves by itself after a short pause and
- * before Run; Run types `crun` into the terminal (compile + run).
+ * Code editor next to the terminal: edits the files in ~/exercises/<slug>
+ * (saved into the student's box, so the terminal sees them) — .c / .h /
+ * Makefile for C, .sh scripts for bash, .ps1 scripts for PowerShell. Saves
+ * by itself after a short pause and before Run; Run types `crun` (C:
+ * compile + run) or runs the open script in the terminal.
  *
  * The files stay the truth: editing them in vim/nano works too — "Reload"
  * picks up those changes.
@@ -44,7 +49,43 @@ type Hooks = {
   save: (path: string, text: string) => Promise<void>;
 };
 
-const isMakefile = (path: string) => /(^|\/)makefile$/i.test(path);
+const shellLang = StreamLanguage.define(shell);
+const pwshLang = StreamLanguage.define(powerShell);
+
+/** Syntax highlighting by file name (Makefile: none). */
+function languageFor(path: string) {
+  if (/\.[ch]$/.test(path)) return [cpp()];
+  if (path.endsWith(".sh")) return [shellLang];
+  if (path.endsWith(".ps1")) return [pwshLang];
+  return [];
+}
+
+/** Texts and defaults that differ between C and script exercises. */
+const KIND_TEXT: Record<
+  ShellKind,
+  { newPrompt: string; empty: string; starter: string; runTitle: string }
+> = {
+  C: {
+    newPrompt: "New file (e.g. list.c, list.h or Makefile):",
+    empty: "No C files in this exercise yet.",
+    starter: "main.c",
+    runTitle: "Save, compile and run in the terminal (Ctrl+Enter)",
+  },
+  BASH: {
+    newPrompt: "New script (e.g. script.sh):",
+    empty: "No scripts (.sh) in this exercise folder yet.",
+    starter: "",
+    runTitle:
+      "Save and run this script in the terminal (Ctrl+Enter). Arrow-up there to add arguments.",
+  },
+  PWSH: {
+    newPrompt: "New script (e.g. script.ps1):",
+    empty: "No scripts (.ps1) in this exercise folder yet.",
+    starter: "",
+    runTitle:
+      "Save and run this script in the terminal (Ctrl+Enter). Arrow-up there to add arguments.",
+  },
+};
 
 /**
  * The CodeMirror view and the open files, outside React: one view, and
@@ -180,7 +221,7 @@ class EditorSession {
             },
           },
         ]),
-        ...(isMakefile(path) ? [] : [cpp()]),
+        ...languageFor(path),
         oneDark,
         EditorState.tabSize.of(4),
         EditorState.readOnly.of(readOnly),
@@ -224,10 +265,12 @@ class EditorSession {
 
 export type CodeEditorProps = {
   itemId: string;
+  /** Exercise shell: which files it edits (C sources or scripts). */
+  shell: ShellKind;
   /** Saving is allowed (assignment open, exercise prepared). */
   editable: boolean;
-  /** Run: (after saving) type `crun` into the terminal. */
-  onRun?: () => void;
+  /** Run (after saving) with the open file: `crun` / run the script. */
+  onRun?: (path: string) => void;
   /** No-paste assignment: block paste / drop into the editor. */
   isPasteBlocked: () => boolean;
   onPasteBlocked: (reason: "paste" | "drop", bytes: number) => void;
@@ -236,6 +279,7 @@ export type CodeEditorProps = {
 
 export function CodeEditor({
   itemId,
+  shell: kind,
   editable,
   onRun,
   isPasteBlocked,
@@ -252,6 +296,7 @@ export function CodeEditor({
   const hostRef = useRef<HTMLDivElement>(null);
   const [chosen, setChosen] = useState<string | null>(null);
   const [dirty, setDirty] = useState<Record<string, boolean>>({});
+  const text = KIND_TEXT[kind];
 
   const list = files.data ?? [];
   // main.c (or the first file) until the student picks one.
@@ -268,7 +313,7 @@ export function CodeEditor({
   );
 
   async function run() {
-    if (await session.saveAll()) onRun?.();
+    if (current && (await session.saveAll())) onRun?.(current);
   }
 
   // Latest callbacks for the editor (it lives outside React).
@@ -312,9 +357,7 @@ export function CodeEditor({
   }, [src.error]);
 
   async function newFile(preset?: string) {
-    const name =
-      preset ??
-      window.prompt("New file (e.g. list.c, list.h or Makefile):", "");
+    const name = preset ?? window.prompt(text.newPrompt, "");
     if (!name) return;
     const path = name.trim();
     if (!list.some((f) => f.path === path)) {
@@ -409,9 +452,9 @@ export function CodeEditor({
           <Button
             size="sm"
             className="h-7"
-            title="Save, compile and run in the terminal (Ctrl+Enter)"
+            title={text.runTitle}
             onClick={() => void run()}
-            disabled={list.length === 0}
+            disabled={!current}
           >
             <Play /> Run
           </Button>
@@ -428,10 +471,14 @@ export function CodeEditor({
               files.error.message
             ) : (
               <>
-                No C files in this exercise yet.
+                {text.empty}
                 {editable && (
-                  <Button size="sm" onClick={() => void newFile("main.c")}>
-                    <FilePlus /> Create main.c
+                  <Button
+                    size="sm"
+                    onClick={() => void newFile(text.starter || undefined)}
+                  >
+                    <FilePlus />{" "}
+                    {text.starter ? `Create ${text.starter}` : "New script"}
                   </Button>
                 )}
               </>

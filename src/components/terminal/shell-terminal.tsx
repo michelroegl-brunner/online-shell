@@ -32,10 +32,11 @@ export type ShellTerminalHandle = {
    */
   sendText: (text: string) => "sent" | "blocked" | "offline";
   /**
-   * C editor's Run button: the runner interrupts what runs and types the
-   * fixed command `crun` (allowed even when pasting is off).
+   * Editor's Run button: the runner interrupts what runs and types a fixed
+   * command — `crun` for C, or runs `script` (a .sh / .ps1 file name the
+   * runner validates). Allowed even when pasting is off.
    */
-  run: () => "sent" | "offline";
+  run: (script?: string) => "sent" | "offline";
   /** Is pasting off right now (no-paste assignment)? */
   isPasteBlocked: () => boolean;
   /** A paste elsewhere (code editor) was blocked: tell student + teacher. */
@@ -334,10 +335,16 @@ export function ShellTerminal({
         term.focus();
         return "sent";
       },
-      run: () => {
+      run: (script) => {
         const ws = wsRef.current;
         if (ws?.readyState !== WebSocket.OPEN) return "offline";
-        ws.send(JSON.stringify({ type: "run", what: "crun" }));
+        ws.send(
+          JSON.stringify(
+            script
+              ? { type: "run", what: "script", file: script }
+              : { type: "run", what: "crun" },
+          ),
+        );
         termRef.current?.focus();
         return "sent";
       },

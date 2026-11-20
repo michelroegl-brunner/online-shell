@@ -283,7 +283,8 @@ const server = createServer((req, res) => {
 // Protocol: binary frames = terminal bytes (both directions);
 // text frames client→server = JSON control ({type:"resize",cols,rows} /
 //   {type:"paste-attempt",reason,bytes} when the browser blocked a paste /
-//   {type:"run",what:"crun"} from the C editor's Run button);
+//   {type:"run",what:"crun"} from the C editor's Run button /
+//   {type:"run",what:"script",file} from the script editor's Run button);
 // text frames server→client = JSON status ({type:"ready"} / {type:"exit"}),
 //   plus watch/take-over notices (see watch.ts).
 
@@ -364,6 +365,16 @@ function typingLimiter() {
   };
 }
 
+/** Script editor's Run: like the editor's paths (one optional folder). */
+const RUN_SCRIPT_RE =
+  /^(?:[A-Za-z0-9_][\w.-]{0,60}\/)?[A-Za-z0-9_][\w.-]{0,60}\.(?:sh|ps1)$/;
+
+/** The line the Run button types for a script, in the terminal's shell. */
+function runScriptCommand(shell: "BASH" | "PWSH", file: string) {
+  if (file.endsWith(".sh")) return `bash ./${file}\r`;
+  return shell === "PWSH" ? `./${file}\r` : `pwsh -NoProfile -File ./${file}\r`;
+}
+
 const controlMsg = z.discriminatedUnion("type", [
   z.object({ type: z.literal("resize"), cols: z.number(), rows: z.number() }),
   // The browser blocked a paste/drop/shortcut itself (nothing was sent).
@@ -375,9 +386,14 @@ const controlMsg = z.discriminatedUnion("type", [
   // Take over (watch.ts): the student answers a teacher's request / ends it.
   z.object({ type: z.literal("control-response"), allow: z.boolean() }),
   z.object({ type: z.literal("control-revoke") }),
-  // C editor's Run button: interrupt what runs, then type a FIXED command
-  // (never client text, so this is no way around the paste rules).
-  z.object({ type: z.literal("run"), what: z.literal("crun") }),
+  // Editor's Run button: interrupt what runs, then type a FIXED command
+  // (never client text, so this is no way around the paste rules). Scripts:
+  // only a strictly validated file name goes into the command.
+  z.object({
+    type: z.literal("run"),
+    what: z.enum(["crun", "script"]),
+    file: z.string().regex(RUN_SCRIPT_RE).optional(),
+  }),
 ]);
 
 /** Commands the "run" control message may type, by name. */
@@ -486,12 +502,18 @@ async function attach(
       } else if (msg.type === "control-revoke") {
         controlRevoke(session);
       } else if (msg.type === "run") {
+        if (msg.what === "script" && !msg.file) return;
         touch(userId);
         // Ctrl+C first (a running program / a half-typed line); the tty
         // drops pending input on SIGINT, so type the command a bit later.
         stream.write("\x03");
         setTimeout(() => {
-          if (ws.readyState === ws.OPEN) stream.write(RUN_COMMANDS[msg.what]);
+          if (ws.readyState !== ws.OPEN) return;
+          stream.write(
+            msg.what === "script" && msg.file
+              ? runScriptCommand(shell, msg.file)
+              : RUN_COMMANDS.crun,
+          );
         }, 150);
       } else if (pasteBlocked()) report.add(msg.reason, msg.bytes);
     } catch {
