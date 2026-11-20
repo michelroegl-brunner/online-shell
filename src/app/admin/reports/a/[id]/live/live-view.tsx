@@ -379,7 +379,7 @@ function StudentCard({
           <div className="ml-auto flex gap-1">
             {r.current && (
               <Button size="sm" variant="ghost" className="h-7 px-2" asChild>
-                <Link href={`/admin/reports/attempt/${r.current.attemptId}`}>
+                <Link href={`/admin/reports/attempt/${r.current.attemptId}?from=live`}>
                   Details
                 </Link>
               </Button>

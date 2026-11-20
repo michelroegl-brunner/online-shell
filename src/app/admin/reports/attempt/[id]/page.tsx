@@ -36,10 +36,13 @@ const dayFmt = new Intl.DateTimeFormat("en-GB", {
 
 export default async function AttemptPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
 }) {
   const { id } = await params;
+  const fromLive = (await searchParams).from === "live";
   const a = await api.report.attempt({ id }).catch((e: unknown) => {
     if (e instanceof TRPCError && e.code === "NOT_FOUND") notFound();
     throw e;
@@ -54,10 +57,11 @@ export default async function AttemptPage({
     <div className="flex flex-col gap-6">
       <div>
         <Link
-          href={`/admin/reports/a/${a.assignment.id}`}
+          href={`/admin/reports/a/${a.assignment.id}${fromLive ? "/live" : ""}`}
           className="text-muted-foreground hover:text-foreground mb-2 inline-flex items-center gap-1 text-sm"
         >
           <ChevronLeft className="size-4" /> {a.assignment.title}
+          {fromLive && " · live"}
         </Link>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-semibold">{a.exercise.title}</h1>
