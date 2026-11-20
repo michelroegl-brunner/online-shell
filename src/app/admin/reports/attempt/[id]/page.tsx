@@ -125,6 +125,17 @@ export default async function AttemptPage({
         )}
       </p>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <MonitorPlay className="size-4" /> Live console
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <WatchTerminal userId={a.student.id} />
+        </CardContent>
+      </Card>
+
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="flex min-w-0 flex-col gap-6">
           {a.focusEvents.length > 0 && (
@@ -361,17 +372,7 @@ export default async function AttemptPage({
             </CardContent>
           </Card>
         </div>
-        <div className="flex min-w-0 flex-col gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <MonitorPlay className="size-4" /> Live console
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <WatchTerminal userId={a.student.id} />
-            </CardContent>
-          </Card>
+        <div className="flex flex-col gap-6">
           {Object.keys(a.vars).length > 0 && (
             <Card>
               <CardHeader>
