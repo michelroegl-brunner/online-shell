@@ -438,6 +438,7 @@ export const reportRouter = createTRPCRouter({
               stepId: true,
               ok: true,
               detail: true,
+              output: true,
             },
             take: 5000,
           },
@@ -505,6 +506,21 @@ export const reportRouter = createTRPCRouter({
             hintCount: st.hints.length,
             passedAt: p?.passedAt ?? null,
             checkOutput: p?.checkOutput ?? null,
+            /** Every check on this step, oldest first. */
+            checkHistory: att.activity
+              .filter(
+                (e) =>
+                  e.stepId === st.id &&
+                  (e.type === "CHECK" || e.type === "AUTOCHECK"),
+              )
+              .map((e) => ({
+                id: e.id.toString(),
+                at: e.at,
+                auto: e.type === "AUTOCHECK",
+                ok: e.ok,
+                // Older events only kept the first lines.
+                output: e.output ?? e.detail ?? "",
+              })),
           };
         }),
         status: att.status,

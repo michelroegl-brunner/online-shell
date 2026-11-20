@@ -41,6 +41,8 @@ export async function logActivity(
     stepId?: string | null;
     ok?: boolean | null;
     detail?: string | null;
+    /** Full check output (capped) */
+    output?: string | null;
   },
 ) {
   try {
@@ -53,6 +55,7 @@ export async function logActivity(
         stepId: e.stepId ?? null,
         ok: e.ok ?? null,
         detail: e.detail ?? null,
+        output: e.output?.slice(0, 8000) ?? null,
       },
     });
   } catch (err) {

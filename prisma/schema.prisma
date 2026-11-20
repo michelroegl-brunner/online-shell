@@ -486,6 +486,8 @@ model AttemptEvent {
   ok        Boolean?
   /// CHECK: first lines of the check output; HINT: hint number
   detail    String?
+  /// CHECK/AUTOCHECK: full check output (teacher's check history)
+  output    String?
 
   attempt Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
 

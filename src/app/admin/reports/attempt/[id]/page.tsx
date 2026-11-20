@@ -6,6 +6,7 @@ import {
   ClipboardX,
   EyeOff,
   FolderOpen,
+  XCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -251,9 +252,10 @@ export default async function AttemptPage({
                         {s.earned}/{s.points}
                       </span>
                     </summary>
-                    <pre className="bg-muted/40 mt-2 rounded-md p-3 font-mono text-xs whitespace-pre-wrap">
-                      {s.checkOutput ?? "(not checked yet)"}
-                    </pre>
+                    <CheckHistory
+                      runs={s.checkHistory}
+                      fallback={s.checkOutput}
+                    />
                   </details>
                 ))}
               </CardContent>
@@ -263,12 +265,18 @@ export default async function AttemptPage({
           {a.steps.length <= 1 && a.checkOutput !== null && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Last check output</CardTitle>
+                <CardTitle className="text-base">
+                  Checks
+                  {a.steps[0]?.checkHistory.length
+                    ? ` (${a.steps[0].checkHistory.length})`
+                    : ""}
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <pre className="bg-muted/40 rounded-md p-3 font-mono text-xs whitespace-pre-wrap">
-                  {a.checkOutput || "(no output)"}
-                </pre>
+                <CheckHistory
+                  runs={a.steps[0]?.checkHistory ?? []}
+                  fallback={a.checkOutput}
+                />
               </CardContent>
             </Card>
           )}
@@ -389,6 +397,67 @@ export default async function AttemptPage({
         </div>
       </div>
     </div>
+  );
+}
+
+type CheckRun = {
+  id: string;
+  at: Date;
+  auto: boolean;
+  ok: boolean | null;
+  output: string;
+};
+
+/** Every check on a step, newest first; the newest is open. */
+function CheckHistory({
+  runs,
+  fallback,
+}: {
+  runs: CheckRun[];
+  fallback: string | null;
+}) {
+  if (runs.length === 0) {
+    return (
+      <pre className="bg-muted/40 mt-2 rounded-md p-3 font-mono text-xs whitespace-pre-wrap">
+        {fallback ?? "(not checked yet)"}
+      </pre>
+    );
+  }
+  const newestFirst = [...runs].reverse();
+  return (
+    <ol className="mt-2 flex flex-col gap-1.5">
+      {newestFirst.map((r, i) => (
+        <li key={r.id}>
+          <details open={i === 0} className="group/run">
+            <summary className="hover:bg-muted/40 flex cursor-pointer list-none items-center gap-2 rounded-md px-2 py-1 text-xs">
+              {r.ok ? (
+                <CheckCircle2 className="text-primary size-3.5 shrink-0" />
+              ) : (
+                <XCircle className="size-3.5 shrink-0 text-red-400" />
+              )}
+              <span className="font-medium">
+                Check {runs.length - i}
+                {r.auto && " (auto)"}
+              </span>
+              <span className="text-muted-foreground tabular-nums">
+                {dayFmt.format(new Date(r.at))} {timeFmt.format(new Date(r.at))}
+              </span>
+              <span
+                className={cn(
+                  "ml-auto",
+                  r.ok ? "text-primary" : "text-red-400",
+                )}
+              >
+                {r.ok ? "passed" : "failed"}
+              </span>
+            </summary>
+            <pre className="bg-muted/40 mt-1 rounded-md p-3 font-mono text-xs whitespace-pre-wrap">
+              {r.output || "(no output)"}
+            </pre>
+          </details>
+        </li>
+      ))}
+    </ol>
   );
 }
 

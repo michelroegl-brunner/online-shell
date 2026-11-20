@@ -928,6 +928,7 @@ export const learnRouter = createTRPCRouter({
         stepId: step.id,
         ok: res.ok,
         detail: outputSummary(res.output),
+        output: res.output,
       });
       await ctx.db.attemptStep.update({
         where: key,
@@ -1035,6 +1036,7 @@ export const learnRouter = createTRPCRouter({
         stepId: step.id,
         ok: true,
         detail: outputSummary(res.output),
+        output: res.output,
       });
       // The passing run counts as the step's one check (for reports).
       await ctx.db.attemptStep.update({
