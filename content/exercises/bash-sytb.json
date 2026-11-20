@@ -3,6 +3,135 @@
   "version": 1,
   "exercises": [
     {
+      "title": "Bash 00 · Grundbefehle (Übung)",
+      "slug": "bash-00-grundlagen-ue",
+      "description": "Übe die Grundbefehle aus der Lektion: Ordner anlegen, Dateien schreiben,\nkopieren, verschieben, löschen, anschauen und filtern.\n\nIn deinem Übungsordner liegen schon ein paar Dateien – schau dich zuerst mit\n`ls -la` um. Alle Aufgaben löst du direkt im Terminal (ohne Skript).\n\n> **Hinweis zur Box:** Du arbeitest in einem echten Debian-Linux, aber **ohne\n> Internet** und ohne `sudo`. Dateien, die sonst heruntergeladen werden, liegen\n> schon in deinem Übungsordner. Skripte schreibst du mit `nano` oder `vim`.",
+      "shell": "BASH",
+      "kind": "EXERCISE",
+      "difficulty": 1,
+      "setupScript": "mkdir -p downloads tmp/cache geheim\nprintf '#!/bin/sh\\necho hallo\\n' > downloads/skript.sh\nprintf 'Mein Aufsatz über Linux.\\n' > downloads/aufsatz.txt\nprintf 'JPEG' > downloads/werbung.jpg\nprintf 'temp\\n' > tmp/cache/a.tmp\nprintf 'temp\\n' > tmp/b.tmp\nprintf 'Der Schlüssel liegt unter der Fußmatte.\\n' > geheim/.nachricht\nprintf 'Nichts zu sehen.\\n' > geheim/leer.txt\nprintf 'Huber Anna;3AHITS\\nMaier Lukas;3BHITS\\nBauer Felix;3AHITS\\nGruber Lena;2AHITS\\nWagner Sophie;3AHITS\\nPichler David;3BHITS\\nAigner Maria;3AHITS\\n' > schueler.txt\nprintf '08:00 boot\\n08:01 network up\\n08:05 login kali\\n09:12 disk check ok\\n09:30 backup done\\n' > system.log",
+      "setupInternet": false,
+      "tags": [
+        "bash",
+        "sytb",
+        "uebung",
+        "grundbefehle",
+        "ls",
+        "cat",
+        "echo"
+      ],
+      "visibility": "SHARED",
+      "steps": [
+        {
+          "title": "Ordnerstruktur",
+          "description": "Lege diese Ordnerstruktur an:\n\n```\nschule/\n├── deutsch/\n├── mathe/\n└── informatik/\n```",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nfor o in deutsch mathe informatik; do\n  [ -d \"schule/$o\" ] || { echo \"Der Ordner schule/$o fehlt.\"; exit 1; }\ndone\necho \"Ordner angelegt.\"",
+          "checks": [],
+          "hints": [
+            "`mkdir -p schule/deutsch` legt auch `schule` an.",
+            "Du kannst `mkdir` mehrere Ordner auf einmal geben."
+          ],
+          "points": 2,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Steckbrief",
+          "description": "Erstelle mit `echo` und Umleitungen die Datei `steckbrief.txt` mit genau drei\nZeilen (eigene Werte einsetzen):\n\n```\nName: Max Muster\nKlasse: 3AHITS\nHobby: Programmieren\n```",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed steckbrief.txt\n[ \"$(wc -l < steckbrief.txt)\" -eq 3 ] || { echo \"steckbrief.txt soll genau 3 Zeilen haben.\"; exit 1; }\nsed -n 1p steckbrief.txt | grep -Eq '^Name: .+' || { echo \"Zeile 1 soll mit 'Name: ' beginnen und einen Namen enthalten.\"; exit 1; }\nsed -n 2p steckbrief.txt | grep -Eq '^Klasse: .+' || { echo \"Zeile 2 soll mit 'Klasse: ' beginnen.\"; exit 1; }\nsed -n 3p steckbrief.txt | grep -Eq '^Hobby: .+' || { echo \"Zeile 3 soll mit 'Hobby: ' beginnen.\"; exit 1; }\necho \"Steckbrief passt.\"",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": ">>",
+              "successOnly": false,
+              "message": "Probiere den Befehl im Terminal selbst aus."
+            }
+          ],
+          "hints": [
+            "Erste Zeile mit `>`, die weiteren mit `>>`."
+          ],
+          "points": 2,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Downloads einsortieren",
+          "description": "Im Ordner `downloads` liegt Kram, der woanders hingehört:\n\n- **Verschiebe** `downloads/skript.sh` nach `schule/informatik/`.\n- **Kopiere** `downloads/aufsatz.txt` nach `schule/deutsch/` – das Original bleibt\n  in `downloads`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\n[ -f schule/informatik/skript.sh ] || { echo \"schule/informatik/skript.sh fehlt.\"; exit 1; }\n[ ! -e downloads/skript.sh ] || { echo \"downloads/skript.sh gibt es noch – verschieben, nicht kopieren.\"; exit 1; }\nneed downloads/aufsatz.txt schule/deutsch/aufsatz.txt\ncmp -s downloads/aufsatz.txt schule/deutsch/aufsatz.txt || { echo \"schule/deutsch/aufsatz.txt ist keine Kopie von downloads/aufsatz.txt.\"; exit 1; }\necho \"Einsortiert.\"",
+          "checks": [],
+          "hints": [
+            "`mv` verschiebt, `cp` kopiert."
+          ],
+          "points": 2,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Aufräumen",
+          "description": "Lösche `downloads/werbung.jpg` und den Ordner `tmp` mitsamt Inhalt.\nAlles andere bleibt.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\n[ ! -e downloads/werbung.jpg ] || { echo \"downloads/werbung.jpg gibt es noch.\"; exit 1; }\n[ ! -e tmp ] || { echo \"Der Ordner tmp gibt es noch.\"; exit 1; }\nneed downloads/aufsatz.txt schueler.txt\necho \"Aufgeräumt.\"",
+          "checks": [],
+          "hints": [
+            "`rm -r` für Ordner."
+          ],
+          "points": 1,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Versteckte Nachricht",
+          "description": "Im Ordner `geheim` liegt eine **versteckte** Datei. Finde sie und schreibe ihren\nInhalt in die Datei `gefunden.txt`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed gefunden.txt\n[ \"$(cat gefunden.txt)\" = \"$(cat geheim/.nachricht)\" ] || { echo \"gefunden.txt enthält nicht den Inhalt der versteckten Datei.\"; exit 1; }\necho \"Gut versteckt war sie nicht.\"",
+          "checks": [],
+          "hints": [
+            "`ls -a geheim`",
+            "Mit `cat` und `>` kopierst du den Inhalt."
+          ],
+          "points": 2,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Schüler zählen",
+          "description": "`schueler.txt` enthält pro Zeile einen Schüler mit Klasse. Schreibe die\n**Anzahl der Zeilen** in die Datei `anzahl.txt` – nur die Zahl, ohne Dateiname.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed anzahl.txt\n[ \"$(tr -d ' \\n' < anzahl.txt)\" = \"$(wc -l < schueler.txt | tr -d ' ')\" ] || { echo \"In anzahl.txt soll nur die Zeilenanzahl von schueler.txt stehen.\"; exit 1; }\necho \"Richtig gezählt.\"",
+          "checks": [],
+          "hints": [
+            "`wc -l datei` gibt auch den Dateinamen aus.",
+            "`wc -l < datei` oder `cat datei | wc -l` gibt nur die Zahl aus."
+          ],
+          "points": 2,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Klasse filtern",
+          "description": "Schreibe alle Zeilen aus `schueler.txt` mit der Klasse `3AHITS`\n**alphabetisch sortiert** in `klasse.txt`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed klasse.txt\n[ \"$(cat klasse.txt)\" = \"$(grep 3AHITS schueler.txt | sort)\" ] || { echo \"klasse.txt soll genau die 3AHITS-Zeilen, sortiert, enthalten.\"; exit 1; }\necho \"Gefiltert und sortiert.\"",
+          "checks": [],
+          "hints": [
+            "`grep 3AHITS schueler.txt`",
+            "Mit `| sort` sortierst du die Ausgabe."
+          ],
+          "points": 2,
+          "requiresPrevious": false,
+          "allowInternet": false
+        },
+        {
+          "title": "Das Ende vom Log",
+          "description": "Schreibe die **letzten 2 Zeilen** von `system.log` in `letzte.txt`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed letzte.txt\n[ \"$(cat letzte.txt)\" = \"$(tail -n 2 system.log)\" ] || { echo \"letzte.txt soll die letzten 2 Zeilen von system.log enthalten.\"; exit 1; }\necho \"Fertig – du kennst die Grundbefehle!\"",
+          "checks": [],
+          "hints": [
+            "`tail -n 2`"
+          ],
+          "points": 1,
+          "requiresPrevious": false,
+          "allowInternet": false
+        }
+      ]
+    },
+    {
       "title": "Bash 01 · Skripte (Übung)",
       "slug": "bash-01-skripte-ue",
       "description": "Übungen zu Skripten, Argumenten (`$1`, `$#`) und der Argumentliste `$@`.\n\nDie Prüfung startet deine Skripte mit `bash ./name.sh …` in einem eigenen,\nleeren Ordner – sie müssen also überall funktionieren. Mit `#!/bin/bash` und\n`chmod u+x` kannst du sie auch direkt mit `./name.sh` starten.\n\n> **Hinweis zur Box:** Du arbeitest in einem echten Debian-Linux, aber **ohne\n> Internet** und ohne `sudo`. Dateien, die sonst heruntergeladen werden, liegen\n> schon in deinem Übungsordner. Skripte schreibst du mit `nano` oder `vim`.",

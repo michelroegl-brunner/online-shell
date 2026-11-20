@@ -14,7 +14,8 @@ docker compose -p online-shell -f deploy/docker-compose.yml --env-file /opt/onli
 without `kind` an entry is a normal exercise). Import them the same way.
 
 **Bash (SYTB, German)** – built from the SYTB-3 lab notes (`01_scripts` … `09_funktionen`):
-`content/lessons/bash-sytb.json` holds the lessons `bash-01-skripte` … `bash-08-funktionen`,
+`content/lessons/bash-sytb.json` holds the starter lesson `bash-00-grundlagen` (ls, cd, cat,
+echo/redirects, cp/mv/rm, grep/pipes – not in the notes) and `bash-01-skripte` … `bash-08-funktionen`,
 `content/exercises/bash-sytb.json` the matching exercises (`…-ue`, one per lesson; loops have two,
 SSH/SCP has none because the box can't reach a server). All are `SHARED` (library). Reference
 solutions: `content/exercises/bash-sytb.solutions.md`. Downloads from the notes (word list,

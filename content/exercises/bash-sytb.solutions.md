@@ -1,8 +1,137 @@
 # Bash (SYTB) – Musterlösungen
 
 Zu `content/lessons/bash-sytb.json` (Lektionen) und `content/exercises/bash-sytb.json`
-(Übungen); wird nicht importiert. Nach den SYTB-3-Unterlagen (`01_scripts` bis `09_funktionen`).
+(Übungen); wird nicht importiert. Nach den SYTB-3-Unterlagen (`01_scripts` bis `09_funktionen`), dazu Bash 00 (Grundbefehle) als Einstieg.
 Alle Befehle im jeweiligen Übungsordner `~/exercises/<slug>`.
+
+## Bash 00 · Grundbefehle (Lektion)
+
+Slug: `bash-00-grundlagen` · 10 Schritte · Lektion (unbewertet)
+
+### 1. echo und >
+
+```bash
+echo Hallo Linux > hallo.txt
+cat hallo.txt
+```
+
+### 2. Anhängen mit >>
+
+```bash
+echo Zweite Zeile >> hallo.txt
+```
+
+### 3. pwd
+
+```bash
+pwd > ort.txt
+```
+
+### 4. Versteckte Dateien mit ls -a
+
+```bash
+ls -a > alle.txt
+```
+
+### 5. cat hängt Dateien zusammen
+
+```bash
+cat teil1.txt teil2.txt > ganz.txt
+```
+
+### 6. mkdir, cd und touch
+
+```bash
+mkdir -p projekt/src
+cd projekt/src
+touch main.sh
+cd ../..
+```
+
+### 7. cp und mv
+
+```bash
+cp einkauf.txt projekt/
+mv notiz.txt notiz-alt.txt
+```
+
+### 8. rm
+
+```bash
+rm muell.txt
+rm -r alt
+```
+
+### 9. head und wc
+
+```bash
+head -n 3 namen.txt > top3.txt
+wc -l namen.txt > anzahl.txt
+```
+
+### 10. grep, sort und die Pipe
+
+```bash
+grep Linz staedte.txt > linz.txt
+cat namen.txt | sort > sortiert.txt
+```
+
+## Bash 00 · Grundbefehle (Übung)
+
+Slug: `bash-00-grundlagen-ue` · 8 Schritte · 14 Punkte
+
+### 1. Ordnerstruktur (2 P.)
+
+```bash
+mkdir -p schule/deutsch schule/mathe schule/informatik
+```
+
+### 2. Steckbrief (2 P.)
+
+```bash
+echo "Name: Max Muster" > steckbrief.txt
+echo "Klasse: 3AHITS" >> steckbrief.txt
+echo "Hobby: Programmieren" >> steckbrief.txt
+```
+
+### 3. Downloads einsortieren (2 P.)
+
+```bash
+mv downloads/skript.sh schule/informatik/
+cp downloads/aufsatz.txt schule/deutsch/
+```
+
+### 4. Aufräumen (1 P.)
+
+```bash
+rm downloads/werbung.jpg
+rm -r tmp
+```
+
+### 5. Versteckte Nachricht (2 P.)
+
+```bash
+ls -a geheim
+cat geheim/.nachricht > gefunden.txt
+```
+
+### 6. Schüler zählen (2 P.)
+
+```bash
+wc -l < schueler.txt > anzahl.txt
+```
+
+### 7. Klasse filtern (2 P.)
+
+```bash
+grep 3AHITS schueler.txt | sort > klasse.txt
+```
+
+### 8. Das Ende vom Log (1 P.)
+
+```bash
+tail -n 2 system.log > letzte.txt
+```
 
 ## Bash 01 · Skripte (Lektion)
 

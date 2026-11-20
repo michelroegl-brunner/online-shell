@@ -3,6 +3,222 @@
   "version": 1,
   "exercises": [
     {
+      "title": "Bash 00 · Grundbefehle (Lektion)",
+      "slug": "bash-00-grundlagen",
+      "description": "Bevor wir Skripte schreiben, brauchst du die wichtigsten **Befehle der Shell**.\nEin Befehl besteht aus dem **Namen**, optionalen **Optionen** (meist mit `-`) und\n**Argumenten** (z. B. Dateinamen):\n\n```sh\n$ ls -l notizen\n  ^  ^  ^\n  |  |  Argument\n  |  Option\n  Befehl\n```\n\n## Wo bin ich, was ist hier?\n\n| Befehl | Bedeutung |\n| ------ | --------- |\n| `pwd` | **p**rint **w**orking **d**irectory – zeigt den aktuellen Ordner |\n| `ls` | **l**i**s**t – zeigt den Inhalt des Ordners |\n| `ls -l` | lange Liste mit Rechten, Besitzer, Größe, Datum |\n| `ls -a` | zeigt auch **versteckte** Dateien (Name beginnt mit `.`) |\n| `cd ordner` | **c**hange **d**irectory – wechselt in einen Ordner |\n| `cd ..` | eine Ebene nach oben, `cd ~` bzw. `cd` ins Home-Verzeichnis |\n\n`.` ist immer der aktuelle Ordner, `..` der übergeordnete.\n\n## Text ausgeben und in Dateien schreiben\n\n`echo` gibt Text aus. Mit **Umleitungen** landet die Ausgabe in einer Datei\nstatt am Bildschirm – das funktioniert mit **jedem** Befehl:\n\n```sh\n$ echo Hallo Linux              # Ausgabe am Bildschirm\n$ echo Hallo Linux > gruss.txt  # >  Datei neu schreiben (Inhalt wird ersetzt!)\n$ echo Noch was >> gruss.txt    # >> an die Datei anhängen\n$ ls > liste.txt                # die Ausgabe von ls in eine Datei\n```\n\n## Dateien anschauen\n\n| Befehl | Bedeutung |\n| ------ | --------- |\n| `cat datei` | gibt den Inhalt aus (con**cat**enate: `cat a b` hängt Dateien aneinander) |\n| `less datei` | seitenweise anschauen, Beenden mit `q` |\n| `head -n 3 datei` | die ersten 3 Zeilen |\n| `tail -n 3 datei` | die letzten 3 Zeilen |\n| `wc -l datei` | **w**ord **c**ount – zählt Zeilen (`-w` Wörter, `-c` Bytes) |\n\n## Dateien und Ordner verwalten\n\n| Befehl | Bedeutung |\n| ------ | --------- |\n| `touch datei` | legt eine leere Datei an |\n| `mkdir ordner` | legt einen Ordner an, `mkdir -p a/b/c` auch mit Zwischenordnern |\n| `cp quelle ziel` | **c**o**p**y – kopiert (`cp -r` für Ordner) |\n| `mv quelle ziel` | **m**o**v**e – verschiebt **oder benennt um** |\n| `rm datei` | **r**e**m**ove – löscht (**ohne Papierkorb!**), `rm -r ordner` mit Inhalt |\n\n## Suchen, sortieren, Pipes\n\n`grep muster datei` zeigt alle Zeilen, die das Muster enthalten. `sort` sortiert\nZeilen. Mit der **Pipe** `|` wird die Ausgabe eines Befehls zur Eingabe des\nnächsten:\n\n```sh\n$ grep Linz staedte.txt\n$ cat namen.txt | sort\n$ grep Linz staedte.txt | wc -l   # wie viele Zeilen enthalten Linz?\n```\n\n## Hilfe\n\n`man ls` zeigt das Handbuch zu `ls` (Beenden mit `q`), `ls --help` eine\nKurzübersicht. Mit der **Tab-Taste** vervollständigt die Shell Befehle und\nDateinamen, mit **Pfeil hoch** holst du frühere Befehle zurück.\n\n> **Hinweis zur Box:** Du arbeitest in einem echten Debian-Linux, aber **ohne\n> Internet** und ohne `sudo`. Dateien, die sonst heruntergeladen werden, liegen\n> schon in deinem Übungsordner. Skripte schreibst du mit `nano` oder `vim`.",
+      "shell": "BASH",
+      "kind": "LESSON",
+      "difficulty": 1,
+      "setupScript": "printf 'Linux ist ein Betriebssystem.\\n' > teil1.txt\nprintf 'Die Shell ist sein Werkzeug.\\n' > teil2.txt\nprintf 'Milch\\nBrot\\nEier\\n' > einkauf.txt\nprintf 'Nicht vergessen: Hausübung!\\n' > notiz.txt\nprintf 'weg damit\\n' > muell.txt\nmkdir -p alt && printf 'alter Kram\\n' > alt/kram.txt\nprintf 'gefunden!\\n' > .versteckt\nprintf 'Maria\\nLukas\\nAnna\\nFelix\\nSophie\\nDavid\\nLena\\n' > namen.txt\nprintf 'Wien\\nLinz\\nGraz\\nBraunau\\nLinz-Urfahr\\nSalzburg\\nLeonding bei Linz\\n' > staedte.txt",
+      "setupInternet": false,
+      "tags": [
+        "bash",
+        "sytb",
+        "lektion",
+        "grundbefehle",
+        "ls",
+        "cat",
+        "echo"
+      ],
+      "visibility": "SHARED",
+      "steps": [
+        {
+          "title": "echo und >",
+          "description": "Schreibe mit `echo` den Text `Hallo Linux` in die Datei `hallo.txt`.\nSchau dir das Ergebnis mit `cat hallo.txt` an.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed hallo.txt\n[ \"$(cat hallo.txt)\" = \"Hallo Linux\" ] || { echo \"In hallo.txt soll genau 'Hallo Linux' stehen.\"; exit 1; }\necho \"Datei geschrieben!\"",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "(^|\\s)echo\\s.*>",
+              "successOnly": false,
+              "message": "Probiere den Befehl im Terminal selbst aus."
+            }
+          ],
+          "hints": [
+            "`echo Hallo Linux > hallo.txt`"
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "Anhängen mit >>",
+          "description": "Hänge die Zeile `Zweite Zeile` an `hallo.txt` an – die erste Zeile muss erhalten\nbleiben. Was passiert, wenn du stattdessen `>` verwendest?",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed hallo.txt\n[ \"$(sed -n 1p hallo.txt)\" = \"Hallo Linux\" ] || { echo \"Die erste Zeile 'Hallo Linux' ist weg – mit > wird die Datei überschrieben. Schreib sie neu und verwende dann >>.\"; exit 1; }\n[ \"$(sed -n 2p hallo.txt)\" = \"Zweite Zeile\" ] || { echo \"Die zweite Zeile von hallo.txt soll 'Zweite Zeile' sein.\"; exit 1; }\necho \"Angehängt!\"",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": ">>",
+              "successOnly": false,
+              "message": "Probiere den Befehl im Terminal selbst aus."
+            }
+          ],
+          "hints": [
+            "`>>` hängt an, `>` überschreibt."
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "pwd",
+          "description": "Finde mit `pwd` heraus, in welchem Ordner du gerade bist, und speichere die\nAusgabe in `ort.txt`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed ort.txt\n[ \"$(cat ort.txt)\" = \"$(pwd)\" ] || { echo \"In ort.txt soll die Ausgabe von pwd stehen (nur der Pfad).\"; exit 1; }\necho \"Du bist in $(pwd)\"",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "(^|\\s)pwd",
+              "successOnly": false,
+              "message": "Probiere den Befehl im Terminal selbst aus."
+            }
+          ],
+          "hints": [
+            "`pwd > ort.txt`"
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "Versteckte Dateien mit ls -a",
+          "description": "In deinem Ordner liegt eine **versteckte** Datei. `ls` allein zeigt sie nicht.\nSpeichere die Ausgabe von `ls -a` in `alle.txt`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed alle.txt\ngrep -qx '.versteckt' alle.txt || grep -q '[[:space:]]\\.versteckt$' alle.txt || { echo \"In alle.txt fehlt die versteckte Datei – hast du -a verwendet?\"; exit 1; }\necho \"Gefunden – Dateien mit . am Anfang sind versteckt.\"",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "(^|\\s)ls\\s+-\\w*a",
+              "successOnly": false,
+              "message": "Probiere den Befehl im Terminal selbst aus."
+            }
+          ],
+          "hints": [
+            "`ls -a > alle.txt`",
+            "Probier auch `ls -la`."
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "cat hängt Dateien zusammen",
+          "description": "Die Dateien `teil1.txt` und `teil2.txt` gehören zusammen. Schreibe beide\n(zuerst `teil1.txt`) mit **einem** `cat`-Befehl in die Datei `ganz.txt`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed ganz.txt\n[ \"$(cat ganz.txt)\" = \"$(cat teil1.txt teil2.txt)\" ] || { echo \"ganz.txt soll teil1.txt und danach teil2.txt enthalten.\"; exit 1; }\necho \"Zusammengefügt!\"",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "(^|\\s)cat\\s",
+              "successOnly": false,
+              "message": "Probiere den Befehl im Terminal selbst aus."
+            }
+          ],
+          "hints": [
+            "`cat teil1.txt teil2.txt > ganz.txt`"
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "mkdir, cd und touch",
+          "description": "Lege den Ordner `projekt/src` an (mit einem Befehl: `mkdir -p`), wechsle mit\n`cd` hinein, erstelle dort mit `touch` die leere Datei `main.sh` und geh mit\n`cd ../..` wieder zurück.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\n[ -d projekt/src ] || { echo \"Den Ordner projekt/src gibt es noch nicht.\"; exit 1; }\n[ -f projekt/src/main.sh ] || { echo \"projekt/src/main.sh gibt es noch nicht.\"; exit 1; }\necho \"Struktur steht!\"",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "(^|\\s)touch\\s",
+              "successOnly": false,
+              "message": "Probiere den Befehl im Terminal selbst aus."
+            }
+          ],
+          "hints": [
+            "`mkdir -p projekt/src`",
+            "`touch main.sh` legt eine leere Datei an."
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "cp und mv",
+          "description": "- Kopiere `einkauf.txt` in den Ordner `projekt` (das Original bleibt).\n- Benenne `notiz.txt` in `notiz-alt.txt` um.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed einkauf.txt projekt/einkauf.txt\ncmp -s einkauf.txt projekt/einkauf.txt || { echo \"projekt/einkauf.txt ist keine Kopie von einkauf.txt.\"; exit 1; }\n[ ! -e notiz.txt ] || { echo \"notiz.txt gibt es noch – umbenennen geht mit mv.\"; exit 1; }\nneed notiz-alt.txt\necho \"Kopiert und umbenannt!\"",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "(^|\\s)mv\\s",
+              "successOnly": false,
+              "message": "Probiere den Befehl im Terminal selbst aus."
+            }
+          ],
+          "hints": [
+            "`cp einkauf.txt projekt/`",
+            "`mv alt neu` benennt um."
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "rm",
+          "description": "Lösche die Datei `muell.txt` und den Ordner `alt` samt Inhalt.\n**Achtung:** Gelöscht ist gelöscht – es gibt keinen Papierkorb.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\n[ ! -e muell.txt ] || { echo \"muell.txt gibt es noch.\"; exit 1; }\n[ ! -e alt ] || { echo \"Der Ordner alt gibt es noch – Ordner löscht man mit rm -r.\"; exit 1; }\nneed einkauf.txt\necho \"Weg damit!\"",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "(^|\\s)rm\\s",
+              "successOnly": false,
+              "message": "Probiere den Befehl im Terminal selbst aus."
+            }
+          ],
+          "hints": [
+            "`rm -r alt` löscht einen Ordner mit Inhalt."
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "head und wc",
+          "description": "- Speichere die **ersten 3 Zeilen** von `namen.txt` in `top3.txt`.\n- Speichere die **Anzahl der Zeilen** von `namen.txt` in `anzahl.txt`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed top3.txt anzahl.txt\n[ \"$(cat top3.txt)\" = \"$(head -n 3 namen.txt)\" ] || { echo \"top3.txt soll die ersten 3 Zeilen von namen.txt enthalten.\"; exit 1; }\ngrep -qw \"$(wc -l < namen.txt)\" anzahl.txt || { echo \"In anzahl.txt steht nicht die Zeilenanzahl von namen.txt.\"; exit 1; }\necho \"Gezählt!\"",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "(^|\\s)wc\\s",
+              "successOnly": false,
+              "message": "Probiere den Befehl im Terminal selbst aus."
+            }
+          ],
+          "hints": [
+            "`head -n 3 namen.txt > top3.txt`",
+            "`wc -l namen.txt`"
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        },
+        {
+          "title": "grep, sort und die Pipe",
+          "description": "- Schreibe alle Zeilen aus `staedte.txt`, die `Linz` enthalten, in `linz.txt`.\n- Schreibe `namen.txt` **alphabetisch sortiert** in `sortiert.txt` – verwende\n  dabei eine Pipe: `cat namen.txt | sort`.",
+          "checkScript": "need() { for f in \"$@\"; do [ -f \"$f\" ] || { echo \"$f gibt es noch nicht.\"; exit 1; }; done; }\nneed linz.txt sortiert.txt\n[ \"$(cat linz.txt)\" = \"$(grep Linz staedte.txt)\" ] || { echo \"linz.txt soll genau die Zeilen mit Linz aus staedte.txt enthalten.\"; exit 1; }\n[ \"$(cat sortiert.txt)\" = \"$(sort namen.txt)\" ] || { echo \"sortiert.txt ist nicht namen.txt sortiert.\"; exit 1; }\necho \"Du kannst jetzt Befehle verketten!\"",
+          "checks": [
+            {
+              "type": "command_used",
+              "pattern": "\\|\\s*sort",
+              "successOnly": false,
+              "message": "Probiere den Befehl im Terminal selbst aus."
+            }
+          ],
+          "hints": [
+            "`grep Linz staedte.txt > linz.txt`"
+          ],
+          "points": 0,
+          "requiresPrevious": true,
+          "allowInternet": false
+        }
+      ]
+    },
+    {
       "title": "Bash 01 · Skripte (Lektion)",
       "slug": "bash-01-skripte",
       "description": "**Skripte** sind Programme, die von einem **Interpreter** ausgeführt werden – es gibt\nkeinen Compiler. Eine Shell führt eingetippte Befehle sofort aus und ist damit\nbereits ein Interpreter.\n\nShell-Befehle können in eine **Textdatei** geschrieben und dann ausgeführt werden.\nDas Ergebnis ist dasselbe, als würde man sie direkt in der Shell eingeben.\n\n## Hello-World-Skript\n\nDie Datei `hello.sh`:\n\n```sh\n# Hello World Skript\necho Hello World\n```\n\nAufruf – `sh` startet dabei eine weitere Shell, die das Skript abarbeitet:\n\n```sh\n$ sh hello.sh\n```\n\nDas Programm, das das Skript ausführen soll, kann auch in die **erste Zeile**\ngeschrieben werden (**Shebang** `#!`):\n\n```sh\n#!/bin/sh\n# Hello World Skript\necho Hello World\n```\n\nDamit man das Skript direkt starten kann, muss das **eXecute-Flag** gesetzt sein:\n\n```sh\n$ chmod u+x hello.sh\n$ ./hello.sh\nHello World\n```\n\nWarum `./`? Die Shell sucht Programme nur in den Ordnern aus `$PATH` – schau dir\n`echo $PATH` an. Der aktuelle Ordner gehört nicht dazu.\n\n## Argumente\n\nFür Kommandozeilenargumente gibt es spezielle Variablen:\n\n| Variable | Bedeutung |\n| -------- | --------- |\n| `$0` | Name des Skripts |\n| `$1` – `$9` | die ersten 9 Argumente |\n| `$#` | Anzahl der übergebenen Argumente |\n\n```sh\n#!/bin/sh\necho $#\necho $0\necho $1\necho $2\necho $3\n```\n\n```sh\n$ ./args.sh eins zwei drei vier\n```\n\n## Argumentliste\n\n`$@` ist die Liste aller übergebenen Argumente – ideal für eine Schleife:\n\n```sh\nfor arg in \"$@\"\ndo\n  echo \"$arg\"\ndone\n```\n\nMit den Anführungszeichen um `\"$@\"` bleibt ein Argument wie `\"a b\"` **ein**\nArgument.\n\n> **Hinweis zur Box:** Du arbeitest in einem echten Debian-Linux, aber **ohne\n> Internet** und ohne `sudo`. Dateien, die sonst heruntergeladen werden, liegen\n> schon in deinem Übungsordner. Skripte schreibst du mit `nano` oder `vim`.",
