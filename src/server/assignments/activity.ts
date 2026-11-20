@@ -21,6 +21,11 @@ export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 
 /** Per attempt; a stuck auto-check loop can't flood the table. */
 const MAX_EVENTS = 5000;
+/**
+ * Events per attempt that keep their full check output (8000 chars each,
+ * so at most ~2.4 MB per attempt). Later ones keep only `detail`.
+ */
+const MAX_OUTPUTS = 300;
 
 /** First non-empty lines of a check output (what the student saw). */
 export function outputSummary(output: string, maxLines = 3) {
@@ -48,6 +53,11 @@ export async function logActivity(
   try {
     const n = await db.attemptEvent.count({ where: { attemptId } });
     if (n >= MAX_EVENTS) return;
+    const keepOutput =
+      !!e.output &&
+      (await db.attemptEvent.count({
+        where: { attemptId, output: { not: null } },
+      })) < MAX_OUTPUTS;
     await db.attemptEvent.create({
       data: {
         attemptId,
@@ -55,7 +65,7 @@ export async function logActivity(
         stepId: e.stepId ?? null,
         ok: e.ok ?? null,
         detail: e.detail ?? null,
-        output: e.output?.slice(0, 8000) ?? null,
+        output: keepOutput ? e.output!.slice(0, 8000) : null,
       },
     });
   } catch (err) {
