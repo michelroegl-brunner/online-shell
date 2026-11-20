@@ -6,11 +6,13 @@ import {
   ClipboardX,
   EyeOff,
   FolderOpen,
+  MonitorPlay,
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { WatchTerminal } from "~/components/terminal/watch-terminal";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { formatDateTime } from "~/lib/format";
@@ -359,7 +361,17 @@ export default async function AttemptPage({
             </CardContent>
           </Card>
         </div>
-        <div className="flex flex-col gap-6">
+        <div className="flex min-w-0 flex-col gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <MonitorPlay className="size-4" /> Live console
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <WatchTerminal userId={a.student.id} />
+            </CardContent>
+          </Card>
           {Object.keys(a.vars).length > 0 && (
             <Card>
               <CardHeader>
